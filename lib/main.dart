@@ -17,6 +17,7 @@ import 'features/devices/data/repositories/devices_repository_impl.dart';
 import 'features/devices/domain/usecases/get_devices_usecase.dart';
 import 'features/devices/presentation/bloc/devices_bloc.dart';
 import 'features/analytics/presentation/screens/analytics_screen.dart';
+import 'features/history/presentation/screens/history_screen.dart';
 import 'features/devices/presentation/screens/add_device_dialog.dart';
 import 'features/devices/presentation/screens/devices_screen.dart';
 import 'features/devices/presentation/screens/home_screen.dart';
@@ -73,7 +74,7 @@ class AquaSaveApp extends StatelessWidget {
 // ── Router ────────────────────────────────────────────────────────────────────
 
 enum _AuthScreen { login, register }
-enum _AppScreen  { home, devices, analytics, profile }
+enum _AppScreen  { home, devices, analytics, history, profile }
 
 class _AppRouter extends StatefulWidget {
   const _AppRouter();
@@ -92,6 +93,7 @@ class _AppRouterState extends State<_AppRouter> {
       case SidebarItem.home:     _goTo(_AppScreen.home);
       case SidebarItem.devices:  _goTo(_AppScreen.devices);
       case SidebarItem.analysis: _goTo(_AppScreen.analytics);
+      case SidebarItem.history:  _goTo(_AppScreen.history);
       case SidebarItem.profile:  _goTo(_AppScreen.profile);
       default: break;
     }
@@ -101,6 +103,7 @@ class _AppRouterState extends State<_AppRouter> {
     _AppScreen.home      => SidebarItem.home,
     _AppScreen.devices   => SidebarItem.devices,
     _AppScreen.analytics => SidebarItem.analysis,
+    _AppScreen.history   => SidebarItem.history,
     _AppScreen.profile   => SidebarItem.profile,
   };
 
@@ -108,7 +111,8 @@ class _AppRouterState extends State<_AppRouter> {
     _AppScreen.home      => 0,
     _AppScreen.devices   => 1,
     _AppScreen.analytics => 2,
-    _AppScreen.profile   => 3,
+    _AppScreen.history   => 3,
+    _AppScreen.profile   => 4,
   };
 
   Widget get _screen => switch (_appScreen) {
@@ -117,6 +121,7 @@ class _AppRouterState extends State<_AppRouter> {
         onAddDevice: () => showAddDeviceDialog(context),
       ),
     _AppScreen.analytics => const AnalyticsScreen(),
+    _AppScreen.history   => const HistoryScreen(),
     _AppScreen.profile   => const UserProfileScreen(),
   };
 
@@ -165,14 +170,16 @@ class _AppRouterState extends State<_AppRouter> {
                         0 => _AppScreen.home,
                         1 => _AppScreen.devices,
                         2 => _AppScreen.analytics,
+                        3 => _AppScreen.history,
                         _ => _AppScreen.profile,
                       }
                     ),
                     destinations: const [
-                      NavigationDestination(icon: Icon(Icons.home_outlined),      label: 'Inicio'),
-                      NavigationDestination(icon: Icon(Icons.devices_outlined),   label: 'Dispositivos'),
-                      NavigationDestination(icon: Icon(Icons.bar_chart_outlined), label: 'Análisis'),
-                      NavigationDestination(icon: Icon(Icons.person_outline),     label: 'Perfil'),
+                      NavigationDestination(icon: Icon(Icons.home_outlined),         label: 'Inicio'),
+                      NavigationDestination(icon: Icon(Icons.devices_outlined),      label: 'Dispositivos'),
+                      NavigationDestination(icon: Icon(Icons.bar_chart_outlined),    label: 'Análisis'),
+                      NavigationDestination(icon: Icon(Icons.description_outlined),  label: 'Historial'),
+                      NavigationDestination(icon: Icon(Icons.person_outline),        label: 'Perfil'),
                     ],
                   ),
           );

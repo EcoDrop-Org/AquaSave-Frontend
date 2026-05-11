@@ -1,0 +1,14 @@
+{
+  "records": [
+    {"id":"r001","datetime":"09 May · 06:30","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r002","datetime":"09 May · 07:15","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r003","datetime":"09 May · 08:00","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r004","datetime":"09 May · 09:45","device":"Sector A","crop":"Tomate","type":"Manual","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r005","datetime":"09 May · 11:30","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r006","datetime":"09 May · 13:00","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r007","datetime":"09 May · 14:30","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r008","datetime":"09 May · 16:00","device":"Sector A","crop":"Tomate","type":"Manual","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r009","datetime":"09 May · 17:45","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62},
+    {"id":"r010","datetime":"09 May · 19:00","device":"Sector A","crop":"Tomate","type":"Auto","duration_min":8,"liters":1.4,"humidity_before":38,"humidity_after":62}
+  ]
+}
