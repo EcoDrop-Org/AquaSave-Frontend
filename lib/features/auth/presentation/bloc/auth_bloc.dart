@@ -11,10 +11,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
   final RegisterUseCase registerUseCase;
 
-  AuthBloc({
-    required this.loginUseCase,
-    required this.registerUseCase,
-  }) : super(const AuthInitial()) {
+  AuthBloc({required this.loginUseCase, required this.registerUseCase})
+    : super(const AuthInitial()) {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<LogoutRequested>(_onLogoutRequested);

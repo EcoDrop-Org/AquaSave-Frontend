@@ -37,11 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submit() {
     context.read<AuthBloc>().add(
-          LoginRequested(
-            username: _usernameCtrl.text.trim(),
-            password: _passwordCtrl.text,
-          ),
-        );
+      LoginRequested(
+        username: _usernameCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      ),
+    );
   }
 
   @override
@@ -51,9 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (state is AuthAuthenticated) {
           widget.onLoginSuccess();
         } else if (state is AuthFailureState) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
       builder: (context, state) {
@@ -109,10 +109,7 @@ class _WideLayout extends StatelessWidget {
         // Left half — plant image
         Expanded(
           child: SizedBox.expand(
-            child: Image.asset(
-              AppConstants.imgLoginPlant,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(AppConstants.imgLoginPlant, fit: BoxFit.cover),
           ),
         ),
         // Right half — form
@@ -191,11 +188,17 @@ class _FormContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        Image.asset(
+          AppConstants.imgAquaSaveLogo,
+          height: 74,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: 24),
         Text(
           AppConstants.titleWelcome,
           style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
         ),
-        const SizedBox(height: 80),
+        const SizedBox(height: 40),
         AuthUnderlineField(
           label: AppConstants.labelUsername,
           controller: usernameCtrl,

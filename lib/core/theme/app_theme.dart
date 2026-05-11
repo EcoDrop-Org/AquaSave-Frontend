@@ -6,80 +6,130 @@ class AppTheme {
   AppTheme._();
 
   static ThemeData get light => ThemeData(
-        brightness: Brightness.light,
-        useMaterial3: true,
-        colorScheme: const ColorScheme.light(
-          primary: AppColors.lightPrimary,
-          onPrimary: AppColors.lightOnPrimary,
-          secondary: AppColors.secondary,
-          surface: AppColors.lightSurface,
-          onSurface: AppColors.lightText,
-          surfaceContainerHighest: AppColors.lightCard,
-          outline: AppColors.lightDivider,
+    brightness: Brightness.light,
+    useMaterial3: true,
+    colorScheme: const ColorScheme.light(
+      primary: AppColors.lightPrimary,
+      onPrimary: AppColors.lightOnPrimary,
+      secondary: AppColors.secondary,
+      surface: AppColors.lightSurface,
+      onSurface: AppColors.lightText,
+      surfaceContainerHighest: AppColors.lightCard,
+      outline: AppColors.lightDivider,
+    ),
+    scaffoldBackgroundColor: AppColors.lightBackground,
+    textTheme: AppTextStyles.textTheme.apply(
+      bodyColor: AppColors.lightText,
+      displayColor: AppColors.lightText,
+    ),
+    inputDecorationTheme: const InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.lightInputBg,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(6)),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.lightPrimary,
+        foregroundColor: AppColors.lightOnPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
-        scaffoldBackgroundColor: AppColors.lightBackground,
-        textTheme: AppTextStyles.textTheme.apply(
-          bodyColor: AppColors.lightText,
-          displayColor: AppColors.lightText,
+        minimumSize: Size.fromHeight(57),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        backgroundColor: AppColors.lightPrimary.withValues(alpha: 0.10),
+        foregroundColor: AppColors.lightText,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: AppColors.lightBackground,
+      indicatorColor: AppColors.lightPrimary.withValues(alpha: 0.16),
+      labelTextStyle: WidgetStatePropertyAll(
+        AppTextStyles.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.lightText,
         ),
-        inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.lightInputBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(6)),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.lightPrimary,
-            foregroundColor: AppColors.lightOnPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-            ),
-            minimumSize: Size.fromHeight(57),
-          ),
-        ),
-        dividerColor: AppColors.lightDivider,
-      );
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.lightText,
+      contentTextStyle: AppTextStyles.textTheme.bodyMedium?.copyWith(
+        color: Colors.white,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    dividerColor: AppColors.lightDivider,
+  );
 
   static ThemeData get dark => ThemeData(
-        brightness: Brightness.dark,
-        useMaterial3: true,
-        colorScheme: const ColorScheme.dark(
-          primary: AppColors.darkPrimary,
-          onPrimary: AppColors.darkOnPrimary,
-          secondary: AppColors.secondary,
-          surface: AppColors.darkSurface,
-          onSurface: AppColors.darkText,
-          surfaceContainerHighest: AppColors.darkCard,
-          outline: AppColors.darkDivider,
+    brightness: Brightness.dark,
+    useMaterial3: true,
+    colorScheme: const ColorScheme.dark(
+      primary: AppColors.darkPrimary,
+      onPrimary: AppColors.darkOnPrimary,
+      secondary: AppColors.secondary,
+      surface: AppColors.darkSurface,
+      onSurface: AppColors.darkText,
+      surfaceContainerHighest: AppColors.darkCard,
+      outline: AppColors.darkDivider,
+    ),
+    scaffoldBackgroundColor: AppColors.darkBackground,
+    textTheme: AppTextStyles.textTheme.apply(
+      bodyColor: AppColors.darkText,
+      displayColor: AppColors.darkText,
+    ),
+    inputDecorationTheme: const InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.darkInputBg,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(6)),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.darkPrimary,
+        foregroundColor: AppColors.darkOnPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
-        scaffoldBackgroundColor: AppColors.darkBackground,
-        textTheme: AppTextStyles.textTheme.apply(
-          bodyColor: AppColors.darkText,
-          displayColor: AppColors.darkText,
+        minimumSize: Size.fromHeight(57),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        backgroundColor: AppColors.darkPrimary.withValues(alpha: 0.14),
+        foregroundColor: AppColors.darkText,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: AppColors.darkBackground,
+      indicatorColor: AppColors.darkPrimary.withValues(alpha: 0.20),
+      labelTextStyle: WidgetStatePropertyAll(
+        AppTextStyles.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.darkText,
         ),
-        inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: AppColors.darkInputBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(6)),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.darkPrimary,
-            foregroundColor: AppColors.darkOnPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-            ),
-            minimumSize: Size.fromHeight(57),
-          ),
-        ),
-        dividerColor: AppColors.darkDivider,
-      );
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.darkCard,
+      contentTextStyle: AppTextStyles.textTheme.bodyMedium?.copyWith(
+        color: Colors.white,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    dividerColor: AppColors.darkDivider,
+  );
 }

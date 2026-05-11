@@ -16,9 +16,19 @@ class DevicesLoading extends DevicesState {
 
 class DevicesLoaded extends DevicesState {
   final List<Device> devices;
-  const DevicesLoaded(this.devices);
+  final String? activeDeviceId;
+
+  const DevicesLoaded(this.devices, {this.activeDeviceId});
+
+  Device get activeDevice {
+    return devices.firstWhere(
+      (device) => device.id == activeDeviceId,
+      orElse: () => devices.first,
+    );
+  }
+
   @override
-  List<Object?> get props => [devices];
+  List<Object?> get props => [devices, activeDeviceId];
 }
 
 class DevicesFailureState extends DevicesState {

@@ -24,10 +24,11 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     try {
       final result = useMock
-          ? await localDataSource.login(
-              username: username, password: password)
+          ? await localDataSource.login(username: username, password: password)
           : await remoteDataSource.login(
-              username: username, password: password);
+              username: username,
+              password: password,
+            );
       return Right((user: result.user, token: result.token));
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));
@@ -47,9 +48,15 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final result = useMock
           ? await localDataSource.register(
-              username: username, email: email, password: password)
+              username: username,
+              email: email,
+              password: password,
+            )
           : await remoteDataSource.register(
-              username: username, email: email, password: password);
+              username: username,
+              email: email,
+              password: password,
+            );
       return Right((user: result.user, token: result.token));
     } on CacheException catch (e) {
       return Left(CacheFailure(e.message));

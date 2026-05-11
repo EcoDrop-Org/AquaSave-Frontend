@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/datasources/local/auth_local_datasource.dart';
@@ -18,6 +19,10 @@ import 'features/devices/domain/usecases/get_devices_usecase.dart';
 import 'features/devices/presentation/bloc/devices_bloc.dart';
 import 'features/devices/presentation/screens/devices_screen.dart';
 import 'features/devices/presentation/screens/home_screen.dart';
+import 'features/irrigation_intelligence/data/datasources/remote/weather_remote_datasource.dart';
+import 'features/irrigation_intelligence/data/repositories/weather_repository_impl.dart';
+import 'features/irrigation_intelligence/domain/usecases/get_current_weather_for_device_usecase.dart';
+import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import 'shared/widgets/app_sidebar.dart';
 
 // Cambia a false para usar RemoteDataSource en producción.
@@ -42,6 +47,9 @@ class AquaSaveApp extends StatelessWidget {
       remoteDataSource: DevicesRemoteDataSourceImpl(),
       useMock: useMock,
     );
+    final weatherRepo = WeatherRepositoryImpl(
+      remoteDataSource: OpenMeteoWeatherRemoteDataSource(client: http.Client()),
+    );
 
     return MultiBlocProvider(
       providers: [
@@ -52,8 +60,13 @@ class AquaSaveApp extends StatelessWidget {
           ),
         ),
         BlocProvider<DevicesBloc>(
-          create: (_) => DevicesBloc(
-            getDevicesUseCase: GetDevicesUseCase(devicesRepo),
+          create: (_) =>
+              DevicesBloc(getDevicesUseCase: GetDevicesUseCase(devicesRepo)),
+        ),
+        BlocProvider<WeatherBloc>(
+          create: (_) => WeatherBloc(
+            getCurrentWeatherForDeviceUseCase:
+                GetCurrentWeatherForDeviceUseCase(weatherRepo),
           ),
         ),
       ],
@@ -62,7 +75,7 @@ class AquaSaveApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.light,
         home: const _AppRouter(),
       ),
     );
@@ -79,29 +92,33 @@ class _AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<_AppRouter> {
   _AuthScreen _authScreen = _AuthScreen.login;
-  _AppScreen  _appScreen  = _AppScreen.home;
+  _AppScreen _appScreen = _AppScreen.home;
 
   void _goTo(_AppScreen screen) => setState(() => _appScreen = screen);
 
   // Mapea SidebarItem → _AppScreen
   void _onSidebarTap(SidebarItem item) {
     switch (item) {
-      case SidebarItem.home:     _goTo(_AppScreen.home);
-      case SidebarItem.devices:  _goTo(_AppScreen.devices);
-      case SidebarItem.profile:  _goTo(_AppScreen.profile);
+      case SidebarItem.home:
+        _goTo(_AppScreen.home);
+      case SidebarItem.devices:
+        _goTo(_AppScreen.devices);
+      case SidebarItem.profile:
+        _goTo(_AppScreen.profile);
       // Análisis, Historial, Configuracion: pendientes
-      default: break;
+      default:
+        break;
     }
   }
 
   SidebarItem get _activeSidebarItem => switch (_appScreen) {
-    _AppScreen.home    => SidebarItem.home,
+    _AppScreen.home => SidebarItem.home,
     _AppScreen.devices => SidebarItem.devices,
     _AppScreen.profile => SidebarItem.profile,
   };
 
   Widget get _currentScreen => switch (_appScreen) {
-    _AppScreen.home    => const HomeScreen(),
+    _AppScreen.home => const HomeScreen(),
     _AppScreen.devices => const DevicesScreen(),
     _AppScreen.profile => const UserProfileScreen(),
   };
@@ -110,8 +127,12 @@ class _AppRouterState extends State<_AppRouter> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthAuthenticated) setState(() => _appScreen = _AppScreen.home);
-        if (state is AuthInitial)       setState(() => _authScreen = _AuthScreen.login);
+        if (state is AuthAuthenticated) {
+          setState(() => _appScreen = _AppScreen.home);
+        }
+        if (state is AuthInitial) {
+          setState(() => _authScreen = _AuthScreen.login);
+        }
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
@@ -119,13 +140,15 @@ class _AppRouterState extends State<_AppRouter> {
           if (authState is! AuthAuthenticated) {
             return switch (_authScreen) {
               _AuthScreen.login => LoginScreen(
-                  onGoToRegister: () => setState(() => _authScreen = _AuthScreen.register),
-                  onLoginSuccess: () {},
-                ),
+                onGoToRegister: () =>
+                    setState(() => _authScreen = _AuthScreen.register),
+                onLoginSuccess: () {},
+              ),
               _AuthScreen.register => RegisterScreen(
-                  onGoToLogin: () => setState(() => _authScreen = _AuthScreen.login),
-                  onRegisterSuccess: () {},
-                ),
+                onGoToLogin: () =>
+                    setState(() => _authScreen = _AuthScreen.login),
+                onRegisterSuccess: () {},
+              ),
             };
           }
 
@@ -154,15 +177,20 @@ class _AppRouterState extends State<_AppRouter> {
                 body: _currentScreen,
                 bottomNavigationBar: NavigationBar(
                   selectedIndex: _appScreen.index,
-                  onDestinationSelected: (i) =>
-                      _goTo(_AppScreen.values[i]),
+                  onDestinationSelected: (i) => _goTo(_AppScreen.values[i]),
                   destinations: const [
                     NavigationDestination(
-                        icon: Icon(Icons.home_outlined), label: 'Inicio'),
+                      icon: Icon(Icons.home_outlined),
+                      label: 'Inicio',
+                    ),
                     NavigationDestination(
-                        icon: Icon(Icons.devices_outlined), label: 'Dispositivos'),
+                      icon: Icon(Icons.devices_outlined),
+                      label: 'Dispositivos',
+                    ),
                     NavigationDestination(
-                        icon: Icon(Icons.person_outline), label: 'Perfil'),
+                      icon: Icon(Icons.person_outline),
+                      label: 'Perfil',
+                    ),
                   ],
                 ),
               );
@@ -175,4 +203,5 @@ class _AppRouterState extends State<_AppRouter> {
 }
 
 enum _AuthScreen { login, register }
-enum _AppScreen  { home, devices, profile }
+
+enum _AppScreen { home, devices, profile }

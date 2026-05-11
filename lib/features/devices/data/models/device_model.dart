@@ -12,6 +12,8 @@ class DeviceModel extends Device {
     required super.plantCount,
     required super.weather,
     required super.avgHumidityPct,
+    super.latitude,
+    super.longitude,
   });
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
@@ -28,19 +30,23 @@ class DeviceModel extends Device {
       plantCount: json['plant_count'] as int,
       weather: json['weather'] as String,
       avgHumidityPct: json['avg_humidity_pct'] as int,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'location': location,
-        'status': status == DeviceStatus.online ? 'online' : 'offline',
-        'temperature_c': temperatureC,
-        'humidity_pct': humidityPct,
-        'battery_pct': batteryPct,
-        'plant_count': plantCount,
-        'weather': weather,
-        'avg_humidity_pct': avgHumidityPct,
-      };
+    'id': id,
+    'name': name,
+    'location': location,
+    'status': status == DeviceStatus.online ? 'online' : 'offline',
+    'temperature_c': temperatureC,
+    'humidity_pct': humidityPct,
+    'battery_pct': batteryPct,
+    'plant_count': plantCount,
+    'weather': weather,
+    'avg_humidity_pct': avgHumidityPct,
+    'latitude': latitude,
+    'longitude': longitude,
+  };
 }
