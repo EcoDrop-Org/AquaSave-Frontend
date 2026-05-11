@@ -17,6 +17,7 @@ dependencies:
   # Clean Architecture / Either
   dartz: ^0.10.1
   get_it: ^7.7.0
+  http: ^1.6.0
 
   # Navegación
   go_router: ^14.2.7
@@ -26,6 +27,7 @@ dependencies:
 
   # Persistencia (ThemeMode)
   shared_preferences: ^2.3.2
+  google_fonts: ^8.1.0
 
 dev_dependencies:
   flutter_test:
@@ -38,5 +40,4 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/icons/
     - assets/mock/

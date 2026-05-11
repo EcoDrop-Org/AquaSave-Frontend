@@ -24,8 +24,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String password,
   }) async {
     try {
-      final jsonString =
-          await rootBundle.loadString(AppConstants.mockAuthPath);
+      final jsonString = await rootBundle.loadString(AppConstants.mockAuthPath);
       final data = json.decode(jsonString) as Map<String, dynamic>;
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
       final token = data['token'] as String;
@@ -43,11 +42,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }) async {
     // Mock: devuelve el mismo usuario del JSON con los datos proporcionados
     try {
-      final jsonString =
-          await rootBundle.loadString(AppConstants.mockAuthPath);
+      final jsonString = await rootBundle.loadString(AppConstants.mockAuthPath);
       final data = json.decode(jsonString) as Map<String, dynamic>;
-      final baseUser =
-          UserModel.fromJson(data['user'] as Map<String, dynamic>);
+      final baseUser = UserModel.fromJson(data['user'] as Map<String, dynamic>);
       final mockUser = UserModel(
         id: baseUser.id,
         name: username,

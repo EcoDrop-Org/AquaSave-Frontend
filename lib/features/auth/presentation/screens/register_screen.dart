@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_text_styles.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
@@ -25,9 +24,9 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _usernameCtrl  = TextEditingController();
-  final _passwordCtrl  = TextEditingController();
-  final _confirmCtrl   = TextEditingController();
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -45,12 +44,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     context.read<AuthBloc>().add(
-          RegisterRequested(
-            username: _usernameCtrl.text.trim(),
-            email: '',
-            password: _passwordCtrl.text,
-          ),
-        );
+      RegisterRequested(
+        username: _usernameCtrl.text.trim(),
+        email: '',
+        password: _passwordCtrl.text,
+      ),
+    );
   }
 
   @override
@@ -60,9 +59,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (state is AuthAuthenticated) {
           widget.onRegisterSuccess();
         } else if (state is AuthFailureState) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
       builder: (context, state) {
@@ -119,10 +118,7 @@ class _WideLayout extends StatelessWidget {
       children: [
         Expanded(
           child: SizedBox.expand(
-            child: Image.asset(
-              AppConstants.imgLoginPlant,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(AppConstants.imgLoginPlant, fit: BoxFit.cover),
           ),
         ),
         Expanded(
@@ -196,18 +192,23 @@ class _FormContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = AppTextStyles.of(context);
-    final isWide = MediaQuery.of(context).size.width >= 800;
+    final tt = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        Image.asset(
+          AppConstants.imgAquaSaveLogo,
+          height: 74,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: 24),
         Text(
           AppConstants.titleWelcome,
           style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
         ),
-        SizedBox(height: isWide ? 80 : 40),
+        const SizedBox(height: 40),
         AuthUnderlineField(
           label: AppConstants.labelUsername,
           controller: usernameCtrl,
@@ -235,7 +236,7 @@ class _FormContent extends StatelessWidget {
         ),
         const SizedBox(height: AppDimensions.spaceXl),
         AuthPrimaryButton(
-          label: AppConstants.btnLogin,
+          label: AppConstants.btnRegister,
           onPressed: onSubmit,
           isLoading: isLoading,
         ),

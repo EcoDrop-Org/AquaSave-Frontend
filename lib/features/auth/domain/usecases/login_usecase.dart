@@ -5,13 +5,16 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
-class LoginUseCase implements UseCase<({User user, String token}), LoginParams> {
+class LoginUseCase
+    implements UseCase<({User user, String token}), LoginParams> {
   final AuthRepository repository;
 
   const LoginUseCase(this.repository);
 
   @override
-  Future<Either<Failure, ({User user, String token})>> call(LoginParams params) {
+  Future<Either<Failure, ({User user, String token})>> call(
+    LoginParams params,
+  ) {
     return repository.login(
       username: params.username,
       password: params.password,

@@ -11,7 +11,9 @@ class DevicesLocalDataSourceImpl implements DevicesLocalDataSource {
   @override
   Future<List<DeviceModel>> getDevices() async {
     try {
-      final jsonString = await rootBundle.loadString('assets/mock/devices.json');
+      final jsonString = await rootBundle.loadString(
+        'assets/mock/devices.json',
+      );
       final data = json.decode(jsonString) as Map<String, dynamic>;
       final list = data['devices'] as List<dynamic>;
       return list

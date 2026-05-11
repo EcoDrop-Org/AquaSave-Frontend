@@ -10,7 +10,9 @@
       "battery_pct": 67,
       "plant_count": 5,
       "weather": "Despejado",
-      "avg_humidity_pct": 65
+      "avg_humidity_pct": 65,
+      "latitude": -12.0464,
+      "longitude": -77.0428
     }
   ]
 }

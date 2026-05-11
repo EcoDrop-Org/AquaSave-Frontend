@@ -4,14 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 
 /// Índices del sidebar — úsalos en cada pantalla para marcar el ítem activo.
-enum SidebarItem {
-  home,
-  devices,
-  analysis,
-  history,
-  profile,
-  settings,
-}
+enum SidebarItem { home, devices, analysis, history, profile, settings }
 
 /// Sidebar de navegación lateral reutilizable.
 /// Pásale [activeItem] para resaltar el ítem correcto en cada pantalla.
@@ -20,25 +13,21 @@ class AppSidebar extends StatelessWidget {
   final SidebarItem activeItem;
   final ValueChanged<SidebarItem>? onItemTap;
 
-  const AppSidebar({
-    super.key,
-    required this.activeItem,
-    this.onItemTap,
-  });
+  const AppSidebar({super.key, required this.activeItem, this.onItemTap});
 
   static const _items = [
-    (SidebarItem.home,     Icons.home_outlined,        AppConstants.navHome),
-    (SidebarItem.devices,  Icons.devices_outlined,     AppConstants.navDevices),
-    (SidebarItem.analysis, Icons.bar_chart_outlined,   AppConstants.navAnalysis),
-    (SidebarItem.history,  Icons.description_outlined, AppConstants.navHistory),
-    (SidebarItem.profile,  Icons.person_outline,       AppConstants.navProfile),
-    (SidebarItem.settings, Icons.settings_outlined,    AppConstants.navSettings),
+    (SidebarItem.home, Icons.home_outlined, AppConstants.navHome),
+    (SidebarItem.devices, Icons.devices_outlined, AppConstants.navDevices),
+    (SidebarItem.analysis, Icons.bar_chart_outlined, AppConstants.navAnalysis),
+    (SidebarItem.history, Icons.description_outlined, AppConstants.navHistory),
+    (SidebarItem.profile, Icons.person_outline, AppConstants.navProfile),
+    (SidebarItem.settings, Icons.settings_outlined, AppConstants.navSettings),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final cs  = Theme.of(context).colorScheme;
-    final tt  = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Container(
       width: AppDimensions.sidebarWidth,
@@ -55,16 +44,25 @@ class AppSidebar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 48),
+          const SizedBox(height: 36),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Image.asset(
-              AppConstants.imgCactusSidebar,
-              height: 80,
-              fit: BoxFit.contain,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              height: 92,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.36),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.22)),
+              ),
+              child: Image.asset(
+                AppConstants.imgAquaSaveLogo,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           Divider(color: cs.outline.withValues(alpha: 0.4), height: 1),
           const SizedBox(height: AppDimensions.spaceMd),
           ..._items.map((entry) {
@@ -101,49 +99,68 @@ class _SidebarRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor   = AppColors.lightPrimary;
+    const activeColor = AppColors.lightPrimary;
     const inactiveColor = Color(0xFF767575);
 
-    return InkWell(
-      onTap: onTap,
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          if (isActive)
-            Positioned(
-              left: 0,
-              child: Container(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: isActive
+                ? activeColor.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
                 width: AppDimensions.activeIndicatorWidth,
-                height: AppDimensions.activeIndicatorHeight,
+                height: isActive ? 38 : 0,
                 decoration: const BoxDecoration(
                   color: activeColor,
-                  borderRadius: BorderRadius.only(
-                    topRight:    Radius.circular(AppDimensions.radiusLg),
-                    bottomRight: Radius.circular(AppDimensions.radiusLg),
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(AppDimensions.radiusLg),
                   ),
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 23,
-              vertical: AppDimensions.spaceXs,
-            ),
-            child: Row(
-              children: [
-                Icon(icon,
-                    color: isActive ? activeColor : inactiveColor, size: 25),
-                const SizedBox(width: AppDimensions.spaceMd),
-                Text(
-                  label,
-                  style: textStyle?.copyWith(
-                    color: isActive ? activeColor : inactiveColor,
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 11,
                 ),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    Icon(
+                      icon,
+                      color: isActive ? activeColor : inactiveColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: textStyle?.copyWith(
+                          color: isActive ? activeColor : inactiveColor,
+                          fontWeight: isActive
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

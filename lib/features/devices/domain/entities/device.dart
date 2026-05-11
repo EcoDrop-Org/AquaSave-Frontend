@@ -13,6 +13,8 @@ class Device extends Equatable {
   final int plantCount;
   final String weather;
   final int avgHumidityPct;
+  final double? latitude;
+  final double? longitude;
 
   const Device({
     required this.id,
@@ -25,11 +27,23 @@ class Device extends Equatable {
     required this.plantCount,
     required this.weather,
     required this.avgHumidityPct,
+    this.latitude,
+    this.longitude,
   });
 
   @override
   List<Object?> get props => [
-        id, name, location, status, temperatureC,
-        humidityPct, batteryPct, plantCount, weather, avgHumidityPct,
-      ];
+    id,
+    name,
+    location,
+    status,
+    temperatureC,
+    humidityPct,
+    batteryPct,
+    plantCount,
+    weather,
+    avgHumidityPct,
+    latitude,
+    longitude,
+  ];
 }

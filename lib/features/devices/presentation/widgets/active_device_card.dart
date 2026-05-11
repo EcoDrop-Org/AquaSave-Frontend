@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../domain/entities/device.dart';
 
-/// Tarjeta principal verde oscura del dispositivo activo (Frame Home).
 class ActiveDeviceCard extends StatelessWidget {
   final Device device;
   final VoidCallback? onStartIrrigation;
@@ -20,28 +20,91 @@ class ActiveDeviceCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: const Color(0xFF94BC9A),
-        borderRadius: BorderRadius.circular(46),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.48)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 4,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Dispositivo activo',
-              style: tt.displayMedium?.copyWith(color: Colors.black)),
-          const SizedBox(height: 4),
-          Text(device.name,
-              style: tt.displayMedium?.copyWith(color: Colors.black)),
-          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dispositivo activo',
+                      style: tt.bodyMedium?.copyWith(
+                        color: Colors.black.withValues(alpha: 0.62),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      device.name,
+                      style: tt.headlineMedium?.copyWith(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _ConnectionBadge(status: device.status),
+            ],
+          ),
+          const SizedBox(height: 20),
           _StatusChips(device: device),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConnectionBadge extends StatelessWidget {
+  final DeviceStatus status;
+
+  const _ConnectionBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final online = status == DeviceStatus.online;
+    final tt = Theme.of(context).textTheme;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF43574A),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            online ? Icons.wifi : Icons.wifi_off,
+            color: Colors.white,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            online ? 'En linea' : 'Sin conexion',
+            style: tt.bodySmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -50,44 +113,28 @@ class ActiveDeviceCard extends StatelessWidget {
 
 class _StatusChips extends StatelessWidget {
   final Device device;
+
   const _StatusChips({required this.device});
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    const chipBg = Color(0xFF43574A);
-    final chipStyle = tt.bodyMedium?.copyWith(
-      color: Colors.white,
-      fontWeight: FontWeight.w300,
-    );
-
     return Wrap(
-      spacing: 12,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: [
-        _Chip(
-          icon: Icons.location_on_outlined,
-          label: device.location,
-          bg: chipBg,
-          style: chipStyle,
-        ),
-        _Chip(
-          icon: Icons.wifi,
-          label: device.status == DeviceStatus.online ? 'En línea' : 'Sin conexión',
-          bg: chipBg,
-          style: chipStyle,
-        ),
+        _Chip(icon: Icons.location_on_outlined, label: device.location),
         _Chip(
           icon: Icons.thermostat_outlined,
           label: '${device.temperatureC.toStringAsFixed(0)}°C',
-          bg: chipBg,
-          style: chipStyle,
         ),
         _Chip(
           icon: Icons.water_drop_outlined,
           label: 'Humedad ${device.humidityPct}%',
-          bg: chipBg,
-          style: chipStyle,
+        ),
+        _Chip(icon: Icons.eco_outlined, label: '${device.plantCount} plantas'),
+        _Chip(
+          icon: Icons.battery_3_bar,
+          label: 'Bateria ${device.batteryPct}%',
         ),
       ],
     );
@@ -97,37 +144,31 @@ class _StatusChips extends StatelessWidget {
 class _Chip extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color bg;
-  final TextStyle? style;
 
-  const _Chip({
-    required this.icon,
-    required this.label,
-    required this.bg,
-    this.style,
-  });
+  const _Chip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 4,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: const Color(0xFF43574A),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 6),
-          Text(label, style: style),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: tt.bodySmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

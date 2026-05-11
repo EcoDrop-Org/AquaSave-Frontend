@@ -13,7 +13,8 @@ class RegisterUseCase
 
   @override
   Future<Either<Failure, ({User user, String token})>> call(
-      RegisterParams params) {
+    RegisterParams params,
+  ) {
     return repository.register(
       username: params.username,
       email: params.email,

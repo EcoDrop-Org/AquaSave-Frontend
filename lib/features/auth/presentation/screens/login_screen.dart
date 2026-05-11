@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_text_styles.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
@@ -38,11 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submit() {
     context.read<AuthBloc>().add(
-          LoginRequested(
-            username: _usernameCtrl.text.trim(),
-            password: _passwordCtrl.text,
-          ),
-        );
+      LoginRequested(
+        username: _usernameCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      ),
+    );
   }
 
   @override
@@ -52,9 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (state is AuthAuthenticated) {
           widget.onLoginSuccess();
         } else if (state is AuthFailureState) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
       builder: (context, state) {
@@ -110,10 +109,7 @@ class _WideLayout extends StatelessWidget {
         // Left half — plant image
         Expanded(
           child: SizedBox.expand(
-            child: Image.asset(
-              AppConstants.imgLoginPlant,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(AppConstants.imgLoginPlant, fit: BoxFit.cover),
           ),
         ),
         // Right half — form
@@ -186,18 +182,23 @@ class _FormContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = AppTextStyles.of(context);
-    final isWide = MediaQuery.of(context).size.width >= 800;
+    final tt = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        Image.asset(
+          AppConstants.imgAquaSaveLogo,
+          height: 74,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: 24),
         Text(
           AppConstants.titleWelcome,
           style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
         ),
-        SizedBox(height: isWide ? 80 : 40),
+        const SizedBox(height: 40),
         AuthUnderlineField(
           label: AppConstants.labelUsername,
           controller: usernameCtrl,
