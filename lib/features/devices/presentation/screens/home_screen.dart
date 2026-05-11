@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/widgets/user_avatar.dart';
 import '../bloc/devices_bloc.dart';
@@ -33,8 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    final tt = AppTextStyles.of(context);
     final cs = Theme.of(context).colorScheme;
+    final isWide = MediaQuery.of(context).size.width >= 800;
 
     final authState = context.watch<AuthBloc>().state;
     final userName = authState is AuthAuthenticated
@@ -47,8 +49,8 @@ class _HomeContent extends StatelessWidget {
       children: [
         // Top bar
         Container(
-          height: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          height: isWide ? 80 : 60,
+          padding: EdgeInsets.symmetric(horizontal: isWide ? 32 : 16),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             boxShadow: [
@@ -69,13 +71,14 @@ class _HomeContent extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: Icon(Icons.notifications_outlined,
-                        color: cs.onSurface, size: 28),
+                        color: cs.onSurface, size: isWide ? 28 : 22),
                     onPressed: () {},
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   UserAvatar(
-                      name: userName, avatarUrl: avatarUrl, radius: 24,
-                      fontSize: 14),
+                      name: userName, avatarUrl: avatarUrl,
+                      radius: isWide ? 24 : 18,
+                      fontSize: 12),
                 ],
               ),
             ],
@@ -99,11 +102,11 @@ class _HomeContent extends StatelessWidget {
               final device = state.devices.first;
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(AppDimensions.spaceLg),
+                padding: EdgeInsets.all(isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Buenos días , $userName',
+                    Text('Buenos días, $userName',
                         style: tt.displayMedium
                             ?.copyWith(color: const Color(0xFF2D3D2C))),
                     const SizedBox(height: AppDimensions.spaceLg),

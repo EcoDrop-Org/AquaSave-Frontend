@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/datasources/local/auth_local_datasource.dart';
 import 'features/auth/data/datasources/remote/auth_remote_datasource.dart';
@@ -163,27 +164,97 @@ class _AppRouterState extends State<_AppRouter> {
             ),
             bottomNavigationBar: wide
                 ? null
-                : NavigationBar(
+                : _AppBottomNav(
                     selectedIndex: _navIndex,
-                    onDestinationSelected: (i) => _goTo(
+                    onTap: (i) => _goTo(
                       switch (i) {
                         0 => _AppScreen.home,
                         1 => _AppScreen.devices,
                         2 => _AppScreen.analytics,
                         3 => _AppScreen.history,
                         _ => _AppScreen.profile,
-                      }
+                      },
                     ),
-                    destinations: const [
-                      NavigationDestination(icon: Icon(Icons.home_outlined),         label: 'Inicio'),
-                      NavigationDestination(icon: Icon(Icons.devices_outlined),      label: 'Dispositivos'),
-                      NavigationDestination(icon: Icon(Icons.bar_chart_outlined),    label: 'Análisis'),
-                      NavigationDestination(icon: Icon(Icons.description_outlined),  label: 'Historial'),
-                      NavigationDestination(icon: Icon(Icons.person_outline),        label: 'Perfil'),
-                    ],
                   ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ── Bottom navigation bar (mobile) ───────────────────────────────────────────
+
+class _AppBottomNav extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+
+  const _AppBottomNav({required this.selectedIndex, required this.onTap});
+
+  static const _items = [
+    (Icons.home_outlined,        Icons.home,        'Inicio'),
+    (Icons.devices_outlined,     Icons.devices,     'Dispositivos'),
+    (Icons.bar_chart_outlined,   Icons.bar_chart,   'Análisis'),
+    (Icons.description_outlined, Icons.description, 'Historial'),
+    (Icons.person_outline,       Icons.person,      'Perfil'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    const activeColor = AppColors.lightPrimary;
+    final inactiveColor = cs.onSurface.withValues(alpha: 0.5);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: List.generate(_items.length, (i) {
+              final (outlinedIcon, filledIcon, label) = _items[i];
+              final isSelected = i == selectedIndex;
+              return Expanded(
+                child: InkWell(
+                  onTap: () => onTap(i),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isSelected ? filledIcon : outlinedIcon,
+                        color: isSelected ? activeColor : inactiveColor,
+                        size: 22,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected ? activeColor : inactiveColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }

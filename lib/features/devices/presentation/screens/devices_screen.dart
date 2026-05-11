@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/widgets/user_avatar.dart';
 import '../bloc/devices_bloc.dart';
@@ -36,8 +37,9 @@ class _DevicesContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    final tt = AppTextStyles.of(context);
     final cs = Theme.of(context).colorScheme;
+    final isWide = MediaQuery.of(context).size.width >= 800;
 
     final authState = context.watch<AuthBloc>().state;
     final userName = authState is AuthAuthenticated
@@ -50,8 +52,8 @@ class _DevicesContent extends StatelessWidget {
       children: [
         // Top bar
         Container(
-          height: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          height: isWide ? 80 : 60,
+          padding: EdgeInsets.symmetric(horizontal: isWide ? 32 : 16),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             boxShadow: [
@@ -72,13 +74,14 @@ class _DevicesContent extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: Icon(Icons.notifications_outlined,
-                        color: cs.onSurface, size: 28),
+                        color: cs.onSurface, size: isWide ? 28 : 22),
                     onPressed: () {},
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   UserAvatar(
-                      name: userName, avatarUrl: avatarUrl, radius: 24,
-                      fontSize: 14),
+                      name: userName, avatarUrl: avatarUrl,
+                      radius: isWide ? 24 : 18,
+                      fontSize: 12),
                 ],
               ),
             ],
@@ -100,7 +103,7 @@ class _DevicesContent extends StatelessWidget {
                   state is DevicesLoaded ? state.devices : <dynamic>[];
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(AppDimensions.spaceLg),
+                padding: EdgeInsets.all(isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd),
                 child: LayoutBuilder(
                   builder: (context, c) {
                     final wide = c.maxWidth >= 600;
@@ -125,7 +128,7 @@ class _WideGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    final tt = AppTextStyles.of(context);
 
     return Wrap(
       spacing: AppDimensions.spaceMd,
@@ -137,7 +140,7 @@ class _WideGrid extends StatelessWidget {
             )),
         SizedBox(
           width: 480,
-          height: 289,
+          height: 220,
           child: _AddDeviceCard(
               textStyle: tt.displayMedium, onTap: onAddDevice),
         ),
@@ -153,7 +156,7 @@ class _NarrowList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    final tt = AppTextStyles.of(context);
 
     return Column(
       children: [

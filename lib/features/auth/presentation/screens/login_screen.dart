@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
@@ -185,7 +186,8 @@ class _FormContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    final tt = AppTextStyles.of(context);
+    final isWide = MediaQuery.of(context).size.width >= 800;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +197,7 @@ class _FormContent extends StatelessWidget {
           AppConstants.titleWelcome,
           style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
         ),
-        const SizedBox(height: 80),
+        SizedBox(height: isWide ? 80 : 40),
         AuthUnderlineField(
           label: AppConstants.labelUsername,
           controller: usernameCtrl,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/widgets/user_avatar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,8 +29,9 @@ class AnalyticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    final tt = AppTextStyles.of(context);
     final cs = Theme.of(context).colorScheme;
+    final isWide = MediaQuery.of(context).size.width >= 800;
     final authState = context.watch<AuthBloc>().state;
     final userName  = authState is AuthAuthenticated ? authState.user.name.split(' ').first : 'Usuario';
     final avatarUrl = authState is AuthAuthenticated ? authState.user.avatarUrl : null;
@@ -38,8 +40,8 @@ class AnalyticsScreen extends StatelessWidget {
       children: [
         // ── Top bar ──────────────────────────────────────────────────────
         Container(
-          height: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          height: isWide ? 80 : 60,
+          padding: EdgeInsets.symmetric(horizontal: isWide ? 32 : 16),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 4))],
@@ -49,9 +51,9 @@ class AnalyticsScreen extends StatelessWidget {
             children: [
               Text('Análisis', style: tt.displayMedium?.copyWith(color: const Color(0xFF2D3D2C))),
               Row(children: [
-                IconButton(icon: Icon(Icons.notifications_outlined, color: cs.onSurface, size: 28), onPressed: () {}),
-                const SizedBox(width: 8),
-                UserAvatar(name: userName, avatarUrl: avatarUrl, radius: 24, fontSize: 14),
+                IconButton(icon: Icon(Icons.notifications_outlined, color: cs.onSurface, size: isWide ? 28 : 22), onPressed: () {}),
+                const SizedBox(width: 4),
+                UserAvatar(name: userName, avatarUrl: avatarUrl, radius: isWide ? 24 : 18, fontSize: 12),
               ]),
             ],
           ),
@@ -60,7 +62,7 @@ class AnalyticsScreen extends StatelessWidget {
         // ── Body ─────────────────────────────────────────────────────────
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppDimensions.spaceLg),
+            padding: EdgeInsets.all(isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
