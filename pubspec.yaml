@@ -1,5 +1,5 @@
 name: aquasave
-description: "A new Flutter project."
+description: "AquaSave - App de monitoreo y ahorro de agua"
 publish_to: 'none'
 version: 0.1.0
 
@@ -10,10 +10,33 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Estado
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # Clean Architecture / Either
+  dartz: ^0.10.1
+  get_it: ^7.7.0
+
+  # Navegación
+  go_router: ^14.2.7
+
+  # Assets SVG
+  flutter_svg: ^2.0.10+1
+
+  # Persistencia (ThemeMode)
+  shared_preferences: ^2.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  mocktail: ^1.0.4
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/mock/
