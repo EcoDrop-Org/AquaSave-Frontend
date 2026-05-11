@@ -5,10 +5,14 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/widgets/user_avatar.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
+import 'device_detail_dialog.dart';
 
 /// Frame 44-5 — Dispositivos. Solo renderiza contenido; el sidebar lo gestiona el router.
 class DevicesScreen extends StatefulWidget {
-  const DevicesScreen({super.key});
+  /// Llamado cuando el usuario toca "Agregar Dispositivo". El router lo maneja.
+  final VoidCallback? onAddDevice;
+
+  const DevicesScreen({super.key, this.onAddDevice});
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
@@ -22,10 +26,14 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _DevicesContent();
+  Widget build(BuildContext context) =>
+      _DevicesContent(onAddDevice: widget.onAddDevice);
 }
 
 class _DevicesContent extends StatelessWidget {
+  final VoidCallback? onAddDevice;
+  const _DevicesContent({this.onAddDevice});
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
@@ -97,8 +105,8 @@ class _DevicesContent extends StatelessWidget {
                   builder: (context, c) {
                     final wide = c.maxWidth >= 600;
                     return wide
-                        ? _WideGrid(devices: devices)
-                        : _NarrowList(devices: devices);
+                        ? _WideGrid(devices: devices, onAddDevice: onAddDevice)
+                        : _NarrowList(devices: devices, onAddDevice: onAddDevice);
                   },
                 ),
               );
@@ -112,7 +120,8 @@ class _DevicesContent extends StatelessWidget {
 
 class _WideGrid extends StatelessWidget {
   final List<dynamic> devices;
-  const _WideGrid({required this.devices});
+  final VoidCallback? onAddDevice;
+  const _WideGrid({required this.devices, this.onAddDevice});
 
   @override
   Widget build(BuildContext context) {
@@ -124,16 +133,13 @@ class _WideGrid extends StatelessWidget {
       children: [
         ...devices.map((d) => SizedBox(
               width: 480,
-              child: DeviceListCard(
-                device: d,
-                onViewDetails: () {},
-              ),
+              child: DeviceListCard(device: d, onViewDetails: () => showDeviceDetailDialog(context, d)),
             )),
-        // Agregar dispositivo
         SizedBox(
           width: 480,
           height: 289,
-          child: _AddDeviceCard(textStyle: tt.displayMedium),
+          child: _AddDeviceCard(
+              textStyle: tt.displayMedium, onTap: onAddDevice),
         ),
       ],
     );
@@ -142,7 +148,8 @@ class _WideGrid extends StatelessWidget {
 
 class _NarrowList extends StatelessWidget {
   final List<dynamic> devices;
-  const _NarrowList({required this.devices});
+  final VoidCallback? onAddDevice;
+  const _NarrowList({required this.devices, this.onAddDevice});
 
   @override
   Widget build(BuildContext context) {
@@ -153,9 +160,9 @@ class _NarrowList extends StatelessWidget {
         ...devices.map((d) => Padding(
               padding:
                   const EdgeInsets.only(bottom: AppDimensions.spaceMd),
-              child: DeviceListCard(device: d, onViewDetails: () {}),
+              child: DeviceListCard(device: d, onViewDetails: () => showDeviceDetailDialog(context, d)),
             )),
-        _AddDeviceCard(textStyle: tt.displayMedium),
+        _AddDeviceCard(textStyle: tt.displayMedium, onTap: onAddDevice),
       ],
     );
   }
@@ -163,14 +170,15 @@ class _NarrowList extends StatelessWidget {
 
 class _AddDeviceCard extends StatelessWidget {
   final TextStyle? textStyle;
-  const _AddDeviceCard({this.textStyle});
+  final VoidCallback? onTap;
+  const _AddDeviceCard({this.textStyle, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
     return InkWell(
-      onTap: () {},
+      onTap: onTap == null ? null : () => Future.delayed(Duration.zero, onTap!),
       borderRadius: BorderRadius.circular(46),
       child: Container(
         decoration: BoxDecoration(

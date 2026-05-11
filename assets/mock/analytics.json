@@ -1,0 +1,35 @@
+{
+  "kpis": {
+    "total_consumption_l": 2130,
+    "daily_avg_l": 71,
+    "saving_vs_manual_pct": 32,
+    "irrigation_events": 184,
+    "saved_this_month_l": 980,
+    "saved_days_equivalent": 9.8
+  },
+  "daily_consumption": [
+    {"day": 16, "value": 68},
+    {"day": 17, "value": 72},
+    {"day": 18, "value": 65},
+    {"day": 19, "value": 88},
+    {"day": 20, "value": 71},
+    {"day": 21, "value": 60},
+    {"day": 22, "value": 78},
+    {"day": 23, "value": 70},
+    {"day": 24, "value": 54},
+    {"day": 25, "value": 66},
+    {"day": 26, "value": 84},
+    {"day": 27, "value": 72},
+    {"day": 28, "value": 68},
+    {"day": 29, "value": 90}
+  ],
+  "savings_cumulative": [10, 25, 45, 70, 100, 140, 190, 250, 320, 400, 490, 590, 700, 820, 980],
+  "crop_consumption": [
+    {"name": "Tomate",   "value": 580, "color": "#12480E"},
+    {"name": "Lechuga",  "value": 420, "color": "#599974"},
+    {"name": "Pimiento", "value": 400, "color": "#7AB28E"},
+    {"name": "Albahaca", "value": 250, "color": "#E6DACA"},
+    {"name": "Espinaca", "value": 230, "color": "#A8C9B5"},
+    {"name": "Otros",    "value": 230, "color": "#D4C9B8"}
+  ]
+}

@@ -39,7 +39,7 @@ class WeatherCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: _days
-                .map((d) => _DayCell(label: d))
+                .map((d) => Flexible(child: _DayCell(label: d)))
                 .toList(),
           ),
         ],
@@ -57,7 +57,6 @@ class _DayCell extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
 
     return Container(
-      width: 52,
       height: 58,
       decoration: BoxDecoration(
         color: const Color(0xFF3E5249),

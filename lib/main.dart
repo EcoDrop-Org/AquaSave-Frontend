@@ -16,11 +16,12 @@ import 'features/devices/data/datasources/remote/devices_remote_datasource.dart'
 import 'features/devices/data/repositories/devices_repository_impl.dart';
 import 'features/devices/domain/usecases/get_devices_usecase.dart';
 import 'features/devices/presentation/bloc/devices_bloc.dart';
+import 'features/analytics/presentation/screens/analytics_screen.dart';
+import 'features/devices/presentation/screens/add_device_dialog.dart';
 import 'features/devices/presentation/screens/devices_screen.dart';
 import 'features/devices/presentation/screens/home_screen.dart';
 import 'shared/widgets/app_sidebar.dart';
 
-// Cambia a false para usar RemoteDataSource en producción.
 const bool useMock = true;
 
 void main() {
@@ -71,6 +72,9 @@ class AquaSaveApp extends StatelessWidget {
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
+enum _AuthScreen { login, register }
+enum _AppScreen  { home, devices, analytics, profile }
+
 class _AppRouter extends StatefulWidget {
   const _AppRouter();
   @override
@@ -81,29 +85,39 @@ class _AppRouterState extends State<_AppRouter> {
   _AuthScreen _authScreen = _AuthScreen.login;
   _AppScreen  _appScreen  = _AppScreen.home;
 
-  void _goTo(_AppScreen screen) => setState(() => _appScreen = screen);
+  void _goTo(_AppScreen s) => setState(() => _appScreen = s);
 
-  // Mapea SidebarItem → _AppScreen
   void _onSidebarTap(SidebarItem item) {
     switch (item) {
       case SidebarItem.home:     _goTo(_AppScreen.home);
       case SidebarItem.devices:  _goTo(_AppScreen.devices);
+      case SidebarItem.analysis: _goTo(_AppScreen.analytics);
       case SidebarItem.profile:  _goTo(_AppScreen.profile);
-      // Análisis, Historial, Configuracion: pendientes
       default: break;
     }
   }
 
-  SidebarItem get _activeSidebarItem => switch (_appScreen) {
-    _AppScreen.home    => SidebarItem.home,
-    _AppScreen.devices => SidebarItem.devices,
-    _AppScreen.profile => SidebarItem.profile,
+  SidebarItem get _activeSidebar => switch (_appScreen) {
+    _AppScreen.home      => SidebarItem.home,
+    _AppScreen.devices   => SidebarItem.devices,
+    _AppScreen.analytics => SidebarItem.analysis,
+    _AppScreen.profile   => SidebarItem.profile,
   };
 
-  Widget get _currentScreen => switch (_appScreen) {
+  int get _navIndex => switch (_appScreen) {
+    _AppScreen.home      => 0,
+    _AppScreen.devices   => 1,
+    _AppScreen.analytics => 2,
+    _AppScreen.profile   => 3,
+  };
+
+  Widget get _screen => switch (_appScreen) {
     _AppScreen.home    => const HomeScreen(),
-    _AppScreen.devices => const DevicesScreen(),
-    _AppScreen.profile => const UserProfileScreen(),
+    _AppScreen.devices => DevicesScreen(
+        onAddDevice: () => showAddDeviceDialog(context),
+      ),
+    _AppScreen.analytics => const AnalyticsScreen(),
+    _AppScreen.profile   => const UserProfileScreen(),
   };
 
   @override
@@ -115,7 +129,6 @@ class _AppRouterState extends State<_AppRouter> {
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          // ── No autenticado ──────────────────────────────────────────────────
           if (authState is! AuthAuthenticated) {
             return switch (_authScreen) {
               _AuthScreen.login => LoginScreen(
@@ -129,50 +142,42 @@ class _AppRouterState extends State<_AppRouter> {
             };
           }
 
-          // ── Autenticado ─────────────────────────────────────────────────────
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 800;
+          final wide = MediaQuery.of(context).size.width >= 800;
 
-              if (isWide) {
-                // Desktop/tablet: sidebar centralizado + contenido
-                return Scaffold(
-                  body: Row(
-                    children: [
-                      AppSidebar(
-                        activeItem: _activeSidebarItem,
-                        onItemTap: _onSidebarTap,
-                      ),
-                      Expanded(child: _currentScreen),
+          return Scaffold(
+            body: SafeArea(
+              child: wide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppSidebar(activeItem: _activeSidebar, onItemTap: _onSidebarTap),
+                        Expanded(child: _screen),
+                      ],
+                    )
+                  : _screen,
+            ),
+            bottomNavigationBar: wide
+                ? null
+                : NavigationBar(
+                    selectedIndex: _navIndex,
+                    onDestinationSelected: (i) => _goTo(
+                      switch (i) {
+                        0 => _AppScreen.home,
+                        1 => _AppScreen.devices,
+                        2 => _AppScreen.analytics,
+                        _ => _AppScreen.profile,
+                      }
+                    ),
+                    destinations: const [
+                      NavigationDestination(icon: Icon(Icons.home_outlined),      label: 'Inicio'),
+                      NavigationDestination(icon: Icon(Icons.devices_outlined),   label: 'Dispositivos'),
+                      NavigationDestination(icon: Icon(Icons.bar_chart_outlined), label: 'Análisis'),
+                      NavigationDestination(icon: Icon(Icons.person_outline),     label: 'Perfil'),
                     ],
                   ),
-                );
-              }
-
-              // Mobile: bottom navigation bar
-              return Scaffold(
-                body: _currentScreen,
-                bottomNavigationBar: NavigationBar(
-                  selectedIndex: _appScreen.index,
-                  onDestinationSelected: (i) =>
-                      _goTo(_AppScreen.values[i]),
-                  destinations: const [
-                    NavigationDestination(
-                        icon: Icon(Icons.home_outlined), label: 'Inicio'),
-                    NavigationDestination(
-                        icon: Icon(Icons.devices_outlined), label: 'Dispositivos'),
-                    NavigationDestination(
-                        icon: Icon(Icons.person_outline), label: 'Perfil'),
-                  ],
-                ),
-              );
-            },
           );
         },
       ),
     );
   }
 }
-
-enum _AuthScreen { login, register }
-enum _AppScreen  { home, devices, profile }
