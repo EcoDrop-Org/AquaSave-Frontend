@@ -177,7 +177,16 @@ class _PasswordCardState extends State<_PasswordCard> {
   final _confirmCtrl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _newCtrl.addListener(_refreshStrength);
+  }
+
+  void _refreshStrength() => setState(() {});
+
+  @override
   void dispose() {
+    _newCtrl.removeListener(_refreshStrength);
     _currentCtrl.dispose();
     _newCtrl.dispose();
     _confirmCtrl.dispose();
@@ -205,47 +214,57 @@ class _PasswordCardState extends State<_PasswordCard> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
+    final passwordStrength = _passwordStrength(_newCtrl.text);
 
     return _SettingsCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.14)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(Icons.lock_reset_outlined, color: cs.onPrimary),
                 ),
-                child: Icon(Icons.lock_reset_outlined, color: cs.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.t('changePassword'),
-                      style: tt.headlineMedium?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w800,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.t('changePassword'),
+                        style: tt.headlineMedium?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.t('passwordHelp'),
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.62),
-                        height: 1.35,
+                      const SizedBox(height: 5),
+                      Text(
+                        l10n.t('passwordHelp'),
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.66),
+                          height: 1.35,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: AppDimensions.spaceMd),
           LayoutBuilder(
@@ -257,16 +276,21 @@ class _PasswordCardState extends State<_PasswordCard> {
                     _PasswordField(
                       label: l10n.t('currentPassword'),
                       controller: _currentCtrl,
+                      icon: Icons.key_outlined,
                     ),
                     const SizedBox(height: AppDimensions.spaceSm),
                     _PasswordField(
                       label: l10n.t('newPassword'),
                       controller: _newCtrl,
+                      icon: Icons.enhanced_encryption_outlined,
+                      helperText: l10n.t('newPasswordHelp'),
                     ),
                     const SizedBox(height: AppDimensions.spaceSm),
                     _PasswordField(
                       label: l10n.t('confirmPassword'),
                       controller: _confirmCtrl,
+                      icon: Icons.verified_user_outlined,
+                      helperText: l10n.t('confirmPasswordHelp'),
                     ),
                   ],
                 );
@@ -279,6 +303,7 @@ class _PasswordCardState extends State<_PasswordCard> {
                         child: _PasswordField(
                           label: l10n.t('currentPassword'),
                           controller: _currentCtrl,
+                          icon: Icons.key_outlined,
                         ),
                       ),
                       const SizedBox(width: AppDimensions.spaceMd),
@@ -286,6 +311,8 @@ class _PasswordCardState extends State<_PasswordCard> {
                         child: _PasswordField(
                           label: l10n.t('newPassword'),
                           controller: _newCtrl,
+                          icon: Icons.enhanced_encryption_outlined,
+                          helperText: l10n.t('newPasswordHelp'),
                         ),
                       ),
                     ],
@@ -294,11 +321,15 @@ class _PasswordCardState extends State<_PasswordCard> {
                   _PasswordField(
                     label: l10n.t('confirmPassword'),
                     controller: _confirmCtrl,
+                    icon: Icons.verified_user_outlined,
+                    helperText: l10n.t('confirmPasswordHelp'),
                   ),
                 ],
               );
             },
           ),
+          const SizedBox(height: AppDimensions.spaceSm),
+          _PasswordStrengthMeter(strength: passwordStrength),
           const SizedBox(height: AppDimensions.spaceMd),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -325,8 +356,15 @@ class _PasswordCardState extends State<_PasswordCard> {
 class _PasswordField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
+  final IconData icon;
+  final String? helperText;
 
-  const _PasswordField({required this.label, required this.controller});
+  const _PasswordField({
+    required this.label,
+    required this.controller,
+    required this.icon,
+    this.helperText,
+  });
 
   @override
   State<_PasswordField> createState() => _PasswordFieldState();
@@ -350,7 +388,9 @@ class _PasswordFieldState extends State<_PasswordField> {
       ),
       decoration: InputDecoration(
         labelText: widget.label,
-        prefixIcon: const Icon(Icons.lock_outline, size: 19),
+        helperText: widget.helperText,
+        helperMaxLines: 2,
+        prefixIcon: Icon(widget.icon, size: 19),
         suffixIcon: IconButton(
           tooltip: _obscured ? l10n.t('showPassword') : l10n.t('hidePassword'),
           icon: Icon(
@@ -381,6 +421,83 @@ class _PasswordFieldState extends State<_PasswordField> {
       ),
     );
   }
+}
+
+class _PasswordStrengthMeter extends StatelessWidget {
+  final int strength;
+
+  const _PasswordStrengthMeter({required this.strength});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final label = switch (strength) {
+      0 => l10n.t('passwordStrengthEmpty'),
+      1 => l10n.t('passwordStrengthWeak'),
+      2 => l10n.t('passwordStrengthMedium'),
+      _ => l10n.t('passwordStrengthStrong'),
+    };
+    final activeColor = switch (strength) {
+      1 => const Color(0xFFB7782D),
+      2 => const Color(0xFF6B8F3E),
+      _ => cs.primary,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.shield_outlined, size: 18, color: activeColor),
+            const SizedBox(width: 8),
+            Text(
+              '${l10n.t('passwordStrength')}: $label',
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.72),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: List.generate(3, (index) {
+            final active = index < strength;
+            return Expanded(
+              child: Container(
+                height: 7,
+                margin: EdgeInsets.only(right: index == 2 ? 0 : 8),
+                decoration: BoxDecoration(
+                  color: active
+                      ? activeColor
+                      : cs.outline.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+int _passwordStrength(String value) {
+  if (value.isEmpty) return 0;
+  var score = 0;
+  if (value.length >= 8) score++;
+  if (RegExp(r'[A-Z]').hasMatch(value) && RegExp(r'[a-z]').hasMatch(value)) {
+    score++;
+  }
+  if (RegExp(r'\d').hasMatch(value) ||
+      RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
+    score++;
+  }
+  if (score < 1) return 1;
+  if (score > 3) return 3;
+  return score;
 }
 
 // ignore: unused_element
