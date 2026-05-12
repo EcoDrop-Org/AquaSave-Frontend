@@ -25,13 +25,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ];
 
   void _addScheduleSlot() {
-    setState(() => _scheduleSlots.add(const _ScheduleSlot(timeText: '')));
+    setState(() => _scheduleSlots.add(const _ScheduleSlot(timeText: '06:30')));
+  }
+
+  void _removeScheduleSlot(int index) {
+    setState(() {
+      _scheduleSlots.removeAt(index);
+      if (_scheduleSlots.length == 1 &&
+          _scheduleSlots.first.timeText.trim().isEmpty) {
+        _scheduleSlots[0] = _scheduleSlots.first.copyWith(timeText: '06:30');
+      }
+    });
   }
 
   void _updateScheduleSlotTime(int index, String value) {
     setState(
       () => _scheduleSlots[index] = _scheduleSlots[index].copyWith(
         timeText: value,
+        enabled: _isValidTime24(value.trim())
+            ? _scheduleSlots[index].enabled
+            : false,
       ),
     );
   }
@@ -167,9 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       enabled: value,
                                     ),
                               ),
-                              onRemove: (index) => setState(
-                                () => _scheduleSlots.removeAt(index),
-                              ),
+                              onRemove: _removeScheduleSlot,
                             ),
                           );
 
@@ -778,8 +789,10 @@ class _ScheduleRowState extends State<_ScheduleRow> {
     final l10n = AppLocalizations.of(context);
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final showError =
-        _timeCtrl.text.isNotEmpty && !_isValidTime24(_timeCtrl.text.trim());
+    final hasTime = _timeCtrl.text.trim().isNotEmpty;
+    final hasValidTime = _isValidTime24(_timeCtrl.text.trim());
+    final showError = hasTime && !hasValidTime;
+    final effectiveEnabled = widget.slot.enabled && hasValidTime;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -787,7 +800,7 @@ class _ScheduleRowState extends State<_ScheduleRow> {
         color: cs.surfaceContainerHighest.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: widget.slot.enabled
+          color: effectiveEnabled
               ? cs.primary.withValues(alpha: 0.22)
               : cs.outline.withValues(alpha: 0.18),
         ),
@@ -878,9 +891,13 @@ class _ScheduleRowState extends State<_ScheduleRow> {
               ),
               const SizedBox(height: 6),
               Text(
-                showError ? l10n.t('invalidTime24') : l10n.t('time24Helper'),
+                showError
+                    ? l10n.t('invalidTime24')
+                    : hasTime
+                    ? l10n.t('time24Helper')
+                    : l10n.t('scheduleRequiresTime'),
                 style: tt.bodySmall?.copyWith(
-                  color: showError
+                  color: showError || !hasTime
                       ? Theme.of(context).colorScheme.error
                       : cs.onSurface.withValues(alpha: 0.56),
                   fontWeight: FontWeight.w700,
@@ -891,7 +908,7 @@ class _ScheduleRowState extends State<_ScheduleRow> {
           final statusPill = Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: widget.slot.enabled
+              color: effectiveEnabled
                   ? cs.primary.withValues(alpha: 0.12)
                   : cs.outline.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
@@ -902,9 +919,9 @@ class _ScheduleRowState extends State<_ScheduleRow> {
               ),
             ),
             child: Text(
-              widget.slot.enabled ? l10n.t('enabled') : l10n.t('disabled'),
+              effectiveEnabled ? l10n.t('enabled') : l10n.t('disabled'),
               style: tt.bodySmall?.copyWith(
-                color: widget.slot.enabled ? cs.primary : cs.onSurface,
+                color: effectiveEnabled ? cs.primary : cs.onSurface,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -945,14 +962,19 @@ class _ScheduleRowState extends State<_ScheduleRow> {
               children: [
                 Expanded(
                   child: Text(
-                    l10n.t('scheduleState'),
+                    hasValidTime
+                        ? l10n.t('scheduleState')
+                        : l10n.t('scheduleRequiresTime'),
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.68),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                Switch(value: widget.slot.enabled, onChanged: widget.onToggle),
+                Switch(
+                  value: effectiveEnabled,
+                  onChanged: hasValidTime ? widget.onToggle : null,
+                ),
               ],
             ),
           );
