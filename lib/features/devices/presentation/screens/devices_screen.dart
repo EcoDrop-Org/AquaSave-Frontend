@@ -283,8 +283,8 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
               horizontal: compact ? 14 : 32,
               vertical: 24,
             ),
-            contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-            actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 22),
+            contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            actionsPadding: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
@@ -308,7 +308,7 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                     editing ? l10n.t('editDevice') : l10n.t('registerDevice'),
                     style: tt.headlineMedium?.copyWith(
                       color: cs.onSurface,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
@@ -322,16 +322,65 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _DeviceDialogField(
-                        controller: nameCtrl,
-                        label: l10n.t('gardenName'),
-                        icon: Icons.sensors_outlined,
-                        validator: (value) {
-                          if (value == null || value.trim().length < 3) {
-                            return l10n.t('invalidName');
-                          }
-                          return null;
-                        },
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(
+                            alpha: 0.58,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: cs.outline.withValues(alpha: 0.16),
+                          ),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final stacked = constraints.maxWidth < 520;
+                            final nameField = _DeviceDialogField(
+                              controller: nameCtrl,
+                              label: l10n.t('gardenName'),
+                              icon: Icons.sensors_outlined,
+                              validator: (value) {
+                                if (value == null || value.trim().length < 3) {
+                                  return l10n.t('invalidName');
+                                }
+                                return null;
+                              },
+                            );
+                            final plantField = _DeviceDialogField(
+                              controller: plantCountCtrl,
+                              label: l10n.t('plantCount'),
+                              icon: Icons.eco_outlined,
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                final parsed = int.tryParse(value ?? '');
+                                if (parsed == null || parsed < 1) {
+                                  return l10n.t('invalidPlantCount');
+                                }
+                                return null;
+                              },
+                            );
+
+                            if (stacked) {
+                              return Column(
+                                children: [
+                                  nameField,
+                                  const SizedBox(height: 12),
+                                  plantField,
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(flex: 3, child: nameField),
+                                const SizedBox(width: 12),
+                                Expanded(flex: 2, child: plantField),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
                       _LocationLookupPanel(
@@ -343,83 +392,36 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                         message: locationMessage,
                         onResolve: resolveLocation,
                       ),
-                      const SizedBox(height: AppDimensions.spaceMd),
-                      _DeviceDialogField(
-                        controller: plantCountCtrl,
-                        label: l10n.t('plantCount'),
-                        icon: Icons.eco_outlined,
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          final parsed = int.tryParse(value ?? '');
-                          if (parsed == null || parsed < 1) {
-                            return l10n.t('invalidPlantCount');
-                          }
-                          return null;
-                        },
-                      ),
                     ],
                   ),
                 ),
               ),
             ),
             actions: [
-              if (compact)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _DeviceSubmitButton(
-                      label: editing
-                          ? l10n.t('saveChanges')
-                          : l10n.t('register'),
-                      onPressed: () => _submitDeviceDialog(
-                        context,
-                        dialogContext,
-                        formKey,
-                        nameCtrl,
-                        _buildLocation(
-                          resolvedLocation: resolvedLocation,
-                          countryCtrl: countryCtrl,
-                          cityCtrl: cityCtrl,
-                          districtCtrl: districtCtrl,
-                          postalCodeCtrl: postalCodeCtrl,
-                        ),
-                        plantCountCtrl,
-                        device,
-                        l10n,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: Text(l10n.t('cancel')),
-                    ),
-                  ],
-                )
-              else ...[
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(l10n.t('cancel')),
-                ),
-                _DeviceSubmitButton(
-                  label: editing ? l10n.t('saveChanges') : l10n.t('register'),
-                  onPressed: () => _submitDeviceDialog(
-                    context,
-                    dialogContext,
-                    formKey,
-                    nameCtrl,
-                    _buildLocation(
-                      resolvedLocation: resolvedLocation,
-                      countryCtrl: countryCtrl,
-                      cityCtrl: cityCtrl,
-                      districtCtrl: districtCtrl,
-                      postalCodeCtrl: postalCodeCtrl,
-                    ),
-                    plantCountCtrl,
-                    device,
-                    l10n,
+              _DeviceDialogFooter(
+                compact: compact,
+                cancelLabel: l10n.t('cancel'),
+                submitLabel: editing
+                    ? l10n.t('saveChanges')
+                    : l10n.t('register'),
+                onCancel: () => Navigator.of(dialogContext).pop(),
+                onSubmit: () => _submitDeviceDialog(
+                  context,
+                  dialogContext,
+                  formKey,
+                  nameCtrl,
+                  _buildLocation(
+                    resolvedLocation: resolvedLocation,
+                    countryCtrl: countryCtrl,
+                    cityCtrl: cityCtrl,
+                    districtCtrl: districtCtrl,
+                    postalCodeCtrl: postalCodeCtrl,
                   ),
+                  plantCountCtrl,
+                  device,
+                  l10n,
                 ),
-              ],
+              ),
             ],
           );
         },
@@ -735,6 +737,82 @@ class _DeviceDialogField extends StatelessWidget {
           borderSide: BorderSide(color: cs.primary, width: 1.6),
         ),
       ),
+    );
+  }
+}
+
+class _DeviceDialogFooter extends StatelessWidget {
+  final bool compact;
+  final String cancelLabel;
+  final String submitLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onSubmit;
+
+  const _DeviceDialogFooter({
+    required this.compact,
+    required this.cancelLabel,
+    required this.submitLabel,
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 22),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.96),
+        border: Border(
+          top: BorderSide(color: cs.outline.withValues(alpha: 0.14)),
+        ),
+      ),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _DeviceSubmitButton(label: submitLabel, onPressed: onSubmit),
+                const SizedBox(height: 10),
+                _DeviceCancelButton(label: cancelLabel, onPressed: onCancel),
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(
+                  width: 160,
+                  child: _DeviceCancelButton(
+                    label: cancelLabel,
+                    onPressed: onCancel,
+                  ),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: 190,
+                  child: _DeviceSubmitButton(
+                    label: submitLabel,
+                    onPressed: onSubmit,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _DeviceCancelButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _DeviceCancelButton({required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.close),
+      label: Text(label),
     );
   }
 }
