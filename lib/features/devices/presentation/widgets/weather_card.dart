@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../irrigation_intelligence/domain/entities/weather_forecast.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../../domain/entities/device.dart';
@@ -52,12 +53,20 @@ class _WeatherCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final condition = forecast?.conditionLabel ?? device.weather;
+    final l10n = AppLocalizations.of(context);
+    final condition = forecast == null
+        ? l10n.t('waitingWeather')
+        : l10n.weatherCondition(forecast!.weatherCode);
     final temperature = forecast?.temperatureC ?? device.temperatureC;
     final humidity = forecast?.humidityPct ?? device.humidityPct;
     final rainProbability = forecast?.rainProbabilityPct;
     final windSpeed = forecast?.windSpeedKmh;
     final shouldPause = forecast?.shouldPauseIrrigation ?? false;
+    final shouldAskForWater =
+        forecast != null &&
+        !shouldPause &&
+        temperature >= 28 &&
+        device.avgHumidityPct <= 35;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
@@ -65,13 +74,13 @@ class _WeatherCardContent extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: const Color(0xFFC7DEC3),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withValues(alpha: 0.56)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.09),
+            blurRadius: 16,
+            offset: const Offset(0, 9),
           ),
         ],
       ),
@@ -99,10 +108,10 @@ class _WeatherCardContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Clima del huerto',
+                      l10n.t('weatherGarden'),
                       style: tt.bodyMedium?.copyWith(
                         color: Colors.black.withValues(alpha: 0.68),
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
@@ -142,17 +151,17 @@ class _WeatherCardContent extends StatelessWidget {
             children: [
               _MetricPill(
                 icon: Icons.water_drop_outlined,
-                label: 'Humedad',
+                label: l10n.t('humidity'),
                 value: '$humidity%',
               ),
               _MetricPill(
-                icon: Icons.water_drop_outlined,
-                label: 'Lluvia',
+                icon: Icons.umbrella_outlined,
+                label: l10n.t('rain'),
                 value: rainProbability == null ? '--' : '$rainProbability%',
               ),
               _MetricPill(
                 icon: Icons.air,
-                label: 'Viento',
+                label: l10n.t('wind'),
                 value: windSpeed == null ? '--' : '${windSpeed.round()} km/h',
               ),
             ],
@@ -160,6 +169,7 @@ class _WeatherCardContent extends StatelessWidget {
           const SizedBox(height: 16),
           _IrrigationAdvice(
             shouldPause: shouldPause,
+            shouldAskForWater: shouldAskForWater,
             hasForecast: forecast != null,
           ),
         ],
@@ -169,8 +179,7 @@ class _WeatherCardContent extends StatelessWidget {
 
   IconData _weatherIcon(int? code) {
     if (code == null || code == 0) return Icons.wb_sunny_outlined;
-    if ([1, 2, 3].contains(code)) return Icons.cloud_queue;
-    if ([45, 48].contains(code)) return Icons.cloud_queue;
+    if ([1, 2, 3, 45, 48].contains(code)) return Icons.cloud_queue;
     if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].contains(code)) {
       return Icons.water_drop_outlined;
     }
@@ -192,11 +201,12 @@ class _WeatherSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Row(
       children: [
         Text(
-          '${temperature.round()}°',
+          l10n.temperature(temperature),
           style: tt.displayLarge?.copyWith(
             color: Colors.black,
             fontWeight: FontWeight.w700,
@@ -292,22 +302,31 @@ class _MetricPill extends StatelessWidget {
 
 class _IrrigationAdvice extends StatelessWidget {
   final bool shouldPause;
+  final bool shouldAskForWater;
   final bool hasForecast;
 
   const _IrrigationAdvice({
     required this.shouldPause,
+    required this.shouldAskForWater,
     required this.hasForecast,
   });
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final bg = shouldPause ? const Color(0xFFFE5C73) : const Color(0xFF497654);
+    final l10n = AppLocalizations.of(context);
+    final bg = shouldPause
+        ? const Color(0xFFFE5C73)
+        : shouldAskForWater
+        ? const Color(0xFFB8642B)
+        : const Color(0xFF497654);
     final text = !hasForecast
-        ? 'Esperando clima en tiempo real'
+        ? l10n.t('waitingWeather')
         : shouldPause
-        ? 'Pausar riego automatico'
-        : 'Riego puede continuar';
+        ? l10n.t('pauseIrrigation')
+        : shouldAskForWater
+        ? l10n.t('waterRecommended')
+        : l10n.t('continueIrrigation');
 
     return Container(
       width: double.infinity,
@@ -322,6 +341,8 @@ class _IrrigationAdvice extends StatelessWidget {
           Icon(
             shouldPause
                 ? Icons.pause_circle_outline
+                : shouldAskForWater
+                ? Icons.local_fire_department_outlined
                 : Icons.check_circle_outline,
             color: bg,
             size: 20,

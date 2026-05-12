@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../domain/entities/device.dart';
 
 class DeviceListCard extends StatelessWidget {
   final Device device;
   final VoidCallback? onViewDetails;
+  final VoidCallback? onEdit;
   final bool isActive;
 
   const DeviceListCard({
     super.key,
     required this.device,
     this.onViewDetails,
+    this.onEdit,
     this.isActive = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     final online = device.status == DeviceStatus.online;
 
     return Container(
@@ -87,42 +91,54 @@ class DeviceListCard extends StatelessWidget {
                 child: _CompactStat(
                   icon: Icons.eco_outlined,
                   value: '${device.plantCount}',
-                  label: 'Plantas',
+                  label: l10n.t('plantsLabel'),
                 ),
               ),
               Expanded(
                 child: _CompactStat(
                   icon: Icons.water_drop_outlined,
                   value: '${device.avgHumidityPct}%',
-                  label: 'Humedad',
+                  label: l10n.t('humidity'),
                 ),
               ),
               Expanded(
                 child: _CompactStat(
                   icon: Icons.battery_3_bar,
                   value: '${device.batteryPct}%',
-                  label: 'Bateria',
+                  label: l10n.t('battery'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onViewDetails,
-              icon: const Icon(Icons.visibility_outlined, size: 18),
-              label: const Text('Ver detalles'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3E5C48),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onViewDetails,
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: Text(
+                    l10n.t('viewDeviceData'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3E5C48),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                elevation: 0,
               ),
-            ),
+              const SizedBox(width: 12),
+              _IconActionButton(
+                icon: Icons.edit_outlined,
+                tooltip: l10n.t('editDevice'),
+                onPressed: onEdit,
+              ),
+            ],
           ),
         ],
       ),
@@ -139,6 +155,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -157,16 +174,52 @@ class _StatusBadge extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             isActive
-                ? 'Activo'
+                ? l10n.t('active')
                 : online
-                ? 'Online'
-                : 'Offline',
+                ? l10n.t('online')
+                : l10n.t('offline'),
             style: tt.bodySmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IconActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _IconActionButton({
+    required this.icon,
+    required this.tooltip,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.38),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
+            ),
+            child: Icon(icon, color: const Color(0xFF2D3D2C), size: 20),
+          ),
+        ),
       ),
     );
   }

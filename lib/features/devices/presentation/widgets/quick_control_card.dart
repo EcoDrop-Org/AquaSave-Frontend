@@ -1,146 +1,129 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class QuickControlCard extends StatefulWidget {
+import '../../../../core/l10n/app_localizations.dart';
+import '../bloc/irrigation_cubit.dart';
+
+class QuickControlCard extends StatelessWidget {
+  final String deviceId;
   final VoidCallback? onStartIrrigation;
   final VoidCallback? onStopIrrigation;
 
   const QuickControlCard({
     super.key,
+    required this.deviceId,
     this.onStartIrrigation,
     this.onStopIrrigation,
   });
 
   @override
-  State<QuickControlCard> createState() => _QuickControlCardState();
-}
-
-class _QuickControlCardState extends State<QuickControlCard> {
-  bool _isIrrigating = false;
-  int _elapsedSeconds = 0;
-  Timer? _timer;
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _startIrrigation() {
-    if (_isIrrigating) return;
-
-    widget.onStartIrrigation?.call();
-    setState(() {
-      _isIrrigating = true;
-      _elapsedSeconds = 0;
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _elapsedSeconds++);
-    });
-  }
-
-  void _stopIrrigation() {
-    if (!_isIrrigating) return;
-
-    widget.onStopIrrigation?.call();
-    _timer?.cancel();
-    setState(() => _isIrrigating = false);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF44594E),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Control rapido',
-                      style: tt.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Acciones manuales para el ciclo de riego.',
-                      style: tt.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  ],
-                ),
+    return BlocBuilder<IrrigationCubit, IrrigationState>(
+      builder: (context, state) {
+        final isIrrigating = state.isIrrigating && state.deviceId == deviceId;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3F564B),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
-              _IrrigationStatusBadge(isIrrigating: _isIrrigating),
             ],
           ),
-          const SizedBox(height: 18),
-          _IrrigationTimer(
-            elapsedSeconds: _elapsedSeconds,
-            isIrrigating: _isIrrigating,
-          ),
-          const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stacked = constraints.maxWidth < 520;
-              final startButton = _ControlButton(
-                icon: Icons.play_arrow_rounded,
-                label: 'Iniciar riego',
-                onPressed: _isIrrigating ? null : _startIrrigation,
-              );
-              final stopButton = _ControlButton(
-                icon: Icons.stop_rounded,
-                label: 'Detener riego',
-                onPressed: _isIrrigating ? _stopIrrigation : null,
-                inverse: true,
-              );
-
-              if (stacked) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    startButton,
-                    const SizedBox(height: 12),
-                    stopButton,
-                  ],
-                );
-              }
-
-              return Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Expanded(child: startButton),
-                  const SizedBox(width: 14),
-                  Expanded(child: stopButton),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.t('quickControl'),
+                          style: tt.headlineMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          l10n.t('manualActions'),
+                          style: tt.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.68),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _IrrigationStatusBadge(isIrrigating: isIrrigating),
                 ],
-              );
-            },
+              ),
+              const SizedBox(height: 18),
+              _IrrigationTimer(
+                elapsedSeconds: isIrrigating ? state.elapsedSeconds : 0,
+                isIrrigating: isIrrigating,
+              ),
+              const SizedBox(height: 18),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final stacked = constraints.maxWidth < 520;
+                  final startButton = _ControlButton(
+                    icon: Icons.play_arrow_rounded,
+                    label: l10n.t('startIrrigation'),
+                    onPressed: isIrrigating
+                        ? null
+                        : () {
+                            onStartIrrigation?.call();
+                            context.read<IrrigationCubit>().start(deviceId);
+                          },
+                  );
+                  final stopButton = _ControlButton(
+                    icon: Icons.stop_rounded,
+                    label: l10n.t('stopIrrigation'),
+                    onPressed: isIrrigating
+                        ? () {
+                            onStopIrrigation?.call();
+                            context.read<IrrigationCubit>().stop();
+                          }
+                        : null,
+                    inverse: true,
+                  );
+
+                  if (stacked) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        startButton,
+                        const SizedBox(height: 12),
+                        stopButton,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: startButton),
+                      const SizedBox(width: 14),
+                      Expanded(child: stopButton),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -153,7 +136,8 @@ class _IrrigationStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final color = isIrrigating ? const Color(0xFF94BC9A) : Colors.white;
+    final l10n = AppLocalizations.of(context);
+    final color = isIrrigating ? const Color(0xFFCBE7A3) : Colors.white;
     final fg = isIrrigating ? const Color(0xFF2D3D2C) : Colors.white;
 
     return AnimatedContainer(
@@ -170,7 +154,7 @@ class _IrrigationStatusBadge extends StatelessWidget {
           _PulseDot(active: isIrrigating),
           const SizedBox(width: 8),
           Text(
-            isIrrigating ? 'Regando' : 'Detenido',
+            isIrrigating ? l10n.t('watering') : l10n.t('stopped'),
             style: tt.bodySmall?.copyWith(
               color: fg,
               fontWeight: FontWeight.w800,
@@ -189,20 +173,14 @@ class _PulseDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.72, end: active ? 1 : 0.72),
-      duration: const Duration(milliseconds: 650),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Container(
-          width: 9 + (active ? value * 2 : 0),
-          height: 9 + (active ? value * 2 : 0),
-          decoration: BoxDecoration(
-            color: active ? const Color(0xFF2D3D2C) : Colors.white70,
-            shape: BoxShape.circle,
-          ),
-        );
-      },
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      width: active ? 11 : 9,
+      height: active ? 11 : 9,
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFF2D3D2C) : Colors.white70,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }
@@ -219,6 +197,7 @@ class _IrrigationTimer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     final minutes = elapsedSeconds ~/ 60;
     final seconds = elapsedSeconds % 60;
     final display =
@@ -259,8 +238,8 @@ class _IrrigationTimer extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isIrrigating
-                      ? 'Tiempo regando en esta sesion'
-                      : 'El contador iniciara al activar el riego',
+                      ? l10n.t('wateringSessionTime')
+                      : l10n.t('timerWillStart'),
                   style: tt.bodySmall?.copyWith(
                     color: Colors.white.withValues(alpha: 0.68),
                   ),
@@ -296,8 +275,8 @@ class _ControlButtonState extends State<_ControlButton> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.inverse ? Colors.white : const Color(0xFF94BC9A);
-    final fg = widget.inverse ? const Color(0xFF2D3D2C) : Colors.white;
+    final bg = widget.inverse ? Colors.white : const Color(0xFFCBE7A3);
+    final fg = const Color(0xFF2D3D2C);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -305,11 +284,11 @@ class _ControlButtonState extends State<_ControlButton> {
       child: AnimatedScale(
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOut,
-        scale: _hovered && widget.onPressed != null ? 1.015 : 1,
+        scale: _hovered && widget.onPressed != null ? 1.01 : 1,
         child: ElevatedButton.icon(
           onPressed: widget.onPressed,
           icon: Icon(widget.icon, size: 22),
-          label: Text(widget.label),
+          label: Text(widget.label, overflow: TextOverflow.ellipsis),
           style: ElevatedButton.styleFrom(
             backgroundColor: bg,
             disabledBackgroundColor: bg.withValues(alpha: 0.36),

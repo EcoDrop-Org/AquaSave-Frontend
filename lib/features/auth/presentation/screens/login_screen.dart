@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
@@ -183,6 +184,7 @@ class _FormContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,17 +197,14 @@ class _FormContent extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          AppConstants.titleWelcome,
+          l10n.t('welcomeBack'),
           style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
         ),
         const SizedBox(height: 40),
-        AuthUnderlineField(
-          label: AppConstants.labelUsername,
-          controller: usernameCtrl,
-        ),
+        AuthUnderlineField(label: l10n.t('username'), controller: usernameCtrl),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(
-          label: AppConstants.labelPassword,
+          label: l10n.t('password'),
           controller: passwordCtrl,
           obscureText: true,
         ),
@@ -213,14 +212,14 @@ class _FormContent extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: AuthLinkRow(
-            prefixText: AppConstants.noAccount,
-            linkText: AppConstants.linkRegister,
+            prefixText: l10n.t('noAccount'),
+            linkText: l10n.t('registerLink'),
             onTap: onGoToRegister,
           ),
         ),
         const SizedBox(height: AppDimensions.spaceXl),
         AuthPrimaryButton(
-          label: AppConstants.btnLogin,
+          label: l10n.t('login'),
           onPressed: onSubmit,
           isLoading: isLoading,
         ),
