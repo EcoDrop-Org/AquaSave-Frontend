@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_constants.dart';
+import '../../core/l10n/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 
-/// Índices del sidebar — úsalos en cada pantalla para marcar el ítem activo.
 enum SidebarItem { home, devices, analysis, history, profile, settings }
 
-/// Sidebar de navegación lateral reutilizable.
-/// Pásale [activeItem] para resaltar el ítem correcto en cada pantalla.
-/// [onItemTap] es opcional — úsalo para navegar entre secciones.
 class AppSidebar extends StatelessWidget {
   final SidebarItem activeItem;
   final ValueChanged<SidebarItem>? onItemTap;
@@ -16,46 +14,36 @@ class AppSidebar extends StatelessWidget {
   const AppSidebar({super.key, required this.activeItem, this.onItemTap});
 
   static const _items = [
-    (SidebarItem.home, Icons.home_outlined, AppConstants.navHome),
-    (SidebarItem.devices, Icons.devices_outlined, AppConstants.navDevices),
-    (SidebarItem.analysis, Icons.bar_chart_outlined, AppConstants.navAnalysis),
-    (SidebarItem.history, Icons.description_outlined, AppConstants.navHistory),
-    (SidebarItem.profile, Icons.person_outline, AppConstants.navProfile),
-    (SidebarItem.settings, Icons.settings_outlined, AppConstants.navSettings),
+    (SidebarItem.home, Icons.home_outlined, 'navHome'),
+    (SidebarItem.devices, Icons.devices_outlined, 'navDevices'),
+    (SidebarItem.analysis, Icons.bar_chart_outlined, 'navAnalysis'),
+    (SidebarItem.history, Icons.description_outlined, 'navHistory'),
+    (SidebarItem.profile, Icons.person_outline, 'navProfile'),
+    (SidebarItem.settings, Icons.settings_outlined, 'navSettings'),
   ];
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       width: AppDimensions.sidebarWidth,
       height: double.infinity,
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(4, 0),
-          ),
-        ],
+        border: Border(
+          right: BorderSide(color: cs.outline.withValues(alpha: 0.32)),
+        ),
       ),
       child: Column(
         children: [
-          const SizedBox(height: 36),
+          const SizedBox(height: 34),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: SizedBox(
               height: 92,
-              alignment: Alignment.center,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.36),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.22)),
-              ),
               child: Image.asset(
                 AppConstants.imgAquaSaveLogo,
                 fit: BoxFit.contain,
@@ -66,12 +54,11 @@ class AppSidebar extends StatelessWidget {
           Divider(color: cs.outline.withValues(alpha: 0.4), height: 1),
           const SizedBox(height: AppDimensions.spaceMd),
           ..._items.map((entry) {
-            final (item, icon, label) = entry;
-            final isActive = item == activeItem;
+            final (item, icon, labelKey) = entry;
             return _SidebarRow(
               icon: icon,
-              label: label,
-              isActive: isActive,
+              label: l10n.t(labelKey),
+              isActive: item == activeItem,
               textStyle: tt.titleMedium,
               onTap: onItemTap != null ? () => onItemTap!(item) : null,
             );
@@ -100,7 +87,7 @@ class _SidebarRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const activeColor = AppColors.lightPrimary;
-    const inactiveColor = Color(0xFF767575);
+    const inactiveColor = Color(0xFF667069);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -112,7 +99,7 @@ class _SidebarRow extends StatelessWidget {
           curve: Curves.easeOut,
           decoration: BoxDecoration(
             color: isActive
-                ? activeColor.withValues(alpha: 0.12)
+                ? activeColor.withValues(alpha: 0.13)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
           ),
@@ -150,8 +137,8 @@ class _SidebarRow extends StatelessWidget {
                         style: textStyle?.copyWith(
                           color: isActive ? activeColor : inactiveColor,
                           fontWeight: isActive
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                              ? FontWeight.w800
+                              : FontWeight.w600,
                         ),
                       ),
                     ),

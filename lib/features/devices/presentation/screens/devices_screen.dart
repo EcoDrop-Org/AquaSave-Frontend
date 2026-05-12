@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/widgets/user_avatar.dart';
+import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
@@ -23,68 +26,21 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _DevicesContent();
+  Widget build(BuildContext context) => const _DevicesContent();
 }
 
 class _DevicesContent extends StatelessWidget {
+  const _DevicesContent();
+
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    final authState = context.watch<AuthBloc>().state;
-    final userName = authState is AuthAuthenticated
-        ? authState.user.name.split(' ').first
-        : 'Usuario';
-    final avatarUrl = authState is AuthAuthenticated
-        ? authState.user.avatarUrl
-        : null;
+    final l10n = AppLocalizations.of(context);
 
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
-          Container(
-            height: 88,
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              border: Border(
-                bottom: BorderSide(color: cs.outline.withValues(alpha: 0.32)),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Dispositivos',
-                  style: tt.headlineMedium?.copyWith(
-                    color: const Color(0xFF2D3D2C),
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton.filledTonal(
-                      tooltip: 'Notificaciones',
-                      icon: Icon(
-                        Icons.notifications_outlined,
-                        color: cs.onSurface,
-                        size: 24,
-                      ),
-                      onPressed: () {},
-                    ),
-                    const SizedBox(width: 12),
-                    UserAvatar(
-                      name: userName,
-                      avatarUrl: avatarUrl,
-                      radius: 22,
-                      fontSize: 13,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          AppHeader(title: l10n.t('navDevices')),
           Expanded(
             child: BlocBuilder<DevicesBloc, DevicesState>(
               builder: (context, state) {
@@ -146,6 +102,7 @@ class _WideGrid extends StatelessWidget {
             child: DeviceListCard(
               device: device,
               isActive: _isActive(context, device),
+              onEdit: () => _showDeviceDialog(context, device: device),
               onViewDetails: () => context.read<DevicesBloc>().add(
                 SelectActiveDevice(device.id),
               ),
@@ -155,7 +112,7 @@ class _WideGrid extends StatelessWidget {
         SizedBox(
           width: 420,
           height: 260,
-          child: _AddDeviceCard(onTap: () => _showAddDeviceDialog(context)),
+          child: _AddDeviceCard(onTap: () => _showDeviceDialog(context)),
         ),
       ],
     );
@@ -182,6 +139,7 @@ class _NarrowList extends StatelessWidget {
             child: DeviceListCard(
               device: device,
               isActive: _isActive(context, device),
+              onEdit: () => _showDeviceDialog(context, device: device),
               onViewDetails: () => context.read<DevicesBloc>().add(
                 SelectActiveDevice(device.id),
               ),
@@ -190,7 +148,7 @@ class _NarrowList extends StatelessWidget {
         ),
         SizedBox(
           height: 220,
-          child: _AddDeviceCard(onTap: () => _showAddDeviceDialog(context)),
+          child: _AddDeviceCard(onTap: () => _showDeviceDialog(context)),
         ),
       ],
     );
@@ -218,6 +176,7 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -227,16 +186,16 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
         scale: _hovered ? 1.01 : 1,
         child: InkWell(
           onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.24),
+              color: Colors.white.withValues(alpha: 0.34),
               border: Border.all(
-                color: const Color(0xFF37593F).withValues(alpha: 0.48),
+                color: const Color(0xFF37593F).withValues(alpha: 0.42),
                 width: 1.4,
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -244,7 +203,7 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
                 Icon(Icons.add_circle_outline, size: 48, color: cs.onSurface),
                 const SizedBox(height: 14),
                 Text(
-                  'Agregar dispositivo',
+                  l10n.t('addDevice'),
                   textAlign: TextAlign.center,
                   style: tt.titleMedium?.copyWith(
                     color: cs.onSurface,
@@ -260,115 +219,742 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
   }
 }
 
-Future<void> _showAddDeviceDialog(BuildContext context) async {
-  final nameCtrl = TextEditingController();
-  final locationCtrl = TextEditingController();
-  final plantCountCtrl = TextEditingController(text: '1');
+Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
+  final editing = device != null;
+  final nameCtrl = TextEditingController(text: device?.name ?? '');
+  final plantCountCtrl = TextEditingController(
+    text: (device?.plantCount ?? 1).toString(),
+  );
+  final locationParts = _locationParts(device?.location ?? '');
+  final countryCtrl = TextEditingController(text: locationParts.country);
+  final cityCtrl = TextEditingController(text: locationParts.city);
+  final districtCtrl = TextEditingController(text: locationParts.district);
+  final postalCodeCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  final l10n = AppLocalizations.of(context);
+  _ResolvedLocation? resolvedLocation;
+  String? locationMessage;
+  var isResolvingLocation = false;
 
   await showDialog<void>(
     context: context,
     builder: (dialogContext) {
       final tt = Theme.of(dialogContext).textTheme;
       final cs = Theme.of(dialogContext).colorScheme;
+      final screenWidth = MediaQuery.sizeOf(dialogContext).width;
+      final compact = screenWidth < 560;
 
-      return AlertDialog(
-        title: Text(
-          'Registrar dispositivo',
-          style: tt.headlineMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        content: SizedBox(
-          width: 420,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      return StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          Future<void> resolveLocation() async {
+            setDialogState(() {
+              isResolvingLocation = true;
+              locationMessage = null;
+            });
+            final result = await _resolveLocation(
+              country: countryCtrl.text,
+              city: cityCtrl.text,
+              district: districtCtrl.text,
+              postalCode: postalCodeCtrl.text,
+            );
+            if (!dialogContext.mounted) return;
+            setDialogState(() {
+              isResolvingLocation = false;
+              resolvedLocation = result;
+              if (result != null) {
+                if ((result.country ?? '').isNotEmpty) {
+                  countryCtrl.text = result.country!;
+                }
+                if ((result.city ?? '').isNotEmpty) {
+                  cityCtrl.text = result.city!;
+                }
+                if ((result.district ?? '').isNotEmpty) {
+                  districtCtrl.text = result.district!;
+                }
+              }
+              locationMessage = result == null
+                  ? l10n.t('locationNotFound')
+                  : '${l10n.t('resolvedLocation')}: ${result.displayName}';
+            });
+          }
+
+          return AlertDialog(
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: compact ? 14 : 32,
+              vertical: 24,
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 22),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
               children: [
-                TextFormField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre del huerto',
-                    prefixIcon: Icon(Icons.sensors_outlined),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().length < 3) {
-                      return 'Ingresa un nombre valido';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppDimensions.spaceMd),
-                TextFormField(
-                  controller: locationCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Ubicacion del huerto',
-                    hintText: 'Ej. Miraflores, Lima',
-                    prefixIcon: Icon(Icons.location_on_outlined),
+                  child: Icon(
+                    editing ? Icons.edit_outlined : Icons.add_link_outlined,
+                    color: cs.primary,
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().length < 3) {
-                      return 'Ingresa una ubicacion valida';
-                    }
-                    return null;
-                  },
                 ),
-                const SizedBox(height: AppDimensions.spaceMd),
-                TextFormField(
-                  controller: plantCountCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Cantidad de plantas',
-                    prefixIcon: Icon(Icons.eco_outlined),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
-                    if (parsed == null || parsed < 1) {
-                      return 'Ingresa al menos 1 planta';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppDimensions.spaceSm),
-                Text(
-                  'La ubicacion se usara para buscar el clima actual del huerto. La persistencia queda pendiente hasta integrar Backend.',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.66),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    editing ? l10n.t('editDevice') : l10n.t('registerDevice'),
+                    style: tt.headlineMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-
-              context.read<DevicesBloc>().add(
-                AddDeviceRequested(
-                  name: nameCtrl.text.trim(),
-                  location: locationCtrl.text.trim(),
-                  plantCount: int.parse(plantCountCtrl.text.trim()),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _DeviceDialogField(
+                        controller: nameCtrl,
+                        label: l10n.t('gardenName'),
+                        icon: Icons.sensors_outlined,
+                        validator: (value) {
+                          if (value == null || value.trim().length < 3) {
+                            return l10n.t('invalidName');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppDimensions.spaceMd),
+                      _LocationLookupPanel(
+                        countryCtrl: countryCtrl,
+                        cityCtrl: cityCtrl,
+                        districtCtrl: districtCtrl,
+                        postalCodeCtrl: postalCodeCtrl,
+                        isResolving: isResolvingLocation,
+                        message: locationMessage,
+                        onResolve: resolveLocation,
+                      ),
+                      const SizedBox(height: AppDimensions.spaceMd),
+                      _DeviceDialogField(
+                        controller: plantCountCtrl,
+                        label: l10n.t('plantCount'),
+                        icon: Icons.eco_outlined,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          final parsed = int.tryParse(value ?? '');
+                          if (parsed == null || parsed < 1) {
+                            return l10n.t('invalidPlantCount');
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              );
-              Navigator.of(dialogContext).pop();
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Registrar'),
-          ),
-        ],
+              ),
+            ),
+            actions: [
+              if (compact)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _DeviceSubmitButton(
+                      label: editing
+                          ? l10n.t('saveChanges')
+                          : l10n.t('register'),
+                      onPressed: () => _submitDeviceDialog(
+                        context,
+                        dialogContext,
+                        formKey,
+                        nameCtrl,
+                        _buildLocation(
+                          resolvedLocation: resolvedLocation,
+                          countryCtrl: countryCtrl,
+                          cityCtrl: cityCtrl,
+                          districtCtrl: districtCtrl,
+                          postalCodeCtrl: postalCodeCtrl,
+                        ),
+                        plantCountCtrl,
+                        device,
+                        l10n,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: Text(l10n.t('cancel')),
+                    ),
+                  ],
+                )
+              else ...[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(l10n.t('cancel')),
+                ),
+                _DeviceSubmitButton(
+                  label: editing ? l10n.t('saveChanges') : l10n.t('register'),
+                  onPressed: () => _submitDeviceDialog(
+                    context,
+                    dialogContext,
+                    formKey,
+                    nameCtrl,
+                    _buildLocation(
+                      resolvedLocation: resolvedLocation,
+                      countryCtrl: countryCtrl,
+                      cityCtrl: cityCtrl,
+                      districtCtrl: districtCtrl,
+                      postalCodeCtrl: postalCodeCtrl,
+                    ),
+                    plantCountCtrl,
+                    device,
+                    l10n,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       );
     },
   );
 
   nameCtrl.dispose();
-  locationCtrl.dispose();
   plantCountCtrl.dispose();
+  countryCtrl.dispose();
+  cityCtrl.dispose();
+  districtCtrl.dispose();
+  postalCodeCtrl.dispose();
+}
+
+void _submitDeviceDialog(
+  BuildContext pageContext,
+  BuildContext dialogContext,
+  GlobalKey<FormState> formKey,
+  TextEditingController nameCtrl,
+  String location,
+  TextEditingController plantCountCtrl,
+  Device? device,
+  AppLocalizations l10n,
+) {
+  if (!formKey.currentState!.validate()) return;
+  if (location.trim().length < 3) {
+    ScaffoldMessenger.of(
+      pageContext,
+    ).showSnackBar(SnackBar(content: Text(l10n.t('invalidLocation'))));
+    return;
+  }
+
+  final name = nameCtrl.text.trim();
+  final plantCount = int.parse(plantCountCtrl.text.trim());
+
+  if (device == null) {
+    pageContext.read<DevicesBloc>().add(
+      AddDeviceRequested(
+        name: name,
+        location: location,
+        plantCount: plantCount,
+      ),
+    );
+  } else {
+    pageContext.read<DevicesBloc>().add(
+      EditDeviceRequested(
+        deviceId: device.id,
+        name: name,
+        location: location,
+        plantCount: plantCount,
+      ),
+    );
+  }
+
+  Navigator.of(dialogContext).pop();
+}
+
+String _buildLocation({
+  required _ResolvedLocation? resolvedLocation,
+  required TextEditingController countryCtrl,
+  required TextEditingController cityCtrl,
+  required TextEditingController districtCtrl,
+  required TextEditingController postalCodeCtrl,
+}) {
+  if (resolvedLocation != null) return resolvedLocation.displayName;
+
+  final parts = [
+    districtCtrl.text.trim(),
+    cityCtrl.text.trim(),
+    countryCtrl.text.trim(),
+  ].where((part) => part.isNotEmpty).toList();
+  if (parts.isEmpty && postalCodeCtrl.text.trim().isNotEmpty) {
+    return postalCodeCtrl.text.trim();
+  }
+  return parts.join(', ');
+}
+
+class _LocationLookupPanel extends StatelessWidget {
+  final TextEditingController countryCtrl;
+  final TextEditingController cityCtrl;
+  final TextEditingController districtCtrl;
+  final TextEditingController postalCodeCtrl;
+  final bool isResolving;
+  final String? message;
+  final VoidCallback onResolve;
+
+  const _LocationLookupPanel({
+    required this.countryCtrl,
+    required this.cityCtrl,
+    required this.districtCtrl,
+    required this.postalCodeCtrl,
+    required this.isResolving,
+    required this.message,
+    required this.onResolve,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.travel_explore_outlined, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.t('locationLookupTitle'),
+                  style: tt.titleMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.t('locationFieldsNotSaved'),
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.62),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 520;
+              final country = _DeviceDialogField(
+                controller: countryCtrl,
+                label: l10n.t('country'),
+                hint: l10n.t('countryHint'),
+                icon: Icons.public_outlined,
+              );
+              final city = _DeviceDialogField(
+                controller: cityCtrl,
+                label: l10n.t('city'),
+                hint: l10n.t('cityHint'),
+                icon: Icons.location_city_outlined,
+              );
+              final district = _DeviceDialogField(
+                controller: districtCtrl,
+                label: l10n.t('district'),
+                hint: l10n.t('districtHint'),
+                icon: Icons.place_outlined,
+              );
+              final postal = _DeviceDialogField(
+                controller: postalCodeCtrl,
+                label: l10n.t('postalCode'),
+                hint: l10n.t('postalCodeHint'),
+                icon: Icons.local_post_office_outlined,
+              );
+
+              if (stacked) {
+                return Column(
+                  children: [
+                    country,
+                    const SizedBox(height: 12),
+                    city,
+                    const SizedBox(height: 12),
+                    district,
+                    const SizedBox(height: 12),
+                    postal,
+                  ],
+                );
+              }
+
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: country),
+                      const SizedBox(width: 12),
+                      Expanded(child: city),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: district),
+                      const SizedBox(width: 12),
+                      Expanded(child: postal),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isResolving ? null : onResolve,
+              icon: isResolving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location_outlined),
+              label: Text(l10n.t('resolveLocation')),
+            ),
+          ),
+          if (message != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.16)),
+              ),
+              child: Text(
+                message!,
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.72),
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DeviceDialogField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String? hint;
+  final IconData icon;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+
+  const _DeviceDialogField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.hint,
+    this.keyboardType,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 20),
+        filled: true,
+        fillColor: cs.surface.withValues(alpha: 0.88),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.22)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: cs.primary, width: 1.6),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceSubmitButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _DeviceSubmitButton({required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.check_circle_outline),
+      label: Text(label),
+    );
+  }
+}
+
+Future<_ResolvedLocation?> _resolveLocation({
+  required String country,
+  required String city,
+  required String district,
+  required String postalCode,
+}) async {
+  final countryCode = _countryCodeFor(country);
+  final postal = postalCode.trim();
+
+  if (postal.isNotEmpty && countryCode != null) {
+    final postalResolved = await _resolvePostalCode(countryCode, postal);
+    if (postalResolved != null) return postalResolved;
+  }
+
+  final query = district.trim().isNotEmpty
+      ? district.trim()
+      : city.trim().isNotEmpty
+      ? city.trim()
+      : postal;
+  if (query.length < 2) return null;
+
+  final params = <String, String>{
+    'name': query,
+    'count': '10',
+    'language': 'es',
+    'format': 'json',
+  };
+  if (countryCode != null) params['countryCode'] = countryCode;
+  final uri = Uri.https('geocoding-api.open-meteo.com', '/v1/search', params);
+  final http.Response response;
+  try {
+    response = await http.get(uri).timeout(const Duration(seconds: 8));
+  } catch (_) {
+    return null;
+  }
+  if (response.statusCode < 200 || response.statusCode >= 300) return null;
+
+  final payload = jsonDecode(response.body) as Map<String, dynamic>;
+  final results = (payload['results'] as List<dynamic>? ?? [])
+      .whereType<Map<String, dynamic>>()
+      .toList();
+  if (results.isEmpty) return null;
+
+  results.sort((a, b) {
+    final scoreB = _locationScore(
+      b,
+      country: country,
+      city: city,
+      district: district,
+      countryCode: countryCode,
+    );
+    final scoreA = _locationScore(
+      a,
+      country: country,
+      city: city,
+      district: district,
+      countryCode: countryCode,
+    );
+    return scoreB.compareTo(scoreA);
+  });
+
+  return _locationFromGeocoding(results.first);
+}
+
+Future<_ResolvedLocation?> _resolvePostalCode(
+  String countryCode,
+  String postalCode,
+) async {
+  final uri = Uri.https(
+    'api.zippopotam.us',
+    '/${countryCode.toLowerCase()}/$postalCode',
+  );
+  final http.Response response;
+  try {
+    response = await http.get(uri).timeout(const Duration(seconds: 8));
+  } catch (_) {
+    return null;
+  }
+  if (response.statusCode < 200 || response.statusCode >= 300) return null;
+
+  final payload = jsonDecode(response.body) as Map<String, dynamic>;
+  final places = (payload['places'] as List<dynamic>? ?? [])
+      .whereType<Map<String, dynamic>>()
+      .toList();
+  if (places.isEmpty) return null;
+
+  final place = places.first;
+  final district = (place['place name'] as String? ?? '').trim();
+  final city = (place['state'] as String? ?? '').trim();
+  final country = (payload['country'] as String? ?? countryCode).trim();
+  final displayName = [
+    district,
+    city,
+    country,
+  ].where((part) => part.isNotEmpty).join(', ');
+
+  if (displayName.isEmpty) return null;
+  return _ResolvedLocation(
+    displayName: displayName,
+    country: country,
+    city: city,
+    district: district,
+  );
+}
+
+int _locationScore(
+  Map<String, dynamic> item, {
+  required String country,
+  required String city,
+  required String district,
+  required String? countryCode,
+}) {
+  final name = _normalize(item['name'] as String? ?? '');
+  final admin1 = _normalize(item['admin1'] as String? ?? '');
+  final admin2 = _normalize(item['admin2'] as String? ?? '');
+  final itemCountry = _normalize(item['country'] as String? ?? '');
+  final itemCountryCode = (item['country_code'] as String? ?? '')
+      .trim()
+      .toUpperCase();
+  final wantedDistrict = _normalize(district);
+  final wantedCity = _normalize(city);
+  final wantedCountry = _normalize(country);
+  var score = 0;
+
+  if (wantedDistrict.isNotEmpty && name == wantedDistrict) score += 80;
+  if (wantedDistrict.isNotEmpty && admin2.contains(wantedDistrict)) score += 32;
+  if (wantedCity.isNotEmpty && admin1.contains(wantedCity)) score += 38;
+  if (wantedCity.isNotEmpty && admin2.contains(wantedCity)) score += 26;
+  if (wantedCountry.isNotEmpty && itemCountry.contains(wantedCountry)) {
+    score += 48;
+  }
+  if (countryCode != null && itemCountryCode == countryCode) score += 70;
+
+  return score;
+}
+
+_ResolvedLocation _locationFromGeocoding(Map<String, dynamic> item) {
+  final parts = <String>[
+    item['name'] as String? ?? '',
+    item['admin2'] as String? ?? '',
+    item['admin1'] as String? ?? '',
+    item['country'] as String? ?? '',
+  ];
+  final deduped = <String>[];
+  for (final part in parts.map((part) => part.trim())) {
+    if (part.isEmpty) continue;
+    if (deduped.any((existing) => _normalize(existing) == _normalize(part))) {
+      continue;
+    }
+    deduped.add(part);
+  }
+
+  return _ResolvedLocation(
+    displayName: deduped.join(', '),
+    country: item['country'] as String?,
+    city: item['admin1'] as String?,
+    district: item['name'] as String?,
+  );
+}
+
+_LocationParts _locationParts(String location) {
+  final parts = location
+      .split(',')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+
+  return _LocationParts(
+    district: parts.isNotEmpty ? parts.first : location,
+    city: parts.length >= 2 ? parts[1] : '',
+    country: parts.length >= 3 ? parts.last : '',
+  );
+}
+
+String? _countryCodeFor(String country) {
+  final normalized = _normalize(country).replaceAll(' ', '');
+  if (normalized.length == 2) return normalized.toUpperCase();
+  const codes = {
+    'peru': 'PE',
+    'argentina': 'AR',
+    'chile': 'CL',
+    'colombia': 'CO',
+    'mexico': 'MX',
+    'espana': 'ES',
+    'spain': 'ES',
+    'unitedstates': 'US',
+    'usa': 'US',
+    'estadosunidos': 'US',
+    'brazil': 'BR',
+    'brasil': 'BR',
+    'ecuador': 'EC',
+    'bolivia': 'BO',
+    'uruguay': 'UY',
+    'paraguay': 'PY',
+  };
+  return codes[normalized];
+}
+
+String _normalize(String value) {
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
+      .replaceAll('ñ', 'n');
+}
+
+class _ResolvedLocation {
+  final String displayName;
+  final String? country;
+  final String? city;
+  final String? district;
+
+  const _ResolvedLocation({
+    required this.displayName,
+    this.country,
+    this.city,
+    this.district,
+  });
+}
+
+class _LocationParts {
+  final String district;
+  final String city;
+  final String country;
+
+  const _LocationParts({
+    required this.district,
+    required this.city,
+    required this.country,
+  });
 }

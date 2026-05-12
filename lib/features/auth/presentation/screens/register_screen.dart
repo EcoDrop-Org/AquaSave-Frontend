@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_underline_field.dart';
 
-/// Frame 2 — Register.
-/// Igual que Login pero con campo extra "Confirmar Contraseña".
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onGoToLogin;
   final VoidCallback onRegisterSuccess;
@@ -37,10 +37,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _submit() {
+    final l10n = AppLocalizations.of(context);
     if (_passwordCtrl.text != _confirmCtrl.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contraseñas no coinciden')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('passwordMismatch'))));
       return;
     }
     context.read<AuthBloc>().add(
@@ -193,6 +194,7 @@ class _FormContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,23 +207,20 @@ class _FormContent extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          AppConstants.titleWelcome,
+          l10n.t('welcomeBack'),
           style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
         ),
         const SizedBox(height: 40),
-        AuthUnderlineField(
-          label: AppConstants.labelUsername,
-          controller: usernameCtrl,
-        ),
+        AuthUnderlineField(label: l10n.t('username'), controller: usernameCtrl),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(
-          label: AppConstants.labelPassword,
+          label: l10n.t('password'),
           controller: passwordCtrl,
           obscureText: true,
         ),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(
-          label: AppConstants.labelConfirmPwd,
+          label: l10n.t('confirmPassword'),
           controller: confirmCtrl,
           obscureText: true,
         ),
@@ -229,14 +228,14 @@ class _FormContent extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: AuthLinkRow(
-            prefixText: AppConstants.hasAccount,
-            linkText: AppConstants.linkLogin,
+            prefixText: l10n.t('hasAccount'),
+            linkText: l10n.t('loginLink'),
             onTap: onGoToLogin,
           ),
         ),
         const SizedBox(height: AppDimensions.spaceXl),
         AuthPrimaryButton(
-          label: AppConstants.btnRegister,
+          label: l10n.t('register'),
           onPressed: onSubmit,
           isLoading: isLoading,
         ),

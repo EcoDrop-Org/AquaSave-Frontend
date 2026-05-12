@@ -17,6 +17,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     : super(const DevicesInitial()) {
     on<LoadDevices>(_onLoadDevices);
     on<AddDeviceRequested>(_onAddDeviceRequested);
+    on<EditDeviceRequested>(_onEditDeviceRequested);
     on<SelectActiveDevice>(_onSelectActiveDevice);
   }
 
@@ -89,6 +90,29 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     if (_devices.every((device) => device.id != event.deviceId)) return;
 
     _activeDeviceId = event.deviceId;
+    emit(
+      DevicesLoaded(
+        List.unmodifiable(_devices),
+        activeDeviceId: _activeDeviceId,
+      ),
+    );
+  }
+
+  void _onEditDeviceRequested(
+    EditDeviceRequested event,
+    Emitter<DevicesState> emit,
+  ) {
+    final index = _devices.indexWhere((device) => device.id == event.deviceId);
+    if (index == -1) return;
+
+    final current = _devices[index];
+    _devices[index] = current.copyWith(
+      name: event.name,
+      location: event.location,
+      plantCount: event.plantCount,
+      clearCoordinates: event.location != current.location,
+    );
+
     emit(
       DevicesLoaded(
         List.unmodifiable(_devices),

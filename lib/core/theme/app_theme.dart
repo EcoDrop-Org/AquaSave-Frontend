@@ -26,7 +26,7 @@ class AppTheme {
       filled: true,
       fillColor: AppColors.lightInputBg,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(6)),
+        borderRadius: BorderRadius.all(Radius.circular(14)),
         borderSide: BorderSide.none,
       ),
       contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -36,9 +36,17 @@ class AppTheme {
         backgroundColor: AppColors.lightPrimary,
         foregroundColor: AppColors.lightOnPrimary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
         ),
-        minimumSize: Size.fromHeight(57),
+        minimumSize: Size.fromHeight(52),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.lightPrimary,
+        side: const BorderSide(color: AppColors.lightDivider),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size.fromHeight(48),
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
@@ -66,6 +74,18 @@ class AppTheme {
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.lightPrimary
+            : AppColors.lightTextSub,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.lightPrimary.withValues(alpha: 0.26)
+            : AppColors.lightDivider.withValues(alpha: 0.55),
+      ),
+    ),
     dividerColor: AppColors.lightDivider,
   );
 
@@ -90,7 +110,7 @@ class AppTheme {
       filled: true,
       fillColor: AppColors.darkInputBg,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(6)),
+        borderRadius: BorderRadius.all(Radius.circular(14)),
         borderSide: BorderSide.none,
       ),
       contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -100,9 +120,17 @@ class AppTheme {
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.darkOnPrimary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
         ),
-        minimumSize: Size.fromHeight(57),
+        minimumSize: Size.fromHeight(52),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.darkPrimary,
+        side: const BorderSide(color: AppColors.darkDivider),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size.fromHeight(48),
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
@@ -129,6 +157,18 @@ class AppTheme {
         color: Colors.white,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.darkPrimary
+            : AppColors.darkTextSub,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.darkPrimary.withValues(alpha: 0.25)
+            : AppColors.darkDivider.withValues(alpha: 0.65),
+      ),
     ),
     dividerColor: AppColors.darkDivider,
   );

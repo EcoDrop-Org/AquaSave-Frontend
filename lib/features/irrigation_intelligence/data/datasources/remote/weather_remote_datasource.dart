@@ -71,13 +71,13 @@ class OpenMeteoWeatherRemoteDataSource implements WeatherRemoteDataSource {
 
   Future<_ResolvedLocation> _resolveLocation(String location) async {
     final candidates = _locationCandidates(location);
+    final requestedParts = _locationParts(location);
 
     for (final candidate in candidates) {
       final uri = Uri.https('geocoding-api.open-meteo.com', '/v1/search', {
         'name': candidate,
-        'count': '1',
+        'count': '10',
         'language': 'es',
-        'countryCode': 'PE',
       });
 
       final response = await client.get(uri);
@@ -92,11 +92,25 @@ class OpenMeteoWeatherRemoteDataSource implements WeatherRemoteDataSource {
       final results = body['results'] as List<dynamic>?;
       if (results == null || results.isEmpty) continue;
 
-      final first = results.first as Map<String, dynamic>;
+      final ranked =
+          results
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (result) => (
+                  result: result,
+                  score: _locationScore(result, requestedParts, candidate),
+                ),
+              )
+              .toList()
+            ..sort((a, b) => b.score.compareTo(a.score));
+
+      if (ranked.isEmpty) continue;
+
+      final best = ranked.first.result;
       return _ResolvedLocation(
-        name: _displayName(first),
-        latitude: (first['latitude'] as num).toDouble(),
-        longitude: (first['longitude'] as num).toDouble(),
+        name: _displayName(best),
+        latitude: (best['latitude'] as num).toDouble(),
+        longitude: (best['longitude'] as num).toDouble(),
       );
     }
 
@@ -107,18 +121,72 @@ class OpenMeteoWeatherRemoteDataSource implements WeatherRemoteDataSource {
 
   List<String> _locationCandidates(String location) {
     final normalized = location.trim();
-    final parts = normalized
+    final parts = _locationParts(normalized);
+
+    return <String>{
+      normalized,
+      parts.join(' '),
+      ...parts,
+      if (parts.isNotEmpty) parts.last,
+    }.where((candidate) => candidate.length >= 3).toList();
+  }
+
+  List<String> _locationParts(String location) {
+    return location
         .split(',')
         .map((part) => part.trim())
         .where((part) => part.length >= 3)
         .toList();
+  }
 
-    return <String>{
-      normalized,
-      ...parts,
-      if (parts.isNotEmpty) parts.last,
-      'Lima',
-    }.where((candidate) => candidate.length >= 3).toList();
+  int _locationScore(
+    Map<String, dynamic> result,
+    List<String> requestedParts,
+    String candidate,
+  ) {
+    final name = _normalize(result['name'] as String? ?? '');
+    final admin1 = _normalize(result['admin1'] as String? ?? '');
+    final admin2 = _normalize(result['admin2'] as String? ?? '');
+    final country = _normalize(result['country'] as String? ?? '');
+    final candidateText = _normalize(candidate);
+    final haystack = [name, admin1, admin2, country].join(' ');
+    var score = 0;
+
+    if (requestedParts.isNotEmpty) {
+      final main = _normalize(requestedParts.first);
+      if (name == main) score += 90;
+      if (name.contains(main)) score += 45;
+      if (haystack.contains(main)) score += 25;
+    }
+
+    for (final part in requestedParts.skip(1)) {
+      final normalizedPart = _normalize(part);
+      if (admin1 == normalizedPart || admin2 == normalizedPart) score += 45;
+      if (haystack.contains(normalizedPart)) score += 22;
+    }
+
+    if (candidateText == name || candidateText == '$name $admin1') score += 18;
+
+    final population = (result['population'] as num?)?.toInt() ?? 0;
+    score += (population / 250000).clamp(0, 12).round();
+
+    return score;
+  }
+
+  String _normalize(String value) {
+    const accents = {
+      'á': 'a',
+      'é': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ú': 'u',
+      'ü': 'u',
+      'ñ': 'n',
+    };
+
+    var output = value.trim().toLowerCase();
+    accents.forEach((from, to) => output = output.replaceAll(from, to));
+    return output.replaceAll(RegExp(r'\s+'), ' ');
   }
 
   Map<String, dynamic> _decodeBody(String body) {
@@ -136,9 +204,15 @@ class OpenMeteoWeatherRemoteDataSource implements WeatherRemoteDataSource {
 
   String _displayName(Map<String, dynamic> result) {
     final name = result['name'] as String? ?? '';
+    final admin2 = result['admin2'] as String? ?? '';
     final admin1 = result['admin1'] as String? ?? '';
     final country = result['country'] as String? ?? '';
-    return [name, admin1, country].where((part) => part.isNotEmpty).join(', ');
+    return [
+      name,
+      if (admin2.isNotEmpty && admin2 != name) admin2,
+      if (admin1.isNotEmpty && admin1 != name) admin1,
+      country,
+    ].where((part) => part.isNotEmpty).join(', ');
   }
 }
 

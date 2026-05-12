@@ -31,6 +31,37 @@ class Device extends Equatable {
     this.longitude,
   });
 
+  Device copyWith({
+    String? id,
+    String? name,
+    String? location,
+    DeviceStatus? status,
+    double? temperatureC,
+    int? humidityPct,
+    int? batteryPct,
+    int? plantCount,
+    String? weather,
+    int? avgHumidityPct,
+    double? latitude,
+    double? longitude,
+    bool clearCoordinates = false,
+  }) {
+    return Device(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      location: location ?? this.location,
+      status: status ?? this.status,
+      temperatureC: temperatureC ?? this.temperatureC,
+      humidityPct: humidityPct ?? this.humidityPct,
+      batteryPct: batteryPct ?? this.batteryPct,
+      plantCount: plantCount ?? this.plantCount,
+      weather: weather ?? this.weather,
+      avgHumidityPct: avgHumidityPct ?? this.avgHumidityPct,
+      latitude: clearCoordinates ? null : latitude ?? this.latitude,
+      longitude: clearCoordinates ? null : longitude ?? this.longitude,
+    );
+  }
+
   @override
   List<Object?> get props => [
     id,

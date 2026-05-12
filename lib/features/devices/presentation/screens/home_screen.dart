@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../shared/widgets/app_header.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/widgets/user_avatar.dart';
-import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/active_device_card.dart';
 import '../widgets/humidity_card.dart';
@@ -27,78 +27,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return _HomeContent();
+    return const _HomeContent();
   }
 }
 
 class _HomeContent extends StatelessWidget {
+  const _HomeContent();
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     final authState = context.watch<AuthBloc>().state;
     final userName = authState is AuthAuthenticated
         ? authState.user.name.split(' ').first
-        : 'Usuario';
-    final avatarUrl = authState is AuthAuthenticated
-        ? authState.user.avatarUrl
-        : null;
-
+        : l10n.t('userFallback');
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
-          Container(
-            height: 88,
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              border: Border(
-                bottom: BorderSide(color: cs.outline.withValues(alpha: 0.32)),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Inicio',
-                  style: tt.headlineMedium?.copyWith(
-                    color: const Color(0xFF2D3D2C),
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton.filledTonal(
-                      tooltip: 'Notificaciones',
-                      icon: Icon(
-                        Icons.notifications_outlined,
-                        color: cs.onSurface,
-                        size: 24,
-                      ),
-                      onPressed: () {},
-                    ),
-                    const SizedBox(width: 12),
-                    UserAvatar(
-                      name: userName,
-                      avatarUrl: avatarUrl,
-                      radius: 22,
-                      fontSize: 13,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          AppHeader(title: l10n.t('navHome')),
           Expanded(
-            child: BlocConsumer<DevicesBloc, DevicesState>(
-              listener: (context, state) {
-                if (state is DevicesLoaded && state.devices.isNotEmpty) {
-                  context.read<WeatherBloc>().add(
-                    LoadWeatherForDevice(state.activeDevice),
-                  );
-                }
-              },
+            child: BlocBuilder<DevicesBloc, DevicesState>(
               builder: (context, state) {
                 if (state is DevicesLoading) {
                   return const Center(child: CircularProgressIndicator());
@@ -107,7 +59,7 @@ class _HomeContent extends StatelessWidget {
                   return Center(child: Text(state.message));
                 }
                 if (state is! DevicesLoaded || state.devices.isEmpty) {
-                  return const Center(child: Text('Sin dispositivos'));
+                  return Center(child: Text(l10n.t('noDevices')));
                 }
 
                 final device = state.activeDevice;
@@ -126,14 +78,15 @@ class _HomeContent extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Buenos dias, $userName',
+                            l10n.greeting(userName),
                             style: tt.headlineMedium?.copyWith(
-                              color: const Color(0xFF2D3D2C),
+                              color: const Color(0xFF263B2F),
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Estado actual del huerto y decisiones de riego.',
+                            l10n.t('homeSubtitle'),
                             style: tt.bodyMedium?.copyWith(
                               color: cs.onSurface.withValues(alpha: 0.68),
                             ),
@@ -171,14 +124,19 @@ class _HomeContent extends StatelessWidget {
                           ),
                           const SizedBox(height: AppDimensions.spaceMd),
                           QuickControlCard(
+                            deviceId: device.id,
                             onStartIrrigation: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Riego iniciado')),
+                                SnackBar(
+                                  content: Text(l10n.t('irrigationStarted')),
+                                ),
                               );
                             },
                             onStopIrrigation: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Riego detenido')),
+                                SnackBar(
+                                  content: Text(l10n.t('irrigationStopped')),
+                                ),
                               );
                             },
                           ),

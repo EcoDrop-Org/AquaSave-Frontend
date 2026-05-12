@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../domain/entities/device.dart';
 
 class HumidityCard extends StatelessWidget {
@@ -10,19 +11,20 @@ class HumidityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     final value = device.avgHumidityPct / 100.0;
 
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: const Color(0xFFC7DEC3),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withValues(alpha: 0.56)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.09),
+            blurRadius: 16,
+            offset: const Offset(0, 9),
           ),
         ],
       ),
@@ -47,7 +49,7 @@ class HumidityCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Humedad promedio',
+                  l10n.t('averageHumidity'),
                   style: tt.bodyMedium?.copyWith(
                     color: Colors.black.withValues(alpha: 0.68),
                     fontWeight: FontWeight.w700,
@@ -89,7 +91,7 @@ class HumidityCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'Rango objetivo para mantener el cultivo saludable.',
+            l10n.t('humidityGoal'),
             style: tt.bodySmall?.copyWith(
               color: Colors.black.withValues(alpha: 0.58),
             ),

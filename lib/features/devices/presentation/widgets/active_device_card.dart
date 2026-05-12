@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../domain/entities/device.dart';
 
 class ActiveDeviceCard extends StatelessWidget {
@@ -17,19 +18,20 @@ class ActiveDeviceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: const Color(0xFF94BC9A),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withValues(alpha: 0.48)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -44,7 +46,7 @@ class ActiveDeviceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dispositivo activo',
+                      l10n.t('activeDevice'),
                       style: tt.bodyMedium?.copyWith(
                         color: Colors.black.withValues(alpha: 0.62),
                         fontWeight: FontWeight.w700,
@@ -81,6 +83,7 @@ class _ConnectionBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final online = status == DeviceStatus.online;
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -99,7 +102,7 @@ class _ConnectionBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            online ? 'En linea' : 'Sin conexion',
+            online ? l10n.t('online') : l10n.t('offline'),
             style: tt.bodySmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -118,6 +121,8 @@ class _StatusChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -125,16 +130,16 @@ class _StatusChips extends StatelessWidget {
         _Chip(icon: Icons.location_on_outlined, label: device.location),
         _Chip(
           icon: Icons.thermostat_outlined,
-          label: '${device.temperatureC.toStringAsFixed(0)}°C',
+          label: l10n.temperature(device.temperatureC),
         ),
         _Chip(
           icon: Icons.water_drop_outlined,
-          label: 'Humedad ${device.humidityPct}%',
+          label: '${l10n.t('humidity')} ${device.humidityPct}%',
         ),
-        _Chip(icon: Icons.eco_outlined, label: '${device.plantCount} plantas'),
+        _Chip(icon: Icons.eco_outlined, label: l10n.plants(device.plantCount)),
         _Chip(
           icon: Icons.battery_3_bar,
-          label: 'Bateria ${device.batteryPct}%',
+          label: '${l10n.t('battery')} ${device.batteryPct}%',
         ),
       ],
     );

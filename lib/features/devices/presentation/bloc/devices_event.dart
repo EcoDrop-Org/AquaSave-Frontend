@@ -25,6 +25,23 @@ class AddDeviceRequested extends DevicesEvent {
   List<Object> get props => [name, location, plantCount];
 }
 
+class EditDeviceRequested extends DevicesEvent {
+  final String deviceId;
+  final String name;
+  final String location;
+  final int plantCount;
+
+  const EditDeviceRequested({
+    required this.deviceId,
+    required this.name,
+    required this.location,
+    required this.plantCount,
+  });
+
+  @override
+  List<Object> get props => [deviceId, name, location, plantCount];
+}
+
 class SelectActiveDevice extends DevicesEvent {
   final String deviceId;
 
