@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -182,15 +183,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             );
                           }
 
-                          return IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(child: weatherCard),
-                                const SizedBox(width: AppDimensions.spaceMd),
-                                Expanded(child: scheduleCard),
-                              ],
-                            ),
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: weatherCard),
+                              const SizedBox(width: AppDimensions.spaceMd),
+                              Expanded(child: scheduleCard),
+                            ],
                           );
                         },
                       ),
@@ -694,7 +693,7 @@ class _ScheduleList extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.52),
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.64),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
             ),
@@ -783,67 +782,220 @@ class _ScheduleRowState extends State<_ScheduleRow> {
         _timeCtrl.text.isNotEmpty && !_isValidTime24(_timeCtrl.text.trim());
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: widget.slot.enabled
+              ? cs.primary.withValues(alpha: 0.22)
+              : cs.outline.withValues(alpha: 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 420;
-          final timeField = TextField(
-            controller: _timeCtrl,
-            keyboardType: TextInputType.datetime,
-            onChanged: widget.onTimeChanged,
-            decoration: InputDecoration(
-              labelText: l10n.t('time24Label'),
-              hintText: l10n.t('time24Hint'),
-              errorText: showError ? l10n.t('invalidTime24') : null,
-              prefixIcon: const Icon(Icons.schedule_outlined, size: 20),
-            ),
-          );
-          final actions = Row(
-            mainAxisSize: MainAxisSize.min,
+          final compact = constraints.maxWidth < 560;
+          final timeField = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Switch(value: widget.slot.enabled, onChanged: widget.onToggle),
-              IconButton(
-                tooltip: l10n.t('removeSchedule'),
-                onPressed: widget.onRemove,
-                icon: const Icon(Icons.delete_outline),
+              Text(
+                l10n.t('time24Label'),
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.66),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 58,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: cs.surface.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: showError
+                        ? Theme.of(context).colorScheme.error
+                        : cs.outline.withValues(alpha: 0.18),
+                    width: showError ? 1.4 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule_outlined, color: cs.primary, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _timeCtrl,
+                        keyboardType: TextInputType.datetime,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+                          LengthLimitingTextInputFormatter(5),
+                        ],
+                        style: tt.titleMedium?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        decoration: InputDecoration.collapsed(
+                          hintText: l10n.t('time24Hint'),
+                          hintStyle: tt.titleMedium?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.38),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          widget.onTimeChanged(value);
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '24h',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                showError ? l10n.t('invalidTime24') : l10n.t('time24Helper'),
+                style: tt.bodySmall?.copyWith(
+                  color: showError
+                      ? Theme.of(context).colorScheme.error
+                      : cs.onSurface.withValues(alpha: 0.56),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           );
-          final label = Text(
-            widget.slot.enabled ? l10n.t('enabled') : l10n.t('disabled'),
-            style: tt.bodySmall?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.62),
-              fontWeight: FontWeight.w700,
+          final statusPill = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: widget.slot.enabled
+                  ? cs.primary.withValues(alpha: 0.12)
+                  : cs.outline.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: widget.slot.enabled
+                    ? cs.primary.withValues(alpha: 0.18)
+                    : cs.outline.withValues(alpha: 0.16),
+              ),
             ),
+            child: Text(
+              widget.slot.enabled ? l10n.t('enabled') : l10n.t('disabled'),
+              style: tt.bodySmall?.copyWith(
+                color: widget.slot.enabled ? cs.primary : cs.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          );
+          final header = Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.alarm_outlined, color: cs.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.t('scheduleTimeTitle'),
+                  style: tt.titleMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              statusPill,
+            ],
+          );
+          final stateControl = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+            ),
+            child: Row(
+              mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.t('scheduleState'),
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.68),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Switch(value: widget.slot.enabled, onChanged: widget.onToggle),
+              ],
+            ),
+          );
+          final removeButton = IconButton(
+            tooltip: l10n.t('removeSchedule'),
+            onPressed: widget.onRemove,
+            icon: const Icon(Icons.delete_outline),
           );
 
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                header,
+                const SizedBox(height: 14),
                 timeField,
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: label),
-                    actions,
+                    Expanded(child: stateControl),
+                    const SizedBox(width: 10),
+                    removeButton,
                   ],
                 ),
               ],
             );
           }
 
-          return Row(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 6, child: timeField),
-              const SizedBox(width: 12),
-              Expanded(flex: 3, child: label),
-              actions,
+              header,
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: timeField),
+                  const SizedBox(width: 12),
+                  SizedBox(width: 190, child: stateControl),
+                  const SizedBox(width: 8),
+                  removeButton,
+                ],
+              ),
             ],
           );
         },

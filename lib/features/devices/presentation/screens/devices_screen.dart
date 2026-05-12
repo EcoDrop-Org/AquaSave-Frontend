@@ -274,7 +274,7 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
               }
               locationMessage = result == null
                   ? l10n.t('locationNotFound')
-                  : '${l10n.t('resolvedLocation')}: ${result.displayName}';
+                  : '${l10n.t(result.fromPostalCode ? 'locationResolvedWithPostal' : 'resolvedLocation')}: ${result.displayName}';
             });
           }
 
@@ -583,7 +583,9 @@ class _LocationLookupPanel extends StatelessWidget {
                 controller: postalCodeCtrl,
                 label: l10n.t('postalCode'),
                 hint: l10n.t('postalCodeHint'),
+                helperText: l10n.t('postalCodeHelper'),
                 icon: Icons.local_post_office_outlined,
+                keyboardType: TextInputType.streetAddress,
               );
 
               if (stacked) {
@@ -620,6 +622,33 @@ class _LocationLookupPanel extends StatelessWidget {
                 ],
               );
             },
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.14)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: cs.primary, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    l10n.t('postalAlternativeHelp'),
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.70),
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -669,6 +698,7 @@ class _DeviceDialogField extends StatelessWidget {
   final IconData icon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final String? helperText;
 
   const _DeviceDialogField({
     required this.controller,
@@ -677,6 +707,7 @@ class _DeviceDialogField extends StatelessWidget {
     this.hint,
     this.keyboardType,
     this.validator,
+    this.helperText,
   });
 
   @override
@@ -690,6 +721,8 @@ class _DeviceDialogField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        helperText: helperText,
+        helperMaxLines: 2,
         prefixIcon: Icon(icon, size: 20),
         filled: true,
         fillColor: cs.surface.withValues(alpha: 0.88),
@@ -731,9 +764,20 @@ Future<_ResolvedLocation?> _resolveLocation({
   final countryCode = _countryCodeFor(country);
   final postal = postalCode.trim();
 
-  if (postal.isNotEmpty && countryCode != null) {
-    final postalResolved = await _resolvePostalCode(countryCode, postal);
+  if (postal.isNotEmpty) {
+    final postalResolved = countryCode == null
+        ? null
+        : await _resolvePostalCode(countryCode, postal);
     if (postalResolved != null) return postalResolved;
+
+    final structuredPostalResolved = await _resolveNominatim(
+      country: country,
+      countryCode: countryCode,
+      city: city,
+      district: district,
+      postalCode: postal,
+    );
+    if (structuredPostalResolved != null) return structuredPostalResolved;
   }
 
   final query = district.trim().isNotEmpty
@@ -763,7 +807,15 @@ Future<_ResolvedLocation?> _resolveLocation({
   final results = (payload['results'] as List<dynamic>? ?? [])
       .whereType<Map<String, dynamic>>()
       .toList();
-  if (results.isEmpty) return null;
+  if (results.isEmpty) {
+    return _resolveNominatim(
+      country: country,
+      countryCode: countryCode,
+      city: city,
+      district: district,
+      postalCode: postal,
+    );
+  }
 
   results.sort((a, b) {
     final scoreB = _locationScore(
@@ -783,7 +835,26 @@ Future<_ResolvedLocation?> _resolveLocation({
     return scoreB.compareTo(scoreA);
   });
 
-  return _locationFromGeocoding(results.first);
+  final best = results.first;
+  final bestScore = _locationScore(
+    best,
+    country: country,
+    city: city,
+    district: district,
+    countryCode: countryCode,
+  );
+  if (bestScore <= 0) {
+    final fallback = await _resolveNominatim(
+      country: country,
+      countryCode: countryCode,
+      city: city,
+      district: district,
+      postalCode: postal,
+    );
+    if (fallback != null) return fallback;
+  }
+
+  return _locationFromGeocoding(best);
 }
 
 Future<_ResolvedLocation?> _resolvePostalCode(
@@ -824,6 +895,7 @@ Future<_ResolvedLocation?> _resolvePostalCode(
     country: country,
     city: city,
     district: district,
+    fromPostalCode: true,
   );
 }
 
@@ -837,6 +909,8 @@ int _locationScore(
   final name = _normalize(item['name'] as String? ?? '');
   final admin1 = _normalize(item['admin1'] as String? ?? '');
   final admin2 = _normalize(item['admin2'] as String? ?? '');
+  final admin3 = _normalize(item['admin3'] as String? ?? '');
+  final admin4 = _normalize(item['admin4'] as String? ?? '');
   final itemCountry = _normalize(item['country'] as String? ?? '');
   final itemCountryCode = (item['country_code'] as String? ?? '')
       .trim()
@@ -846,14 +920,22 @@ int _locationScore(
   final wantedCountry = _normalize(country);
   var score = 0;
 
+  if (countryCode != null && itemCountryCode.isNotEmpty) {
+    score += itemCountryCode == countryCode ? 100 : -150;
+  }
   if (wantedDistrict.isNotEmpty && name == wantedDistrict) score += 80;
+  if (wantedDistrict.isNotEmpty && admin3 == wantedDistrict) score += 72;
+  if (wantedDistrict.isNotEmpty && admin4 == wantedDistrict) score += 60;
   if (wantedDistrict.isNotEmpty && admin2.contains(wantedDistrict)) score += 32;
+  if (wantedDistrict.isNotEmpty && admin3.contains(wantedDistrict)) score += 48;
+  if (wantedDistrict.isNotEmpty && admin4.contains(wantedDistrict)) score += 38;
+  if (wantedCity.isNotEmpty && name.contains(wantedCity)) score += 18;
   if (wantedCity.isNotEmpty && admin1.contains(wantedCity)) score += 38;
   if (wantedCity.isNotEmpty && admin2.contains(wantedCity)) score += 26;
+  if (wantedCity.isNotEmpty && admin3.contains(wantedCity)) score += 16;
   if (wantedCountry.isNotEmpty && itemCountry.contains(wantedCountry)) {
     score += 48;
   }
-  if (countryCode != null && itemCountryCode == countryCode) score += 70;
 
   return score;
 }
@@ -861,6 +943,7 @@ int _locationScore(
 _ResolvedLocation _locationFromGeocoding(Map<String, dynamic> item) {
   final parts = <String>[
     item['name'] as String? ?? '',
+    item['admin3'] as String? ?? '',
     item['admin2'] as String? ?? '',
     item['admin1'] as String? ?? '',
     item['country'] as String? ?? '',
@@ -877,9 +960,227 @@ _ResolvedLocation _locationFromGeocoding(Map<String, dynamic> item) {
   return _ResolvedLocation(
     displayName: deduped.join(', '),
     country: item['country'] as String?,
-    city: item['admin1'] as String?,
+    city: item['admin2'] as String? ?? item['admin1'] as String?,
     district: item['name'] as String?,
   );
+}
+
+Future<_ResolvedLocation?> _resolveNominatim({
+  required String country,
+  required String? countryCode,
+  required String city,
+  required String district,
+  required String postalCode,
+}) async {
+  final cleanedCountry = country.trim();
+  final cleanedCity = city.trim();
+  final cleanedDistrict = district.trim();
+  final cleanedPostal = postalCode.trim();
+  final attempts = <Map<String, String>>[];
+  final base = <String, String>{
+    'format': 'jsonv2',
+    'addressdetails': '1',
+    'limit': '8',
+    'accept-language': 'es',
+  };
+  if (countryCode != null) base['countrycodes'] = countryCode.toLowerCase();
+
+  if (cleanedPostal.isNotEmpty && cleanedCountry.isNotEmpty) {
+    attempts.add({...base, 'q': '$cleanedPostal, $cleanedCountry'});
+  }
+
+  if (cleanedPostal.isNotEmpty &&
+      (cleanedDistrict.isNotEmpty || cleanedCity.isNotEmpty)) {
+    attempts.add({
+      ...base,
+      'q': [
+        cleanedDistrict,
+        cleanedCity,
+        cleanedPostal,
+        cleanedCountry,
+      ].where((part) => part.isNotEmpty).join(', '),
+    });
+  }
+
+  final structured = Map<String, String>.from(base);
+  if (cleanedCountry.isNotEmpty) structured['country'] = cleanedCountry;
+  if (cleanedCity.isNotEmpty) structured['city'] = cleanedCity;
+  if (cleanedDistrict.isNotEmpty) structured['county'] = cleanedDistrict;
+  if (cleanedPostal.isNotEmpty) structured['postalcode'] = cleanedPostal;
+  if (structured.length > base.length) attempts.add(structured);
+
+  final freeText = [
+    cleanedDistrict,
+    cleanedCity,
+    cleanedPostal,
+    cleanedCountry,
+  ].where((part) => part.isNotEmpty).join(', ');
+  if (freeText.length >= 2) {
+    attempts.add({...base, 'q': freeText});
+  }
+
+  for (final params in attempts) {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
+    final http.Response response;
+    try {
+      response = await http.get(uri).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      continue;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) continue;
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List<dynamic>) continue;
+    final results = decoded.whereType<Map<String, dynamic>>().toList();
+    if (results.isEmpty) continue;
+
+    results.sort((a, b) {
+      final scoreB = _nominatimScore(
+        b,
+        countryCode: countryCode,
+        city: cleanedCity,
+        district: cleanedDistrict,
+        postalCode: cleanedPostal,
+      );
+      final scoreA = _nominatimScore(
+        a,
+        countryCode: countryCode,
+        city: cleanedCity,
+        district: cleanedDistrict,
+        postalCode: cleanedPostal,
+      );
+      return scoreB.compareTo(scoreA);
+    });
+
+    return _locationFromNominatim(
+      results.first,
+      fromPostalCode: cleanedPostal.isNotEmpty,
+    );
+  }
+
+  return null;
+}
+
+int _nominatimScore(
+  Map<String, dynamic> item, {
+  required String? countryCode,
+  required String city,
+  required String district,
+  required String postalCode,
+}) {
+  final address = _addressFromNominatim(item);
+  final itemCountryCode = (address['country_code'] as String? ?? '')
+      .trim()
+      .toUpperCase();
+  final itemPostcode = _normalize(address['postcode'] as String? ?? '');
+  final itemCity = _normalize(
+    _firstString(address, [
+      'city',
+      'town',
+      'village',
+      'municipality',
+      'county',
+      'state',
+    ]),
+  );
+  final itemDistrict = _normalize(
+    _firstString(address, [
+      'suburb',
+      'city_district',
+      'district',
+      'borough',
+      'quarter',
+      'neighbourhood',
+      'municipality',
+      'county',
+    ]),
+  );
+  final wantedCity = _normalize(city);
+  final wantedDistrict = _normalize(district);
+  final wantedPostal = _normalize(postalCode);
+  final importance = ((item['importance'] as num?) ?? 0).clamp(0, 1) * 20;
+  final addresstype = (item['addresstype'] as String? ?? '').trim();
+  final category = (item['category'] as String? ?? '').trim();
+  final placeRank = (item['place_rank'] as num?)?.toInt() ?? 30;
+  var score = importance.round();
+
+  if (countryCode != null && itemCountryCode.isNotEmpty) {
+    score += itemCountryCode == countryCode ? 120 : -200;
+  }
+  if (wantedPostal.isNotEmpty && itemPostcode == wantedPostal) score += 140;
+  if (wantedPostal.isNotEmpty &&
+      itemPostcode.isNotEmpty &&
+      itemPostcode != wantedPostal) {
+    score -= 100;
+  }
+  if (wantedPostal.isNotEmpty && addresstype == 'postcode') score += 90;
+  if (category == 'boundary' || addresstype == 'city') score += 42;
+  if (placeRank >= 28 && addresstype != 'postcode') score -= 36;
+  if (wantedDistrict.isNotEmpty && itemDistrict == wantedDistrict) score += 90;
+  if (wantedDistrict.isNotEmpty && itemDistrict.contains(wantedDistrict)) {
+    score += 58;
+  }
+  if (wantedCity.isNotEmpty && itemCity == wantedCity) score += 70;
+  if (wantedCity.isNotEmpty && itemCity.contains(wantedCity)) score += 42;
+
+  return score;
+}
+
+_ResolvedLocation _locationFromNominatim(
+  Map<String, dynamic> item, {
+  required bool fromPostalCode,
+}) {
+  final address = _addressFromNominatim(item);
+  final country = _firstString(address, ['country']);
+  final city = _firstString(address, [
+    'city',
+    'town',
+    'village',
+    'municipality',
+    'county',
+  ]);
+  final state = _firstString(address, ['state', 'region']);
+  final district = _firstString(address, [
+    'suburb',
+    'city_district',
+    'district',
+    'borough',
+    'quarter',
+    'neighbourhood',
+  ]);
+  final parts = <String>[district, city, state, country];
+  final deduped = <String>[];
+  for (final part in parts.map((part) => part.trim())) {
+    if (part.isEmpty) continue;
+    if (deduped.any((existing) => _normalize(existing) == _normalize(part))) {
+      continue;
+    }
+    deduped.add(part);
+  }
+  final displayName = deduped.isNotEmpty
+      ? deduped.join(', ')
+      : (item['display_name'] as String? ?? '').trim();
+
+  return _ResolvedLocation(
+    displayName: displayName,
+    country: country,
+    city: city.isNotEmpty ? city : state,
+    district: district,
+    fromPostalCode: fromPostalCode,
+  );
+}
+
+Map<String, dynamic> _addressFromNominatim(Map<String, dynamic> item) {
+  final address = item['address'];
+  return address is Map<String, dynamic> ? address : <String, dynamic>{};
+}
+
+String _firstString(Map<String, dynamic> source, List<String> keys) {
+  for (final key in keys) {
+    final value = source[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
+  return '';
 }
 
 _LocationParts _locationParts(String location) {
@@ -938,12 +1239,14 @@ class _ResolvedLocation {
   final String? country;
   final String? city;
   final String? district;
+  final bool fromPostalCode;
 
   const _ResolvedLocation({
     required this.displayName,
     this.country,
     this.city,
     this.district,
+    this.fromPostalCode = false,
   });
 }
 
