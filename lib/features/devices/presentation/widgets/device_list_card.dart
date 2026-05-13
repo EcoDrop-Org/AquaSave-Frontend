@@ -7,6 +7,7 @@ class DeviceListCard extends StatefulWidget {
   final Device device;
   final VoidCallback? onViewDetails;
   final VoidCallback? onEdit;
+  final VoidCallback? onSetActive;
   final bool isActive;
 
   const DeviceListCard({
@@ -14,6 +15,7 @@ class DeviceListCard extends StatefulWidget {
     required this.device,
     this.onViewDetails,
     this.onEdit,
+    this.onSetActive,
     this.isActive = false,
   });
 
@@ -29,15 +31,8 @@ class _DeviceListCardState extends State<DeviceListCard> {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final online = widget.device.status == DeviceStatus.online;
-    final cardColor = isDark
-        ? cs.primary.withValues(alpha: 0.16)
-        : cs.primary.withValues(alpha: 0.46);
-    final inkColor = isDark
-        ? cs.primary.withValues(alpha: 0.24)
-        : cs.primary.withValues(alpha: 0.58);
-    final titleColor = isDark ? cs.onSurface : const Color(0xFF0E180F);
+    final isActive = widget.isActive;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -49,122 +44,206 @@ class _DeviceListCardState extends State<DeviceListCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          constraints: const BoxConstraints(minHeight: 236),
-          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
           decoration: BoxDecoration(
-            color: _hovered ? inkColor : cardColor,
-            borderRadius: BorderRadius.circular(28),
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: widget.isActive
-                  ? cs.primary.withValues(alpha: 0.72)
-                  : cs.primary.withValues(alpha: 0.18),
-              width: widget.isActive ? 1.8 : 1,
+              color: isActive
+                  ? cs.primary
+                  : cs.outline.withValues(alpha: _hovered ? 0.55 : 0.35),
+              width: isActive ? 1.8 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: _hovered ? 0.16 : 0.10),
-                blurRadius: _hovered ? 28 : 20,
-                offset: const Offset(0, 14),
+                color: Colors.black.withValues(alpha: _hovered ? 0.16 : 0.08),
+                blurRadius: _hovered ? 26 : 18,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
-          child: Stack(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Positioned(
-                top: 0,
-                right: 0,
-                child: _StatusPill(online: online, isActive: widget.isActive),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
+              // Header: icon + name/location + status
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 18),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 285),
-                    child: Text(
-                      widget.device.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: tt.headlineSmall?.copyWith(
-                        color: titleColor,
-                        fontWeight: FontWeight.w900,
-                        height: 1.1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   Container(
-                    width: 220,
-                    height: 2,
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: titleColor.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(999),
+                      color: cs.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(
+                      Icons.sensors_rounded,
+                      color: cs.primary,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 22,
-                    runSpacing: 12,
-                    children: [
-                      _InlineStat(
-                        icon: Icons.eco_rounded,
-                        value: '${widget.device.plantCount}',
-                        label: l10n.t('plantsLabel'),
-                      ),
-                      _InlineStat(
-                        icon: Icons.water_drop_rounded,
-                        value: '${widget.device.avgHumidityPct}%',
-                        label: l10n.t('humidity'),
-                      ),
-                      _InlineStat(
-                        icon: Icons.battery_5_bar_rounded,
-                        value: '${widget.device.batteryPct}%',
-                        label: l10n.t('battery'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 180),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: widget.onViewDetails,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3E5548),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(46),
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          l10n.t('viewDetails'),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.device.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: tt.titleMedium?.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.place_outlined,
+                              size: 13,
+                              color: cs.onSurface.withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                widget.device.localizedLocation(
+                                  l10n.locale.languageCode,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodySmall?.copyWith(
+                                  color: cs.onSurface.withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  TextButton.icon(
-                    onPressed: widget.onEdit,
-                    icon: const Icon(Icons.tune_rounded, size: 16),
-                    label: Text(l10n.t('editDevice')),
-                    style: TextButton.styleFrom(
-                      foregroundColor: titleColor.withValues(alpha: 0.82),
+                  const SizedBox(width: 10),
+                  _StatusPill(online: online, isActive: isActive),
+                ],
+              ),
+              const SizedBox(height: 18),
+              // Three inline stats
+              Row(
+                children: [
+                  Expanded(
+                    child: _InlineStat(
+                      icon: Icons.eco_rounded,
+                      value: '${widget.device.plantCount}',
+                      label: l10n.t('plantsLabel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _InlineStat(
+                      icon: Icons.water_drop_rounded,
+                      value: '${widget.device.avgHumidityPct}%',
+                      label: l10n.t('humidity'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _InlineStat(
+                      icon: Icons.battery_charging_full_rounded,
+                      value: '${widget.device.batteryPct}%',
+                      label: l10n.t('battery'),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
+              // Main action: "Activar" / "Huerto activo" + edit
+              Row(
+                children: [
+                  Expanded(child: _ActivateButton(isActive: isActive, onPressed: widget.onSetActive)),
+                  const SizedBox(width: 10),
+                  _IconActionButton(
+                    icon: Icons.edit_outlined,
+                    tooltip: l10n.t('editDevice'),
+                    onPressed: widget.onEdit,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Secondary: open detail dialog
+              Center(
+                child: TextButton.icon(
+                  onPressed: widget.onViewDetails,
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: Text(l10n.t('viewDetails')),
+                  style: TextButton.styleFrom(
+                    foregroundColor: cs.onSurface.withValues(alpha: 0.75),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ActivateButton extends StatelessWidget {
+  final bool isActive;
+  final VoidCallback? onPressed;
+
+  const _ActivateButton({required this.isActive, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    if (isActive) {
+      return Container(
+        height: 50,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_rounded, color: cs.primary, size: 18),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                l10n.t('currentlyActive'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.bolt_rounded, size: 18),
+      label: Text(
+        l10n.t('setActive'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -178,40 +257,85 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
-    final label = online ? l10n.t('online') : l10n.t('offline');
-    final icon = online ? Icons.wifi_rounded : Icons.wifi_off_rounded;
-    final bg = online
-        ? const Color(0xFF3E5548)
-        : Theme.of(context).colorScheme.error;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+    final Color bg;
+    final Color fg;
+    final IconData icon;
+    final String label;
+    if (online) {
+      bg = cs.onSurface.withValues(alpha: 0.08);
+      fg = cs.onSurface.withValues(alpha: 0.75);
+      icon = Icons.wifi_rounded;
+      label = l10n.t('online');
+    } else {
+      bg = cs.error.withValues(alpha: 0.14);
+      fg = cs.error;
+      icon = Icons.wifi_off_rounded;
+      label = l10n.t('offline');
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isActive ? 0.20 : 0.14),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: fg.withValues(alpha: 0.22)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 16),
-          const SizedBox(width: 6),
+          Icon(icon, color: fg, size: 13),
+          const SizedBox(width: 5),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
+            style: tt.bodySmall?.copyWith(
+              color: fg,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IconActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _IconActionButton({
+    required this.icon,
+    required this.tooltip,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(13),
+          child: Ink(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.24)),
+            ),
+            child: Icon(icon, color: cs.primary, size: 20),
+          ),
+        ),
       ),
     );
   }
@@ -231,23 +355,41 @@ class _InlineStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final fg = Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context).colorScheme.onSurface
-        : Colors.white;
+    final cs = Theme.of(context).colorScheme;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: fg),
-        const SizedBox(width: 7),
-        Text(
-          '$value $label',
-          style: tt.bodyMedium?.copyWith(
-            color: fg,
-            fontWeight: FontWeight.w700,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: cs.primary, size: 19),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: tt.titleMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.55),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_logo.dart';
+import '../../../../shared/widgets/auth_top_bar.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
@@ -64,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
           body: LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 800;
-              return isWide
+              final body = isWide
                   ? _WideLayout(
                       usernameCtrl: _usernameCtrl,
                       passwordCtrl: _passwordCtrl,
@@ -79,6 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       onSubmit: _submit,
                       onGoToRegister: widget.onGoToRegister,
                     );
+              return Stack(
+                children: [
+                  Positioned.fill(child: body),
+                  const Positioned(top: 0, right: 0, child: AuthTopBar()),
+                ],
+              );
             },
           ),
         );

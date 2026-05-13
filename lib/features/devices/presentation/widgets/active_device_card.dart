@@ -145,7 +145,10 @@ class _StatusChips extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _Chip(icon: Icons.place_outlined, label: device.location),
+        _Chip(
+          icon: Icons.place_outlined,
+          label: device.localizedLocation(l10n.locale.languageCode),
+        ),
         _Chip(
           icon: Icons.thermostat_rounded,
           label: l10n.temperature(device.temperatureC),

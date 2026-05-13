@@ -18,6 +18,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     on<LoadDevices>(_onLoadDevices);
     on<AddDeviceRequested>(_onAddDeviceRequested);
     on<EditDeviceRequested>(_onEditDeviceRequested);
+    on<DeleteDeviceRequested>(_onDeleteDeviceRequested);
     on<SelectActiveDevice>(_onSelectActiveDevice);
   }
 
@@ -71,6 +72,8 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
       avgHumidityPct: 50,
       latitude: event.latitude,
       longitude: event.longitude,
+      description: event.description,
+      locationByLocale: event.locationByLocale,
     );
 
     _devices.add(device);
@@ -109,14 +112,39 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
 
     final current = _devices[index];
     final hasNewCoords = event.latitude != null && event.longitude != null;
+    final locationChanged = event.location != current.location;
     _devices[index] = current.copyWith(
       name: event.name,
       location: event.location,
       plantCount: event.plantCount,
       latitude: hasNewCoords ? event.latitude : null,
       longitude: hasNewCoords ? event.longitude : null,
-      clearCoordinates: !hasNewCoords && event.location != current.location,
+      clearCoordinates: !hasNewCoords && locationChanged,
+      description: event.description,
+      clearDescription: event.clearDescription,
+      locationByLocale: event.locationByLocale,
+      clearLocationByLocale: event.locationByLocale == null && locationChanged,
     );
+
+    emit(
+      DevicesLoaded(
+        List.unmodifiable(_devices),
+        activeDeviceId: _activeDeviceId,
+      ),
+    );
+  }
+
+  void _onDeleteDeviceRequested(
+    DeleteDeviceRequested event,
+    Emitter<DevicesState> emit,
+  ) {
+    final index = _devices.indexWhere((device) => device.id == event.deviceId);
+    if (index == -1) return;
+
+    _devices.removeAt(index);
+    if (_activeDeviceId == event.deviceId) {
+      _activeDeviceId = _devices.isNotEmpty ? _devices.first.id : null;
+    }
 
     emit(
       DevicesLoaded(

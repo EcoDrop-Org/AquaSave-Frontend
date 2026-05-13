@@ -105,10 +105,9 @@ class _WideGrid extends StatelessWidget {
               device: device,
               isActive: _isActive(context, device),
               onEdit: () => _showDeviceDialog(context, device: device),
-              onViewDetails: () {
-                context.read<DevicesBloc>().add(SelectActiveDevice(device.id));
-                showDeviceDetailDialog(context, device);
-              },
+              onSetActive: () =>
+                  context.read<DevicesBloc>().add(SelectActiveDevice(device.id)),
+              onViewDetails: () => showDeviceDetailDialog(context, device),
             ),
           ),
         ),
@@ -145,10 +144,9 @@ class _NarrowList extends StatelessWidget {
               device: device,
               isActive: _isActive(context, device),
               onEdit: () => _showDeviceDialog(context, device: device),
-              onViewDetails: () {
-                context.read<DevicesBloc>().add(SelectActiveDevice(device.id));
-                showDeviceDetailDialog(context, device);
-              },
+              onSetActive: () =>
+                  context.read<DevicesBloc>().add(SelectActiveDevice(device.id)),
+              onViewDetails: () => showDeviceDetailDialog(context, device),
             ),
           ),
         ),
@@ -259,15 +257,16 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   var step = 1;
   var selectedSsid = 'CASA_VERA_2.4';
   var rememberNetwork = true;
-  var crop = 'Hortalizas';
-  var minHumidity = 35.0;
-  var maxHumidity = 75.0;
+  var crop = 'Plantas de vegetales';
+  var minHumidity = 50.0;
+  var maxHumidity = 80.0;
   _PlaceResult? selectedPlace;
 
   final l10n = AppLocalizations.of(context);
   final passwordCtrl = TextEditingController(text: 'aquasave123');
   final nameCtrl = TextEditingController(text: 'Mi huerto terraza');
   final plantCountCtrl = TextEditingController(text: '5');
+  final descriptionCtrl = TextEditingController();
 
   void showMessage(String message) {
     ScaffoldMessenger.of(
@@ -302,6 +301,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
     final place = selectedPlace;
     final location = place?.displayName.trim() ?? '';
     final plantCount = int.tryParse(plantCountCtrl.text.trim()) ?? 1;
+    final description = descriptionCtrl.text.trim();
 
     if (location.isEmpty) {
       showMessage(l10n.t('invalidLocation'));
@@ -315,6 +315,10 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         plantCount: plantCount,
         latitude: place?.latitude,
         longitude: place?.longitude,
+        description: description.isEmpty ? null : description,
+        locationByLocale: place == null || place.byLocale.isEmpty
+            ? null
+            : Map<String, String>.from(place.byLocale),
       ),
     );
     Navigator.of(dialogContext).pop();
@@ -363,6 +367,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
               4 => _WizardGardenStep(
                 nameCtrl: nameCtrl,
                 plantCountCtrl: plantCountCtrl,
+                descriptionCtrl: descriptionCtrl,
                 crop: crop,
                 selectedPlace: selectedPlace,
                 onCropChanged: (value) => setWizardState(() => crop = value),
@@ -473,6 +478,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   passwordCtrl.dispose();
   nameCtrl.dispose();
   plantCountCtrl.dispose();
+  descriptionCtrl.dispose();
 }
 
 class _WizardStepper extends StatelessWidget {
@@ -879,6 +885,7 @@ class _WizardVerificationStep extends StatelessWidget {
 class _WizardGardenStep extends StatelessWidget {
   final TextEditingController nameCtrl;
   final TextEditingController plantCountCtrl;
+  final TextEditingController descriptionCtrl;
   final String crop;
   final _PlaceResult? selectedPlace;
   final ValueChanged<String> onCropChanged;
@@ -887,6 +894,7 @@ class _WizardGardenStep extends StatelessWidget {
   const _WizardGardenStep({
     required this.nameCtrl,
     required this.plantCountCtrl,
+    required this.descriptionCtrl,
     required this.crop,
     required this.selectedPlace,
     required this.onCropChanged,
@@ -938,18 +946,30 @@ class _WizardGardenStep extends StatelessWidget {
                     prefixIcon: Icon(Icons.eco_rounded),
                   ),
                 ),
-                const SizedBox(height: 16),
-                _WizardUpperLabel('TIPO DE CULTIVO'),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: descriptionCtrl,
+                  minLines: 2,
+                  maxLines: 3,
+                  maxLength: 160,
+                  decoration: const InputDecoration(
+                    labelText: 'Descripción (opcional)',
+                    hintText: 'Una nota corta sobre este huerto',
+                    prefixIcon: Icon(Icons.notes_rounded),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _WizardUpperLabel('TIPO DE PLANTAS'),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
                     for (final item in const [
-                      'Hortalizas',
-                      'Hierbas',
-                      'Suculentas',
-                      'Vegetales de hoja',
+                      'Plantas de vegetales',
+                      'Plantas con frutos',
+                      'Hierbas aromáticas',
+                      'Suculentas y cactus',
                     ])
                       ChoiceChip(
                         label: Text(item),
@@ -1002,10 +1022,10 @@ class _WizardThresholdStep extends StatelessWidget {
   });
 
   static const _presets = [
-    ('Hortalizas', 35.0, 75.0),
-    ('Hierbas', 35.0, 70.0),
-    ('Suculentas', 20.0, 50.0),
-    ('Vegetales de hoja', 50.0, 80.0),
+    ('Plantas de vegetales', 50.0, 80.0),
+    ('Plantas con frutos', 35.0, 75.0),
+    ('Hierbas aromáticas', 35.0, 70.0),
+    ('Suculentas y cactus', 20.0, 50.0),
   ];
 
   @override
@@ -1891,6 +1911,7 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
           countryCode: '',
           latitude: device.latitude!,
           longitude: device.longitude!,
+          byLocale: device.locationByLocale ?? const {},
         )
       : null;
 
@@ -2033,6 +2054,10 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                       (resolvedName != null && resolvedName.isNotEmpty)
                       ? resolvedName
                       : (device?.location ?? '');
+                  final byLocale =
+                      selectedPlace == null || selectedPlace!.byLocale.isEmpty
+                      ? null
+                      : Map<String, String>.from(selectedPlace!.byLocale);
                   _submitDeviceDialog(
                     context,
                     dialogContext,
@@ -2044,6 +2069,7 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                     l10n,
                     latitude: selectedPlace?.latitude,
                     longitude: selectedPlace?.longitude,
+                    locationByLocale: byLocale,
                   );
                 },
               ),
@@ -2069,6 +2095,7 @@ void _submitDeviceDialog(
   AppLocalizations l10n, {
   double? latitude,
   double? longitude,
+  Map<String, String>? locationByLocale,
 }) {
   if (!formKey.currentState!.validate()) return;
   if (location.trim().length < 3) {
@@ -2089,6 +2116,7 @@ void _submitDeviceDialog(
         plantCount: plantCount,
         latitude: latitude,
         longitude: longitude,
+        locationByLocale: locationByLocale,
       ),
     );
   } else {
@@ -2100,6 +2128,7 @@ void _submitDeviceDialog(
         plantCount: plantCount,
         latitude: latitude,
         longitude: longitude,
+        locationByLocale: locationByLocale,
       ),
     );
   }
@@ -2267,14 +2296,78 @@ class _LocationSearchPanelState extends State<_LocationSearchPanel> {
 
   void _select(_PlaceResult place) {
     _debounce?.cancel();
+    final lang = AppLocalizations.of(context).locale.languageCode;
+    final seeded = place.withByLocale({lang: place.displayName});
     setState(() {
-      _selected = place;
+      _selected = seeded;
       _results = const [];
-      _ctrl.text = place.displayName;
+      _ctrl.text = seeded.displayName;
       _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
     });
-    widget.onChanged(place);
+    widget.onChanged(seeded);
     FocusScope.of(context).unfocus();
+    // En background, traemos también los otros idiomas soportados para que el
+    // string se traduzca solo al cambiar de idioma sin tener que re-elegir.
+    _hydrateOtherLocales(seeded, lang);
+  }
+
+  Future<void> _hydrateOtherLocales(_PlaceResult base, String currentLang) async {
+    final supported = AppLocalizations.supportedLocales
+        .map((l) => l.languageCode)
+        .where((l) => l != currentLang)
+        .toList();
+    final updated = Map<String, String>.from(base.byLocale);
+    for (final lang in supported) {
+      final reverse = await _reverseGeocodeNominatim(
+        base.latitude,
+        base.longitude,
+        lang,
+      );
+      if (!mounted) return;
+      if (reverse != null && reverse.displayName.isNotEmpty) {
+        updated[lang] = reverse.displayName;
+      }
+    }
+    if (!mounted) return;
+    final current = _selected;
+    if (current == null) return;
+    // Solo aplicamos si el usuario sigue con la misma ubicación elegida.
+    if (current.latitude != base.latitude || current.longitude != base.longitude) {
+      return;
+    }
+    final hydrated = current.withByLocale(updated);
+    setState(() => _selected = hydrated);
+    widget.onChanged(hydrated);
+  }
+
+  Future<_PlaceResult?> _reverseGeocodeNominatim(
+    double lat,
+    double lon,
+    String lang,
+  ) async {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+      'lat': lat.toString(),
+      'lon': lon.toString(),
+      'format': 'jsonv2',
+      'addressdetails': '1',
+      'accept-language': lang,
+    });
+    try {
+      final response = await http
+          .get(
+            uri,
+            headers: const {
+              'User-Agent': 'AquaSave/1.0 (smart irrigation app)',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode < 200 || response.statusCode >= 300) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      return _PlaceResult.fromNominatim(decoded);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _clearSelection() {
@@ -2754,6 +2847,9 @@ class _PlaceResult {
   final String countryCode;
   final double latitude;
   final double longitude;
+  // Versiones del displayName indexadas por código de idioma. Se rellena al
+  // seleccionar (idioma actual de inmediato, otros en background).
+  final Map<String, String> byLocale;
 
   const _PlaceResult({
     required this.name,
@@ -2763,7 +2859,19 @@ class _PlaceResult {
     required this.countryCode,
     required this.latitude,
     required this.longitude,
+    this.byLocale = const {},
   });
+
+  _PlaceResult withByLocale(Map<String, String> map) => _PlaceResult(
+    name: name,
+    displayName: displayName,
+    region: region,
+    country: country,
+    countryCode: countryCode,
+    latitude: latitude,
+    longitude: longitude,
+    byLocale: map,
+  );
 
   /// Builds a result from an Open-Meteo geocoding entry.
   static _PlaceResult? fromOpenMeteo(Map<String, dynamic> json) {

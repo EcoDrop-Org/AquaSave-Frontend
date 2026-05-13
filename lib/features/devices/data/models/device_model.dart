@@ -14,9 +14,17 @@ class DeviceModel extends Device {
     required super.avgHumidityPct,
     super.latitude,
     super.longitude,
+    super.description,
+    super.locationByLocale,
   });
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
+    final rawMap = json['location_by_locale'];
+    final byLocale = rawMap is Map
+        ? rawMap.map<String, String>(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          )
+        : null;
     return DeviceModel(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -32,6 +40,8 @@ class DeviceModel extends Device {
       avgHumidityPct: json['avg_humidity_pct'] as int,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      description: json['description'] as String?,
+      locationByLocale: byLocale,
     );
   }
 
@@ -48,5 +58,7 @@ class DeviceModel extends Device {
     'avg_humidity_pct': avgHumidityPct,
     'latitude': latitude,
     'longitude': longitude,
+    'description': description,
+    'location_by_locale': locationByLocale,
   };
 }

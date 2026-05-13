@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'core/l10n/app_localizations.dart';
 import 'core/l10n/locale_cubit.dart';
+import 'core/navigation/nav_cubit.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_cubit.dart';
 import 'features/auth/data/datasources/local/auth_local_datasource.dart';
@@ -22,6 +23,7 @@ import 'features/devices/data/repositories/devices_repository_impl.dart';
 import 'features/devices/domain/usecases/get_devices_usecase.dart';
 import 'features/devices/presentation/bloc/devices_bloc.dart';
 import 'features/devices/presentation/bloc/irrigation_cubit.dart';
+import 'features/devices/presentation/cubit/irrigation_settings_cubit.dart';
 import 'features/devices/presentation/screens/analysis_screen.dart';
 import 'features/devices/presentation/screens/devices_screen.dart';
 import 'features/devices/presentation/screens/history_screen.dart';
@@ -80,7 +82,11 @@ class AquaSaveApp extends StatelessWidget {
           ),
         ),
         BlocProvider<IrrigationCubit>(create: (_) => IrrigationCubit()),
+        BlocProvider<IrrigationSettingsCubit>(
+          create: (_) => IrrigationSettingsCubit(),
+        ),
         BlocProvider<PlanCubit>(create: (_) => PlanCubit()),
+        BlocProvider<NavCubit>(create: (_) => NavCubit()),
       ],
       child: BlocBuilder<LocaleCubit, Locale>(
         builder: (context, locale) {
@@ -123,6 +129,15 @@ class _AppRouterState extends State<_AppRouter> {
   String? _lastWeatherDeviceKey;
 
   void _goTo(_AppScreen screen) => setState(() => _appScreen = screen);
+
+  _AppScreen _tabToScreen(AppTab tab) => switch (tab) {
+    AppTab.home => _AppScreen.home,
+    AppTab.devices => _AppScreen.devices,
+    AppTab.analysis => _AppScreen.analysis,
+    AppTab.history => _AppScreen.history,
+    AppTab.profile => _AppScreen.profile,
+    AppTab.settings => _AppScreen.settings,
+  };
 
   void _onSidebarTap(SidebarItem item) {
     switch (item) {
@@ -198,8 +213,15 @@ class _AppRouterState extends State<_AppRouter> {
             };
           }
 
-          return BlocListener<DevicesBloc, DevicesState>(
-            listener: _loadWeatherForActiveDevice,
+          return MultiBlocListener(
+            listeners: [
+              BlocListener<DevicesBloc, DevicesState>(
+                listener: _loadWeatherForActiveDevice,
+              ),
+              BlocListener<NavCubit, AppTab>(
+                listener: (context, tab) => _goTo(_tabToScreen(tab)),
+              ),
+            ],
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final l10n = AppLocalizations.of(context);

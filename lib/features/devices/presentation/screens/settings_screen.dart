@@ -6,6 +6,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../subscription/presentation/cubit/plan_cubit.dart';
+import '../cubit/irrigation_settings_cubit.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,11 +16,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  double _minMoisture = 35;
-  double _optimalMoisture = 58;
-  double _maxMoisture = 82;
-  double _temperatureAlert = 28;
-  double _rainThreshold = 70;
   final List<_ScheduleSlot> _scheduleSlots = [
     const _ScheduleSlot(timeText: '06:30'),
   ];
@@ -103,71 +99,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      _SettingsCard(
-                        title: l10n.t('moistureThresholds'),
-                        icon: Icons.water_drop_outlined,
-                        child: Column(
-                          children: [
-                            _SliderRow(
-                              label: l10n.t('minimum'),
-                              value: _minMoisture,
-                              min: 10,
-                              max: 60,
-                              suffix: '%',
-                              onChanged: (value) =>
-                                  setState(() => _minMoisture = value),
+                      BlocBuilder<IrrigationSettingsCubit, IrrigationSettings>(
+                        builder: (context, settings) {
+                          final cubit = context.read<IrrigationSettingsCubit>();
+                          return _SettingsCard(
+                            title: l10n.t('moistureThresholds'),
+                            icon: Icons.water_drop_outlined,
+                            child: Column(
+                              children: [
+                                _SliderRow(
+                                  label: l10n.t('minimum'),
+                                  value: settings.minMoisture,
+                                  min: 10,
+                                  max: 60,
+                                  suffix: '%',
+                                  onChanged: cubit.setMin,
+                                ),
+                                _SliderRow(
+                                  label: l10n.t('optimal'),
+                                  value: settings.optimalMoisture,
+                                  min: 35,
+                                  max: 75,
+                                  suffix: '%',
+                                  onChanged: cubit.setOptimal,
+                                ),
+                                _SliderRow(
+                                  label: l10n.t('maximum'),
+                                  value: settings.maxMoisture,
+                                  min: 60,
+                                  max: 95,
+                                  suffix: '%',
+                                  onChanged: cubit.setMax,
+                                ),
+                              ],
                             ),
-                            _SliderRow(
-                              label: l10n.t('optimal'),
-                              value: _optimalMoisture,
-                              min: 35,
-                              max: 75,
-                              suffix: '%',
-                              onChanged: (value) =>
-                                  setState(() => _optimalMoisture = value),
-                            ),
-                            _SliderRow(
-                              label: l10n.t('maximum'),
-                              value: _maxMoisture,
-                              min: 65,
-                              max: 95,
-                              suffix: '%',
-                              onChanged: (value) =>
-                                  setState(() => _maxMoisture = value),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final wide = constraints.maxWidth >= 760;
-                          final weatherCard = _SettingsCard(
-                            title: l10n.t('weatherGarden'),
-                            icon: Icons.cloud_outlined,
-                            child: Column(
-                              children: [
-                                _SliderRow(
-                                  label: l10n.t('temperatureAlert'),
-                                  value: _temperatureAlert,
-                                  min: 20,
-                                  max: 40,
-                                  suffix: '°C',
-                                  onChanged: (value) =>
-                                      setState(() => _temperatureAlert = value),
-                                ),
-                                _SliderRow(
-                                  label: l10n.t('rainPauseThreshold'),
-                                  value: _rainThreshold,
-                                  min: 20,
-                                  max: 95,
-                                  suffix: '%',
-                                  onChanged: (value) =>
-                                      setState(() => _rainThreshold = value),
-                                ),
-                              ],
-                            ),
-                          );
+                          final weatherCard =
+                              BlocBuilder<
+                                IrrigationSettingsCubit,
+                                IrrigationSettings
+                              >(
+                                builder: (context, settings) {
+                                  final cubit = context
+                                      .read<IrrigationSettingsCubit>();
+                                  return _SettingsCard(
+                                    title: l10n.t('weatherGarden'),
+                                    icon: Icons.cloud_outlined,
+                                    child: Column(
+                                      children: [
+                                        _SliderRow(
+                                          label: l10n.t('temperatureHot'),
+                                          value: settings.hotAlertC,
+                                          min: 22,
+                                          max: 40,
+                                          suffix: '°C',
+                                          onChanged: cubit.setHotAlert,
+                                        ),
+                                        _SliderRow(
+                                          label: l10n.t('temperatureCold'),
+                                          value: settings.coldAlertC,
+                                          min: -5,
+                                          max: 18,
+                                          suffix: '°C',
+                                          onChanged: cubit.setColdAlert,
+                                        ),
+                                        _SliderRow(
+                                          label: l10n.t('rainPauseThreshold'),
+                                          value: settings.rainPausePct,
+                                          min: 20,
+                                          max: 95,
+                                          suffix: '%',
+                                          onChanged: cubit.setRainPause,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
                           final scheduleCard = _SettingsCard(
                             title: l10n.t('automaticSchedule'),
                             icon: Icons.schedule,
