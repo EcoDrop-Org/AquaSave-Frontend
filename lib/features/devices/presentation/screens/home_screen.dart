@@ -80,7 +80,7 @@ class _HomeContent extends StatelessWidget {
                           Text(
                             l10n.greeting(userName),
                             style: tt.headlineMedium?.copyWith(
-                              color: const Color(0xFF263B2F),
+                              color: cs.onSurface,
                               fontWeight: FontWeight.w800,
                             ),
                           ),

@@ -144,7 +144,7 @@ class AnalysisScreen extends StatelessWidget {
                                   icon: Icons.opacity,
                                   title: l10n.t('pumpWaterTank'),
                                   value:
-                                      '${pumpAvailableLiters.toStringAsFixed(1)} L',
+                                      '${pumpAvailableLiters.toStringAsFixed(1)} L ($pumpTankPct%)',
                                   caption: _pumpTankCaption(l10n, pumpTankPct),
                                   color: _scoreColor(pumpTankPct),
                                   compact: compact,

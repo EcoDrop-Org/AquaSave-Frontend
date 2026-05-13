@@ -16,6 +16,8 @@ class AddDeviceRequested extends DevicesEvent {
   final int plantCount;
   final double? latitude;
   final double? longitude;
+  final String? description;
+  final Map<String, String>? locationByLocale;
 
   const AddDeviceRequested({
     required this.name,
@@ -23,6 +25,8 @@ class AddDeviceRequested extends DevicesEvent {
     required this.plantCount,
     this.latitude,
     this.longitude,
+    this.description,
+    this.locationByLocale,
   });
 
   @override
@@ -36,6 +40,9 @@ class EditDeviceRequested extends DevicesEvent {
   final int plantCount;
   final double? latitude;
   final double? longitude;
+  final String? description;
+  final bool clearDescription;
+  final Map<String, String>? locationByLocale;
 
   const EditDeviceRequested({
     required this.deviceId,
@@ -44,10 +51,22 @@ class EditDeviceRequested extends DevicesEvent {
     required this.plantCount,
     this.latitude,
     this.longitude,
+    this.description,
+    this.clearDescription = false,
+    this.locationByLocale,
   });
 
   @override
   List<Object> get props => [deviceId, name, location, plantCount];
+}
+
+class DeleteDeviceRequested extends DevicesEvent {
+  final String deviceId;
+
+  const DeleteDeviceRequested(this.deviceId);
+
+  @override
+  List<Object> get props => [deviceId];
 }
 
 class SelectActiveDevice extends DevicesEvent {

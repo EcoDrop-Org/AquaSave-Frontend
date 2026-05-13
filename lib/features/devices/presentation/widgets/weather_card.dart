@@ -5,6 +5,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../irrigation_intelligence/domain/entities/weather_forecast.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../../domain/entities/device.dart';
+import '../cubit/irrigation_settings_cubit.dart';
 
 class WeatherCard extends StatelessWidget {
   final Device device;
@@ -53,7 +54,9 @@ class _WeatherCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
+    final settings = context.watch<IrrigationSettingsCubit>().state;
     final condition = forecast == null
         ? l10n.t('waitingWeather')
         : l10n.weatherCondition(forecast!.weatherCode);
@@ -61,26 +64,27 @@ class _WeatherCardContent extends StatelessWidget {
     final humidity = forecast?.humidityPct ?? device.humidityPct;
     final rainProbability = forecast?.rainProbabilityPct;
     final windSpeed = forecast?.windSpeedKmh;
-    final shouldPause = forecast?.shouldPauseIrrigation ?? false;
-    final shouldAskForWater =
-        forecast != null &&
-        !shouldPause &&
-        temperature >= 28 &&
-        device.avgHumidityPct <= 35;
+    final advice = resolveIrrigationAdvice(
+      settings: settings,
+      hasForecast: forecast != null,
+      temperatureC: temperature,
+      soilHumidityPct: device.avgHumidityPct,
+      rainProbabilityPct: rainProbability,
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFC7DEC3),
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.56)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.09),
-            blurRadius: 16,
-            offset: const Offset(0, 9),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -92,13 +96,14 @@ class _WeatherCardContent extends StatelessWidget {
               Container(
                 width: 42,
                 height: 42,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3E5249),
-                  borderRadius: BorderRadius.circular(12),
+                  color: cs.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
                   _weatherIcon(forecast?.weatherCode),
-                  color: Colors.white,
+                  color: cs.primary,
                   size: 22,
                 ),
               ),
@@ -110,26 +115,30 @@ class _WeatherCardContent extends StatelessWidget {
                     Text(
                       l10n.t('weatherGarden'),
                       style: tt.bodyMedium?.copyWith(
-                        color: Colors.black.withValues(alpha: 0.68),
+                        color: cs.onSurface.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
-                      forecast?.locationName ?? device.location,
+                      forecast?.locationName ??
+                          device.localizedLocation(l10n.locale.languageCode),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: tt.bodySmall?.copyWith(
-                        color: Colors.black.withValues(alpha: 0.58),
+                        color: cs.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                   ],
                 ),
               ),
               if (isLoading)
-                const SizedBox(
+                SizedBox(
                   width: 22,
                   height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: cs.primary,
+                  ),
                 ),
             ],
           ),
@@ -150,40 +159,36 @@ class _WeatherCardContent extends StatelessWidget {
             runSpacing: 10,
             children: [
               _MetricPill(
-                icon: Icons.water_drop_outlined,
+                icon: Icons.water_drop_rounded,
                 label: l10n.t('humidity'),
                 value: '$humidity%',
               ),
               _MetricPill(
-                icon: Icons.umbrella_outlined,
+                icon: Icons.umbrella_rounded,
                 label: l10n.t('rain'),
                 value: rainProbability == null ? '--' : '$rainProbability%',
               ),
               _MetricPill(
-                icon: Icons.air,
+                icon: Icons.air_rounded,
                 label: l10n.t('wind'),
                 value: windSpeed == null ? '--' : '${windSpeed.round()} km/h',
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _IrrigationAdvice(
-            shouldPause: shouldPause,
-            shouldAskForWater: shouldAskForWater,
-            hasForecast: forecast != null,
-          ),
+          _IrrigationAdviceCard(advice: advice),
         ],
       ),
     );
   }
 
   IconData _weatherIcon(int? code) {
-    if (code == null || code == 0) return Icons.wb_sunny_outlined;
-    if ([1, 2, 3, 45, 48].contains(code)) return Icons.cloud_queue;
+    if (code == null || code == 0) return Icons.wb_sunny_rounded;
+    if ([1, 2, 3, 45, 48].contains(code)) return Icons.cloud_rounded;
     if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].contains(code)) {
-      return Icons.water_drop_outlined;
+      return Icons.water_drop_rounded;
     }
-    if ([95, 96, 99].contains(code)) return Icons.thunderstorm_outlined;
+    if ([95, 96, 99].contains(code)) return Icons.thunderstorm_rounded;
     return Icons.cloud_outlined;
   }
 }
@@ -201,15 +206,17 @@ class _WeatherSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           l10n.temperature(temperature),
           style: tt.displayLarge?.copyWith(
-            color: Colors.black,
-            fontWeight: FontWeight.w700,
+            color: cs.onSurface,
+            fontWeight: FontWeight.w800,
             height: 0.95,
           ),
         ),
@@ -219,8 +226,8 @@ class _WeatherSummary extends StatelessWidget {
             condition,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: tt.headlineMedium?.copyWith(
-              color: Colors.black,
+            style: tt.headlineSmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.8),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -238,17 +245,27 @@ class _WeatherError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: cs.error.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.error.withValues(alpha: 0.24)),
       ),
-      child: Text(
-        message,
-        style: tt.bodyMedium?.copyWith(color: const Color(0xFF2D3D2C)),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: cs.error, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -268,30 +285,32 @@ class _MetricPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF3E5249),
-        borderRadius: BorderRadius.circular(12),
+        color: cs.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 17),
-          const SizedBox(width: 7),
+          Icon(icon, color: cs.primary, size: 17),
+          const SizedBox(width: 8),
           Text(
             '$label ',
             style: tt.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w700,
             ),
           ),
           Text(
             value,
             style: tt.bodySmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -300,61 +319,98 @@ class _MetricPill extends StatelessWidget {
   }
 }
 
-class _IrrigationAdvice extends StatelessWidget {
-  final bool shouldPause;
-  final bool shouldAskForWater;
-  final bool hasForecast;
+class _IrrigationAdviceCard extends StatelessWidget {
+  final IrrigationAdvice advice;
 
-  const _IrrigationAdvice({
-    required this.shouldPause,
-    required this.shouldAskForWater,
-    required this.hasForecast,
-  });
+  const _IrrigationAdviceCard({required this.advice});
+
+  ({Color accent, IconData icon}) _style() {
+    switch (advice.kind) {
+      case IrrigationAdviceKind.rainPause:
+      case IrrigationAdviceKind.soilSoaked:
+        return (
+          accent: const Color(0xFF5BA4D4),
+          icon: Icons.water_rounded,
+        );
+      case IrrigationAdviceKind.heatBoost:
+        return (
+          accent: const Color(0xFFD08A55),
+          icon: Icons.local_fire_department_rounded,
+        );
+      case IrrigationAdviceKind.coldHold:
+        return (
+          accent: const Color(0xFF7AA9D6),
+          icon: Icons.ac_unit_rounded,
+        );
+      case IrrigationAdviceKind.lowMoisture:
+        return (
+          accent: const Color(0xFFE17A8C),
+          icon: Icons.warning_amber_rounded,
+        );
+      case IrrigationAdviceKind.waiting:
+        return (
+          accent: const Color(0xFF9AA59B),
+          icon: Icons.hourglass_empty_rounded,
+        );
+      case IrrigationAdviceKind.ok:
+        return (
+          accent: const Color(0xFF6FBC85),
+          icon: Icons.check_circle_outline_rounded,
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
-    final bg = shouldPause
-        ? const Color(0xFFFE5C73)
-        : shouldAskForWater
-        ? const Color(0xFFB8642B)
-        : const Color(0xFF497654);
-    final text = !hasForecast
-        ? l10n.t('waitingWeather')
-        : shouldPause
-        ? l10n.t('pauseIrrigation')
-        : shouldAskForWater
-        ? l10n.t('waterRecommended')
-        : l10n.t('continueIrrigation');
+    final style = _style();
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: bg.withValues(alpha: 0.16),
+        color: style.accent.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: bg.withValues(alpha: 0.28)),
+        border: Border.all(color: style.accent.withValues(alpha: 0.32)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            shouldPause
-                ? Icons.pause_circle_outline
-                : shouldAskForWater
-                ? Icons.local_fire_department_outlined
-                : Icons.check_circle_outline,
-            color: bg,
-            size: 20,
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: style.accent.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(style.icon, color: style.accent, size: 20),
           ),
-          const SizedBox(width: 9),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              text,
-              style: tt.bodyMedium?.copyWith(
-                color: Colors.black,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.t(advice.key),
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (advice.detailKey != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.t(advice.detailKey!),
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.72),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

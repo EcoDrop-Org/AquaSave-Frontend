@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/navigation/nav_cubit.dart';
 import '../../domain/entities/device.dart';
+import '../bloc/devices_bloc.dart';
 
 void showDeviceDetailDialog(BuildContext context, Device device) {
   showDialog<void>(
@@ -59,7 +62,9 @@ class _DetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final plantName = _primaryPlantName(device);
+    final l10n = AppLocalizations.of(context);
+    final description = device.description?.trim();
+    final hasDescription = description != null && description.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,7 +73,7 @@ class _DetailBody extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Detalles de la planta',
+                l10n.t('gardenDetails'),
                 style: tt.headlineSmall?.copyWith(
                   color: cs.onSurface,
                   fontWeight: FontWeight.w900,
@@ -78,64 +83,118 @@ class _DetailBody extends StatelessWidget {
             _CloseButton(onPressed: () => Navigator.of(context).pop()),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
+        // Hero card — just the garden name + optional description.
         Container(
           width: double.infinity,
-          height: 174,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF4F7A5C), Color(0xFF35513F)],
+            ),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _HealthBadge(label: 'Óptimo'),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Icon(
+                      Icons.eco_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          device.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (device.location.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.place_outlined,
+                                size: 14,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  device.localizedLocation(
+                                    l10n.locale.languageCode,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.82),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
               Text(
-                plantName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Solanum lycopersicum · ${device.name} · slot 3',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.82),
-                  fontStyle: FontStyle.italic,
+                hasDescription ? description : l10n.t('noDescription'),
+                style: tt.bodyMedium?.copyWith(
+                  color: hasDescription
+                      ? Colors.white.withValues(alpha: 0.92)
+                      : Colors.white.withValues(alpha: 0.55),
+                  fontStyle: hasDescription
+                      ? FontStyle.normal
+                      : FontStyle.italic,
+                  height: 1.4,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 620;
             final cards = [
               _MetricTile(
-                icon: Icons.water_drop_outlined,
-                label: 'Humedad',
+                icon: Icons.water_drop_rounded,
+                label: l10n.t('humidity'),
                 value: '${device.avgHumidityPct}%',
-                caption: '35-75% óptimo',
+                caption: l10n.t('optimalRange'),
               ),
               _MetricTile(
-                icon: Icons.thermostat_outlined,
-                label: 'Temperatura',
+                icon: Icons.thermostat_rounded,
+                label: 'Temp.',
                 value: '${device.temperatureC.toStringAsFixed(0)}°C',
-                caption: 'Confort',
+                caption: l10n.t('comfortRange'),
               ),
-              const _MetricTile(
+              _MetricTile(
                 icon: Icons.history_rounded,
-                label: 'Último riego',
-                value: 'Hace 2h',
+                label: l10n.t('lastWatering'),
+                value: l10n.t('lastWateringAgo'),
                 caption: '8 min · 1.4 L',
               ),
             ];
@@ -161,9 +220,9 @@ class _DetailBody extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
         Text(
-          'Humedad actual',
+          l10n.t('currentMoisture'),
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w800,
@@ -171,12 +230,12 @@ class _DetailBody extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _HumidityRangeBar(value: device.avgHumidityPct),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         Row(
           children: [
             Expanded(
               child: Text(
-                'Últimos 7 riegos',
+                l10n.t('last7Waterings'),
                 style: tt.titleSmall?.copyWith(
                   color: cs.onSurface,
                   fontWeight: FontWeight.w900,
@@ -184,25 +243,34 @@ class _DetailBody extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
-              'Ver historial completo →',
-              style: tt.bodySmall?.copyWith(
-                color: cs.primary,
-                fontWeight: FontWeight.w800,
-                fontStyle: FontStyle.italic,
+            Builder(
+              builder: (context) => InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  context.read<NavCubit>().goTo(AppTab.history);
+                  Navigator.of(context).maybePop();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    l10n.t('viewFullHistory'),
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        _MiniHistoryTable(),
+        const _MiniHistoryTable(),
       ],
     );
-  }
-
-  String _primaryPlantName(Device device) {
-    if (device.plantCount <= 1) return 'Tomate cherry del balcón';
-    return 'Tomate cherry del balcón';
   }
 }
 
@@ -214,26 +282,24 @@ class _DetailActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 620;
+    final l10n = AppLocalizations.of(context);
 
     final edit = ElevatedButton.icon(
       onPressed: () => showDialog<void>(
         context: context,
-        builder: (_) => _EditPlantDialog(device: device),
+        builder: (_) => _EditGardenDialog(device: device),
       ),
       icon: const Icon(Icons.edit_outlined),
-      label: const Text('Editar'),
+      label: Text(l10n.t('editGarden')),
     );
     final delete = OutlinedButton.icon(
-      onPressed: () => showDialog<void>(
-        context: context,
-        builder: (_) => const _DeletePlantDialog(),
-      ),
+      onPressed: () => _confirmDelete(context, device),
       icon: const Icon(Icons.delete_outline_rounded),
-      label: const Text('Eliminar'),
+      label: Text(l10n.t('delete')),
     );
     final close = OutlinedButton(
       onPressed: () => Navigator.of(context).pop(),
-      child: Text(AppLocalizations.of(context).t('close')),
+      child: Text(l10n.t('close')),
     );
 
     return Padding(
@@ -253,13 +319,49 @@ class _DetailActions extends StatelessWidget {
               children: [
                 Expanded(flex: 5, child: edit),
                 const SizedBox(width: 10),
-                Expanded(flex: 2, child: delete),
+                Expanded(flex: 3, child: delete),
                 const SizedBox(width: 10),
                 Expanded(flex: 2, child: close),
               ],
             ),
     );
   }
+}
+
+Future<void> _confirmDelete(BuildContext context, Device device) async {
+  final pageContext = context;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      final l10n = AppLocalizations.of(dialogContext);
+      final tt = Theme.of(dialogContext).textTheme;
+      final cs = Theme.of(dialogContext).colorScheme;
+      return AlertDialog(
+        title: Text(
+          l10n.t('deleteGardenTitle'),
+          style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        content: Text(l10n.t('deleteGardenBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.t('cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              pageContext
+                  .read<DevicesBloc>()
+                  .add(DeleteDeviceRequested(device.id));
+              Navigator.of(dialogContext).pop();
+              Navigator.of(pageContext).maybePop();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: cs.error),
+            child: Text(l10n.t('delete')),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _MetricTile extends StatelessWidget {
@@ -283,23 +385,37 @@ class _MetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.32)),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: cs.onSurface),
-              const SizedBox(width: 6),
-              Text(
-                label.toUpperCase(),
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.74),
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, size: 17, color: cs.primary),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],
@@ -317,8 +433,7 @@ class _MetricTile extends StatelessWidget {
           Text(
             caption,
             style: tt.bodySmall?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.62),
-              fontStyle: FontStyle.italic,
+              color: cs.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -342,7 +457,7 @@ class _HumidityRangeBar extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
-            minHeight: 8,
+            minHeight: 10,
             value: clamped,
             color: cs.primary,
             backgroundColor: cs.outline.withValues(alpha: 0.18),
@@ -351,9 +466,9 @@ class _HumidityRangeBar extends StatelessWidget {
         const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+          children: const [
             _RangeLabel('0%'),
-            _RangeLabel('Min 35'),
+            _RangeLabel('Mín 35'),
             _RangeLabel('Máx 75'),
             _RangeLabel('100%'),
           ],
@@ -364,51 +479,56 @@ class _HumidityRangeBar extends StatelessWidget {
 }
 
 class _MiniHistoryTable extends StatelessWidget {
+  const _MiniHistoryTable();
+
   @override
   Widget build(BuildContext context) {
-    final rows = const [
-      ('09 May · 06:30', '8 min', '1.4 L', 'Auto'),
-      ('08 May · 19:15', '6 min', '1.0 L', 'Manual'),
-      ('08 May · 06:30', '8 min', '1.4 L', 'Auto'),
-      ('07 May · 06:30', '10 min', '1.7 L', 'Auto'),
-      ('06 May · 18:00', '5 min', '0.9 L', 'Manual'),
-      ('06 May · 06:30', '8 min', '1.4 L', 'Auto'),
-      ('05 May · 06:30', '8 min', '1.4 L', 'Auto'),
-    ];
+    final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final rows = const [
+      ('09 May · 06:30', '8 min', '1.4 L', 'auto'),
+      ('08 May · 19:15', '6 min', '1.0 L', 'manual'),
+      ('08 May · 06:30', '8 min', '1.4 L', 'auto'),
+      ('07 May · 06:30', '10 min', '1.7 L', 'auto'),
+      ('06 May · 18:00', '5 min', '0.9 L', 'manual'),
+      ('06 May · 06:30', '8 min', '1.4 L', 'auto'),
+      ('05 May · 06:30', '8 min', '1.4 L', 'auto'),
+    ];
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.72),
-              child: const Row(
+              color: cs.surfaceContainerHighest,
+              child: Row(
                 children: [
-                  _MiniHeader('Fecha y hora', width: 190),
-                  _MiniHeader('Duración', width: 110),
-                  _MiniHeader('Litros', width: 100),
-                  _MiniHeader('Tipo', width: 120),
+                  _MiniHeader(l10n.t('dateTime'), width: 190),
+                  _MiniHeader(l10n.t('durationCol'), width: 110),
+                  _MiniHeader(l10n.t('litersCol'), width: 100),
+                  _MiniHeader(l10n.t('typeCol'), width: 120),
                 ],
               ),
             ),
-            for (final row in rows)
+            for (var i = 0; i < rows.length; i++)
               Container(
                 decoration: BoxDecoration(
-                  color: cs.surface.withValues(alpha: 0.78),
+                  color: i.isEven
+                      ? cs.surface.withValues(alpha: 0.6)
+                      : cs.surfaceContainerHighest.withValues(alpha: 0.4),
                   border: Border(
-                    top: BorderSide(color: cs.outline.withValues(alpha: 0.26)),
+                    top: BorderSide(color: cs.outline.withValues(alpha: 0.22)),
                   ),
                 ),
                 child: Row(
                   children: [
-                    _MiniCell(row.$1, width: 190),
-                    _MiniCell(row.$2, width: 110),
-                    _MiniCell(row.$3, width: 100),
-                    _MiniBadge(row.$4, width: 120),
+                    _MiniCell(rows[i].$1, width: 190),
+                    _MiniCell(rows[i].$2, width: 110),
+                    _MiniCell(rows[i].$3, width: 100),
+                    _MiniBadge(rows[i].$4, width: 120),
                   ],
                 ),
               ),
@@ -419,30 +539,50 @@ class _MiniHistoryTable extends StatelessWidget {
   }
 }
 
-class _EditPlantDialog extends StatefulWidget {
+class _EditGardenDialog extends StatefulWidget {
   final Device device;
 
-  const _EditPlantDialog({required this.device});
+  const _EditGardenDialog({required this.device});
 
   @override
-  State<_EditPlantDialog> createState() => _EditPlantDialogState();
+  State<_EditGardenDialog> createState() => _EditGardenDialogState();
 }
 
-class _EditPlantDialogState extends State<_EditPlantDialog> {
+class _EditGardenDialogState extends State<_EditGardenDialog> {
   late final TextEditingController _nameCtrl;
-  double _min = 35;
-  double _max = 75;
+  late final TextEditingController _descriptionCtrl;
 
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: 'Tomate cherry del balcón');
+    _nameCtrl = TextEditingController(text: widget.device.name);
+    _descriptionCtrl = TextEditingController(
+      text: widget.device.description ?? '',
+    );
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
+  }
+
+  void _save() {
+    final name = _nameCtrl.text.trim();
+    final desc = _descriptionCtrl.text.trim();
+    if (name.length < 3) return;
+    context.read<DevicesBloc>().add(
+      EditDeviceRequested(
+        deviceId: widget.device.id,
+        name: name,
+        location: widget.device.location,
+        plantCount: widget.device.plantCount,
+        description: desc.isEmpty ? null : desc,
+        clearDescription: desc.isEmpty,
+      ),
+    );
+    Navigator.of(context).pop();
   }
 
   @override
@@ -450,6 +590,7 @@ class _EditPlantDialogState extends State<_EditPlantDialog> {
     final mq = MediaQuery.sizeOf(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
@@ -466,9 +607,20 @@ class _EditPlantDialogState extends State<_EditPlantDialog> {
             children: [
               Row(
                 children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(Icons.edit_rounded, color: cs.primary),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Editar planta',
+                      l10n.t('editGarden'),
                       style: tt.headlineSmall?.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w900,
@@ -478,239 +630,72 @@ class _EditPlantDialogState extends State<_EditPlantDialog> {
                   _CloseButton(onPressed: () => Navigator.of(context).pop()),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 22),
+              _FormLabel(l10n.t('gardenName').toUpperCase()),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameCtrl,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.sensors_rounded),
+                  hintText: l10n.t('gardenName'),
+                ),
+              ),
+              const SizedBox(height: 18),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _FormLabel(l10n.t('gardenDescription').toUpperCase()),
+                  const SizedBox(width: 8),
                   Container(
-                    width: 78,
-                    height: 78,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(14),
+                      color: cs.outline.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Icon(
-                      Icons.local_florist_rounded,
-                      color: cs.primary,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _FormLabel('FOTO DETECTADA'),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Solanum lycopersicum · 92% confianza',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurface.withValues(alpha: 0.72),
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.upload_outlined, size: 16),
-                              label: const Text('Reemplazar'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () {},
-                              icon: const Icon(Icons.auto_awesome, size: 16),
-                              label: const Text('Re-detectar'),
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: Text(
+                      l10n.t('optionalLabel'),
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 10.5,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              _FormLabel('NOMBRE'),
               const SizedBox(height: 6),
               TextField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.eco_outlined),
+                controller: _descriptionCtrl,
+                minLines: 2,
+                maxLines: 4,
+                maxLength: 160,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.notes_rounded),
+                  hintText: l10n.t('gardenDescriptionHint'),
                 ),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 520;
-                  final deviceField = _ReadOnlyField(
-                    label: 'DISPOSITIVO',
-                    value: widget.device.name,
-                    icon: Icons.sensors_rounded,
-                  );
-                  const slotField = _ReadOnlyField(
-                    label: 'SLOT',
-                    value: '3',
-                    icon: Icons.grid_4x4_outlined,
-                  );
-
-                  if (compact) {
-                    return Column(
-                      children: [
-                        deviceField,
-                        const SizedBox(height: 12),
-                        slotField,
-                      ],
-                    );
-                  }
-
-                  return Row(
-                    children: [
-                      Expanded(child: deviceField),
-                      const SizedBox(width: 12),
-                      SizedBox(width: 150, child: slotField),
-                    ],
-                  );
-                },
               ),
               const SizedBox(height: 18),
-              _FormLabel('UMBRALES DE HUMEDAD'),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SliderLabel(label: 'Humedad mínima', value: _min),
-                    Slider(
-                      min: 0,
-                      max: 100,
-                      value: _min,
-                      onChanged: (value) {
-                        if (value >= _max) return;
-                        setState(() => _min = value);
-                      },
-                    ),
-                    _SliderLabel(label: 'Humedad máxima', value: _max),
-                    Slider(
-                      min: 0,
-                      max: 100,
-                      value: _max,
-                      onChanged: (value) {
-                        if (value <= _min) return;
-                        setState(() => _max = value);
-                      },
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Recomendado para tomates: 40 - 70%.',
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.62),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _save,
                       icon: const Icon(Icons.save_outlined),
-                      label: const Text('Guardar cambios'),
+                      label: Text(l10n.t('saveChanges')),
                     ),
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancelar'),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (_) => const _DeletePlantDialog(),
-                    ),
-                    child: const Icon(Icons.delete_outline_rounded),
+                    child: Text(l10n.t('cancel')),
                   ),
                 ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _DeletePlantDialog extends StatelessWidget {
-  const _DeletePlantDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return AlertDialog(
-      title: Text(
-        '¿Eliminar planta?',
-        style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
-      ),
-      content: const Text(
-        'La planta se retirará del dispositivo. Esta acción no se puede deshacer.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(),
-          style: ElevatedButton.styleFrom(backgroundColor: cs.error),
-          child: const Text('Eliminar'),
-        ),
-      ],
-    );
-  }
-}
-
-class _HealthBadge extends StatelessWidget {
-  final String label;
-
-  const _HealthBadge({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.check_circle_outline_rounded,
-            size: 15,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -746,7 +731,7 @@ class _RangeLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.56),
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         fontWeight: FontWeight.w700,
         fontSize: 11,
       ),
@@ -813,7 +798,9 @@ class _MiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final auto = value == 'Auto';
+    final l10n = AppLocalizations.of(context);
+    final isAuto = value == 'auto';
+    final label = isAuto ? l10n.t('auto') : l10n.t('manual');
     return SizedBox(
       width: width,
       child: Padding(
@@ -821,16 +808,16 @@ class _MiniBadge extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: auto
+            color: isAuto
                 ? cs.primary.withValues(alpha: 0.14)
                 : cs.outline.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            value,
+            label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: auto ? cs.primary : cs.onSurface.withValues(alpha: 0.72),
+              color: isAuto ? cs.primary : cs.onSurface.withValues(alpha: 0.72),
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -854,86 +841,6 @@ class _FormLabel extends StatelessWidget {
         fontWeight: FontWeight.w900,
         letterSpacing: 1.1,
       ),
-    );
-  }
-}
-
-class _ReadOnlyField extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _ReadOnlyField({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _FormLabel(label),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cs.outline.withValues(alpha: 0.38)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SliderLabel extends StatelessWidget {
-  final String label;
-  final double value;
-
-  const _SliderLabel({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        Text(
-          '${value.round()}%',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: cs.primary,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
     );
   }
 }

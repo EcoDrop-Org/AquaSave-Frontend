@@ -16,9 +16,9 @@ class LanguageSelector extends StatelessWidget {
       height: 40,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.58),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.86),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.20)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.32)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -64,15 +64,15 @@ class _LanguageSegment extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 40),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3E5249) : Colors.transparent,
+          color: selected ? cs.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: selected
-                ? Colors.white
-                : cs.onSurface.withValues(alpha: 0.70),
+                ? cs.onPrimary
+                : cs.onSurface.withValues(alpha: 0.7),
             fontWeight: FontWeight.w900,
           ),
         ),

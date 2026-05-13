@@ -14,16 +14,18 @@ class AppColors {
   static const Color lightInputBg = Color(0xFFFFFFFF);
   static const Color lightDivider = Color(0xFFD9E2D3);
 
-  // Dark
-  static const Color darkBackground = Color(0xFF0F1712);
-  static const Color darkSurface = Color(0xFF16231B);
-  static const Color darkPrimary = Color(0xFF94BC9A);
-  static const Color darkOnPrimary = Color(0xFF102016);
-  static const Color darkText = Color(0xFFEAF2E8);
-  static const Color darkTextSub = Color(0xFFAEB9AE);
-  static const Color darkCard = Color(0xFF1F2D24);
-  static const Color darkInputBg = Color(0xFF17241D);
-  static const Color darkDivider = Color(0xFF334438);
+  // Dark — rebalanced to break the green-on-green muddiness:
+  // background is darker and slightly cooler, cards lift clearly off it,
+  // primary is brighter for stronger pop on buttons/icons/borders.
+  static const Color darkBackground = Color(0xFF0F1A18);
+  static const Color darkSurface = Color(0xFF162421);
+  static const Color darkPrimary = Color(0xFF7FD09E);
+  static const Color darkOnPrimary = Color(0xFF06231A);
+  static const Color darkText = Color(0xFFE7EFE9);
+  static const Color darkTextSub = Color(0xFFA1B0A6);
+  static const Color darkCard = Color(0xFF1D2E2A);
+  static const Color darkInputBg = Color(0xFF162421);
+  static const Color darkDivider = Color(0xFF2F433E);
 
   // Shared
   static const Color secondary = Color(0xFFFE5C73);

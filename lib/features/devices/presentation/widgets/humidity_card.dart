@@ -11,20 +11,21 @@ class HumidityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
     final value = device.avgHumidityPct / 100.0;
 
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFC7DEC3),
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.56)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.09),
-            blurRadius: 16,
-            offset: const Offset(0, 9),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -36,13 +37,14 @@ class HumidityCard extends StatelessWidget {
               Container(
                 width: 42,
                 height: 42,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3E5249),
-                  borderRadius: BorderRadius.circular(12),
+                  color: cs.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Icon(
-                  Icons.water_drop_outlined,
-                  color: Colors.white,
+                child: Icon(
+                  Icons.water_drop_rounded,
+                  color: cs.primary,
                   size: 22,
                 ),
               ),
@@ -51,7 +53,7 @@ class HumidityCard extends StatelessWidget {
                 child: Text(
                   l10n.t('averageHumidity'),
                   style: tt.bodyMedium?.copyWith(
-                    color: Colors.black.withValues(alpha: 0.68),
+                    color: cs.onSurface.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -70,7 +72,7 @@ class HumidityCard extends StatelessWidget {
                   Text(
                     '${(animatedValue * 100).round()}%',
                     style: tt.displayLarge?.copyWith(
-                      color: Colors.black,
+                      color: cs.onSurface,
                       fontWeight: FontWeight.w800,
                       height: 0.95,
                     ),
@@ -81,8 +83,8 @@ class HumidityCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       minHeight: 12,
                       value: animatedValue,
-                      color: const Color(0xFF2D3D2C),
-                      backgroundColor: Colors.white.withValues(alpha: 0.65),
+                      color: cs.primary,
+                      backgroundColor: cs.primary.withValues(alpha: 0.14),
                     ),
                   ),
                 ],
@@ -93,7 +95,7 @@ class HumidityCard extends StatelessWidget {
           Text(
             l10n.t('humidityGoal'),
             style: tt.bodySmall?.copyWith(
-              color: Colors.black.withValues(alpha: 0.58),
+              color: cs.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ],
