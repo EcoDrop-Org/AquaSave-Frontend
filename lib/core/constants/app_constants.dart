@@ -14,6 +14,8 @@ class AppConstants {
   static const String imgLoginPlant = 'assets/images/login-plant.png';
   static const String imgCactusSidebar = 'assets/images/cactus-sidebar.png';
   static const String imgAquaSaveLogo = 'assets/images/AquaSaveLogo.PNG';
+  static const String imgAquaSaveLogoWhite =
+      'assets/images/AquaSaveLogoBlanco.png';
   static const String imgAvatarPlaceholder = 'assets/images/avatar.png';
 
   // Strings UI

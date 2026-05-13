@@ -301,7 +301,7 @@ class AnalysisScreen extends StatelessWidget {
         body: l10n.t('retentionWaitingBody'),
         recommendation: l10n.t('retentionWaitingRecommendation'),
         score: 0.38,
-        color: const Color(0xFF87937E),
+        color: const Color(0xFF8C9A86),
       );
     }
 
@@ -322,7 +322,7 @@ class AnalysisScreen extends StatelessWidget {
         body: l10n.t('retentionPoorBody'),
         recommendation: l10n.t('retentionPoorRecommendation'),
         score: 0.34,
-        color: const Color(0xFFB8642B),
+        color: const Color(0xFFCB7C46),
       );
     }
 
@@ -334,7 +334,7 @@ class AnalysisScreen extends StatelessWidget {
         body: l10n.t('retentionRegularBody'),
         recommendation: l10n.t('retentionRegularRecommendation'),
         score: 0.66,
-        color: const Color(0xFF7A8744),
+        color: const Color(0xFFC0A24A),
       );
     }
 
@@ -345,7 +345,7 @@ class AnalysisScreen extends StatelessWidget {
       body: l10n.t('retentionExcellentBody'),
       recommendation: l10n.t('retentionExcellentRecommendation'),
       score: 0.92,
-      color: const Color(0xFF497654),
+      color: const Color(0xFF5FA06E),
     );
   }
 
@@ -375,9 +375,9 @@ class AnalysisScreen extends StatelessWidget {
   }
 
   Color _scoreColor(int score) {
-    if (score < 60) return const Color(0xFFB8642B);
-    if (score < 78) return const Color(0xFF7A8744);
-    return const Color(0xFF497654);
+    if (score < 60) return const Color(0xFFCB7C46);
+    if (score < 78) return const Color(0xFFC0A24A);
+    return const Color(0xFF5FA06E);
   }
 }
 
@@ -553,15 +553,19 @@ class _AnalyticsHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF3E5249),
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF44594E), Color(0xFF31443A)],
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -572,10 +576,11 @@ class _AnalyticsHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.t('soilStability'),
-                style: tt.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  fontWeight: FontWeight.w700,
+                l10n.t('soilStability').toUpperCase(),
+                style: tt.labelMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(height: 8),
@@ -591,7 +596,7 @@ class _AnalyticsHero extends StatelessWidget {
               Text(
                 '${l10n.t('stabilityResult')}: $stabilityLabel',
                 style: tt.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.76),
+                  color: Colors.white.withValues(alpha: 0.78),
                 ),
               ),
             ],
@@ -601,7 +606,7 @@ class _AnalyticsHero extends StatelessWidget {
             runSpacing: 10,
             children: [
               _HeroChip(
-                icon: Icons.history_outlined,
+                icon: Icons.history_rounded,
                 label: hasEnoughHistory
                     ? l10n.t('enoughHistory')
                     : l10n.t('collectingHistory'),
@@ -612,15 +617,15 @@ class _AnalyticsHero extends StatelessWidget {
                     '${l10n.t('waterStressAvoidedShort')} $waterStressAvoidedIndex%',
               ),
               _HeroChip(
-                icon: Icons.opacity,
+                icon: Icons.opacity_rounded,
                 label: '${l10n.t('pumpTankShort')} $pumpTankPct%',
               ),
               _HeroChip(
-                icon: Icons.thermostat_outlined,
+                icon: Icons.thermostat_rounded,
                 label: l10n.temperature(temperature),
               ),
               _HeroChip(
-                icon: Icons.water_drop_outlined,
+                icon: Icons.water_drop_rounded,
                 label: '${l10n.t('humidity')} $humidity%',
               ),
             ],
@@ -629,35 +634,28 @@ class _AnalyticsHero extends StatelessWidget {
             score: stabilityScore,
             label: stabilityLabel,
             foregroundColor: Colors.white,
-            trackColor: Colors.white.withValues(alpha: 0.16),
+            trackColor: Colors.white.withValues(alpha: 0.18),
+            size: narrow ? 102 : 128,
+          );
+          final divider = Container(
+            margin: const EdgeInsets.symmetric(vertical: 20),
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.14),
           );
 
-          if (narrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ring,
-                    const SizedBox(width: 18),
-                    Expanded(child: copy),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                chips,
-              ],
-            );
-          }
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ring,
-              const SizedBox(width: 22),
-              Expanded(child: copy),
-              const SizedBox(width: 18),
-              Flexible(child: chips),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ring,
+                  SizedBox(width: narrow ? 18 : 24),
+                  Expanded(child: copy),
+                ],
+              ),
+              divider,
+              chips,
             ],
           );
         },
@@ -671,33 +669,45 @@ class _StabilityRing extends StatelessWidget {
   final String label;
   final Color foregroundColor;
   final Color trackColor;
+  final double size;
 
   const _StabilityRing({
     required this.score,
     required this.label,
     required this.foregroundColor,
     required this.trackColor,
+    this.size = 112,
   });
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final stroke = size * 0.1;
 
     return SizedBox(
-      width: 112,
-      height: 112,
+      width: size,
+      height: size,
       child: Stack(
         alignment: Alignment.center,
         children: [
           SizedBox(
-            width: 112,
-            height: 112,
+            width: size,
+            height: size,
+            child: CircularProgressIndicator(
+              value: 1,
+              strokeWidth: stroke,
+              color: trackColor,
+            ),
+          ),
+          SizedBox(
+            width: size,
+            height: size,
             child: CircularProgressIndicator(
               value: score / 100,
-              strokeWidth: 11,
+              strokeWidth: stroke,
               strokeCap: StrokeCap.round,
               color: foregroundColor,
-              backgroundColor: trackColor,
+              backgroundColor: Colors.transparent,
             ),
           ),
           Column(
@@ -705,19 +715,22 @@ class _StabilityRing extends StatelessWidget {
             children: [
               Text(
                 '$score',
-                style: tt.headlineSmall?.copyWith(
+                style: tt.headlineMedium?.copyWith(
                   color: foregroundColor,
                   fontWeight: FontWeight.w900,
                   height: 1,
+                  fontSize: size * 0.26,
                 ),
               ),
+              const SizedBox(height: 2),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: tt.bodySmall?.copyWith(
-                  color: foregroundColor.withValues(alpha: 0.74),
+                  color: foregroundColor.withValues(alpha: 0.78),
                   fontWeight: FontWeight.w800,
+                  fontSize: size * 0.11,
                 ),
               ),
             ],
@@ -737,16 +750,16 @@ class _HeroChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 17),
+          Icon(icon, color: Colors.white, size: 16),
           const SizedBox(width: 7),
           Text(
             label,
@@ -795,10 +808,10 @@ class _TrendCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF497654).withValues(alpha: 0.14),
+                  color: const Color(0xFF5FA06E).withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.show_chart, color: Color(0xFF497654)),
+                child: const Icon(Icons.show_chart, color: Color(0xFF5FA06E)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -832,15 +845,15 @@ class _TrendCard extends StatelessWidget {
             children: [
               _TrendLegendItem(
                 label: '${l10n.t('minimum')}: $min%',
-                color: const Color(0xFFB8642B),
+                color: const Color(0xFFCB7C46),
               ),
               _TrendLegendItem(
                 label: '${l10n.t('averageHumidity')}: ${average.round()}%',
-                color: const Color(0xFF497654),
+                color: const Color(0xFF5FA06E),
               ),
               _TrendLegendItem(
                 label: '${l10n.t('maximum')}: $max%',
-                color: const Color(0xFF7A8744),
+                color: const Color(0xFFC0A24A),
               ),
               _TrendLegendItem(
                 label: l10n.t('healthyRange'),
@@ -849,9 +862,17 @@ class _TrendCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            height: 230,
-            child: _MoistureTrendChart(values: values, labels: labels),
+          Container(
+            padding: const EdgeInsets.fromLTRB(6, 14, 10, 6),
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+            ),
+            child: SizedBox(
+              height: 240,
+              child: _MoistureTrendChart(values: values, labels: labels),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -920,8 +941,12 @@ class _MoistureTrendChart extends StatelessWidget {
       painter: _MoistureTrendPainter(
         values: values,
         labels: labels,
-        gridColor: cs.outline.withValues(alpha: 0.24),
-        textColor: cs.onSurface.withValues(alpha: 0.62),
+        lineColor: cs.primary,
+        bandColor: cs.primary,
+        cardColor: cs.surfaceContainerHighest,
+        gridColor: cs.outline.withValues(alpha: 0.32),
+        textColor: cs.onSurface.withValues(alpha: 0.6),
+        valueColor: cs.onSurface,
       ),
       size: Size.infinite,
     );
@@ -931,22 +956,30 @@ class _MoistureTrendChart extends StatelessWidget {
 class _MoistureTrendPainter extends CustomPainter {
   final List<int> values;
   final List<String> labels;
+  final Color lineColor;
+  final Color bandColor;
+  final Color cardColor;
   final Color gridColor;
   final Color textColor;
+  final Color valueColor;
 
   const _MoistureTrendPainter({
     required this.values,
     required this.labels,
+    required this.lineColor,
+    required this.bandColor,
+    required this.cardColor,
     required this.gridColor,
     required this.textColor,
+    required this.valueColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    const left = 34.0;
-    const right = 14.0;
-    const top = 10.0;
-    const bottom = 32.0;
+    const left = 36.0;
+    const right = 16.0;
+    const top = 24.0;
+    const bottom = 30.0;
     const minY = 20.0;
     const maxY = 90.0;
     final chartWidth = size.width - left - right;
@@ -963,65 +996,112 @@ class _MoistureTrendPainter extends CustomPainter {
       return left + chartWidth * index / (values.length - 1);
     }
 
+    // Healthy band (45–72%).
+    final healthyTop = yFor(72);
+    final healthyBottom = yFor(45);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, healthyTop, chartWidth, healthyBottom - healthyTop),
+        const Radius.circular(12),
+      ),
+      Paint()..color = bandColor.withValues(alpha: 0.12),
+    );
+    final bandEdge = Paint()
+      ..color = bandColor.withValues(alpha: 0.3)
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(left, healthyTop),
+      Offset(left + chartWidth, healthyTop),
+      bandEdge,
+    );
+    canvas.drawLine(
+      Offset(left, healthyBottom),
+      Offset(left + chartWidth, healthyBottom),
+      bandEdge,
+    );
+
+    // Horizontal grid + axis labels.
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
     for (final yValue in [30, 45, 60, 72, 90]) {
       final y = yFor(yValue);
-      canvas.drawLine(
-        Offset(left, y),
-        Offset(size.width - right, y),
-        gridPaint,
+      canvas.drawLine(Offset(left, y), Offset(left + chartWidth, y), gridPaint);
+      _drawText(
+        canvas,
+        '$yValue',
+        Offset(2, y - 7),
+        textColor,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
       );
-      _drawText(canvas, '$yValue%', Offset(0, y - 8), textColor, fontSize: 11);
     }
 
-    final healthyTop = yFor(72);
-    final healthyBottom = yFor(45);
-    final bandPaint = Paint()
-      ..color = const Color(0xFFCBE7A3).withValues(alpha: 0.26);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, healthyTop, chartWidth, healthyBottom - healthyTop),
-        const Radius.circular(10),
-      ),
-      bandPaint,
+    // Build a smooth curve through the points.
+    final points = [
+      for (var i = 0; i < values.length; i++) Offset(xFor(i), yFor(values[i])),
+    ];
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final p0 = points[i];
+      final p1 = points[i + 1];
+      final midX = (p0.dx + p1.dx) / 2;
+      linePath.cubicTo(midX, p0.dy, midX, p1.dy, p1.dx, p1.dy);
+    }
+
+    // Gradient area fill under the curve.
+    final fillPath = Path.from(linePath)
+      ..lineTo(points.last.dx, top + chartHeight)
+      ..lineTo(points.first.dx, top + chartHeight)
+      ..close();
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            lineColor.withValues(alpha: 0.32),
+            lineColor.withValues(alpha: 0.02),
+          ],
+        ).createShader(Rect.fromLTWH(left, top, chartWidth, chartHeight)),
     );
 
-    final path = Path();
-    for (var i = 0; i < values.length; i++) {
-      final point = Offset(xFor(i), yFor(values[i]));
-      if (i == 0) {
-        path.moveTo(point.dx, point.dy);
-      } else {
-        path.lineTo(point.dx, point.dy);
-      }
-    }
+    // The curve itself.
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor
+        ..strokeWidth = 3.4
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke,
+    );
 
-    final linePaint = Paint()
-      ..color = const Color(0xFF497654)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(path, linePaint);
-
-    final dotPaint = Paint()..color = const Color(0xFF497654);
-    final dotBorderPaint = Paint()
-      ..color = const Color(0xFFEAF3E5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    for (var i = 0; i < values.length; i++) {
-      final point = Offset(xFor(i), yFor(values[i]));
-      canvas.drawCircle(point, 5, dotPaint);
-      canvas.drawCircle(point, 5, dotBorderPaint);
+    // Points + value labels + day labels.
+    final dotFill = Paint()..color = lineColor;
+    final dotRing = Paint()..color = cardColor;
+    for (var i = 0; i < points.length; i++) {
+      final point = points[i];
+      canvas.drawCircle(point, 6.5, dotRing);
+      canvas.drawCircle(point, 4, dotFill);
+      _drawText(
+        canvas,
+        '${values[i]}',
+        Offset(point.dx, point.dy - 20),
+        valueColor,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+        center: true,
+      );
       _drawText(
         canvas,
         labels[i % labels.length],
-        Offset(point.dx - 5, size.height - 22),
+        Offset(point.dx, size.height - 18),
         textColor,
         fontSize: 12,
         fontWeight: FontWeight.w800,
+        center: true,
       );
     }
   }
@@ -1033,6 +1113,7 @@ class _MoistureTrendPainter extends CustomPainter {
     Color color, {
     double fontSize = 12,
     FontWeight fontWeight = FontWeight.w600,
+    bool center = false,
   }) {
     final painter = TextPainter(
       text: TextSpan(
@@ -1045,14 +1126,18 @@ class _MoistureTrendPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    painter.paint(canvas, offset);
+    final dx = center ? offset.dx - painter.width / 2 : offset.dx;
+    painter.paint(canvas, Offset(dx, offset.dy));
   }
 
   @override
   bool shouldRepaint(covariant _MoistureTrendPainter oldDelegate) {
     return oldDelegate.values != values ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.cardColor != cardColor ||
         oldDelegate.gridColor != gridColor ||
-        oldDelegate.textColor != textColor;
+        oldDelegate.textColor != textColor ||
+        oldDelegate.valueColor != valueColor;
   }
 }
 
@@ -1150,17 +1235,32 @@ class _RetentionCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.46),
+              color: diagnostic.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
-            ),
-            child: Text(
-              diagnostic.recommendation,
-              style: tt.bodySmall?.copyWith(
-                color: cs.onSurface.withValues(alpha: 0.72),
-                fontWeight: FontWeight.w700,
-                height: 1.35,
+              border: Border.all(
+                color: diagnostic.color.withValues(alpha: 0.24),
               ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: diagnostic.color,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    diagnostic.recommendation,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

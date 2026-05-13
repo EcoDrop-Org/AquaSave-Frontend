@@ -69,6 +69,8 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
       plantCount: event.plantCount,
       weather: 'Buscando clima',
       avgHumidityPct: 50,
+      latitude: event.latitude,
+      longitude: event.longitude,
     );
 
     _devices.add(device);
@@ -106,11 +108,14 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     if (index == -1) return;
 
     final current = _devices[index];
+    final hasNewCoords = event.latitude != null && event.longitude != null;
     _devices[index] = current.copyWith(
       name: event.name,
       location: event.location,
       plantCount: event.plantCount,
-      clearCoordinates: event.location != current.location,
+      latitude: hasNewCoords ? event.latitude : null,
+      longitude: hasNewCoords ? event.longitude : null,
+      clearCoordinates: !hasNewCoords && event.location != current.location,
     );
 
     emit(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
+import 'device_detail_dialog.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -93,26 +95,29 @@ class _WideGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: AppDimensions.spaceMd,
-      runSpacing: AppDimensions.spaceMd,
+      spacing: 28,
+      runSpacing: 28,
       children: [
         ...devices.map(
           (device) => SizedBox(
-            width: 420,
+            width: 430,
             child: DeviceListCard(
               device: device,
               isActive: _isActive(context, device),
               onEdit: () => _showDeviceDialog(context, device: device),
-              onViewDetails: () => context.read<DevicesBloc>().add(
-                SelectActiveDevice(device.id),
-              ),
+              onViewDetails: () {
+                context.read<DevicesBloc>().add(SelectActiveDevice(device.id));
+                showDeviceDetailDialog(context, device);
+              },
             ),
           ),
         ),
         SizedBox(
-          width: 420,
-          height: 260,
-          child: _AddDeviceCard(onTap: () => _showDeviceDialog(context)),
+          width: 430,
+          height: 236,
+          child: _AddDeviceCard(
+            onTap: () => _showDeviceOnboardingDialog(context),
+          ),
         ),
       ],
     );
@@ -140,15 +145,18 @@ class _NarrowList extends StatelessWidget {
               device: device,
               isActive: _isActive(context, device),
               onEdit: () => _showDeviceDialog(context, device: device),
-              onViewDetails: () => context.read<DevicesBloc>().add(
-                SelectActiveDevice(device.id),
-              ),
+              onViewDetails: () {
+                context.read<DevicesBloc>().add(SelectActiveDevice(device.id));
+                showDeviceDetailDialog(context, device);
+              },
             ),
           ),
         ),
         SizedBox(
           height: 220,
-          child: _AddDeviceCard(onTap: () => _showDeviceDialog(context)),
+          child: _AddDeviceCard(
+            onTap: () => _showDeviceOnboardingDialog(context),
+          ),
         ),
       ],
     );
@@ -183,31 +191,56 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedScale(
         duration: const Duration(milliseconds: 140),
-        scale: _hovered ? 1.01 : 1,
+        curve: Curves.easeOut,
+        scale: _hovered ? 1.012 : 1,
         child: InkWell(
           onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            padding: const EdgeInsets.all(24),
+          borderRadius: BorderRadius.circular(28),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.34),
+              color: _hovered
+                  ? cs.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
               border: Border.all(
-                color: const Color(0xFF37593F).withValues(alpha: 0.42),
-                width: 1.4,
+                color: cs.primary.withValues(alpha: _hovered ? 0.72 : 0.58),
+                width: 1.8,
               ),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: _hovered
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 22,
+                        offset: const Offset(0, 12),
+                      ),
+                    ]
+                  : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.add_circle_outline, size: 48, color: cs.onSurface),
-                const SizedBox(height: 14),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _hovered
+                        ? cs.primary.withValues(alpha: 0.14)
+                        : Colors.transparent,
+                    border: Border.all(color: cs.primary, width: 2.8),
+                  ),
+                  child: Icon(Icons.add_rounded, size: 34, color: cs.primary),
+                ),
+                const SizedBox(height: 44),
                 Text(
                   l10n.t('addDevice'),
                   textAlign: TextAlign.center,
-                  style: tt.titleMedium?.copyWith(
+                  style: tt.headlineSmall?.copyWith(
                     color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
@@ -219,22 +252,1647 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
   }
 }
 
+// ── Add device onboarding ───────────────────────────────────────────────────
+
+Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
+  const totalSteps = 7;
+  var step = 1;
+  var selectedSsid = 'CASA_VERA_2.4';
+  var rememberNetwork = true;
+  var crop = 'Hortalizas';
+  var minHumidity = 35.0;
+  var maxHumidity = 75.0;
+  _PlaceResult? selectedPlace;
+
+  final l10n = AppLocalizations.of(context);
+  final passwordCtrl = TextEditingController(text: 'aquasave123');
+  final nameCtrl = TextEditingController(text: 'Mi huerto terraza');
+  final plantCountCtrl = TextEditingController(text: '5');
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  bool validateCurrentStep() {
+    if (step == 2 && selectedSsid.trim().isEmpty) {
+      showMessage('Selecciona una red WiFi.');
+      return false;
+    }
+    if (step == 4) {
+      if (nameCtrl.text.trim().length < 3) {
+        showMessage(l10n.t('invalidName'));
+        return false;
+      }
+      final plants = int.tryParse(plantCountCtrl.text.trim());
+      if (plants == null || plants < 1) {
+        showMessage(l10n.t('invalidPlantCount'));
+        return false;
+      }
+      if (selectedPlace == null) {
+        showMessage(l10n.t('invalidLocation'));
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void addDevice(BuildContext dialogContext) {
+    final place = selectedPlace;
+    final location = place?.displayName.trim() ?? '';
+    final plantCount = int.tryParse(plantCountCtrl.text.trim()) ?? 1;
+
+    if (location.isEmpty) {
+      showMessage(l10n.t('invalidLocation'));
+      return;
+    }
+
+    context.read<DevicesBloc>().add(
+      AddDeviceRequested(
+        name: nameCtrl.text.trim(),
+        location: location,
+        plantCount: plantCount,
+        latitude: place?.latitude,
+        longitude: place?.longitude,
+      ),
+    );
+    Navigator.of(dialogContext).pop();
+  }
+
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setWizardState) {
+          final cs = Theme.of(dialogContext).colorScheme;
+          final mq = MediaQuery.sizeOf(dialogContext);
+          final compact = mq.width < 720;
+
+          void next() {
+            if (!validateCurrentStep()) return;
+            if (step == totalSteps) {
+              addDevice(dialogContext);
+              return;
+            }
+            setWizardState(() => step++);
+          }
+
+          void back() {
+            if (step == 1) {
+              Navigator.of(dialogContext).pop();
+              return;
+            }
+            setWizardState(() => step--);
+          }
+
+          Widget content() {
+            return switch (step) {
+              1 => const _WizardPrepStep(),
+              2 => _WizardWifiStep(
+                ssid: selectedSsid,
+                passwordCtrl: passwordCtrl,
+                rememberNetwork: rememberNetwork,
+                onSsidChanged: (value) =>
+                    setWizardState(() => selectedSsid = value),
+                onRememberChanged: (value) =>
+                    setWizardState(() => rememberNetwork = value),
+              ),
+              3 => const _WizardVerificationStep(),
+              4 => _WizardGardenStep(
+                nameCtrl: nameCtrl,
+                plantCountCtrl: plantCountCtrl,
+                crop: crop,
+                selectedPlace: selectedPlace,
+                onCropChanged: (value) => setWizardState(() => crop = value),
+                onPlaceChanged: (value) =>
+                    setWizardState(() => selectedPlace = value),
+              ),
+              5 => _WizardThresholdStep(
+                minHumidity: minHumidity,
+                maxHumidity: maxHumidity,
+                crop: crop,
+                onChanged: (values) {
+                  setWizardState(() {
+                    minHumidity = values.start;
+                    maxHumidity = values.end;
+                  });
+                },
+                onPreset: (min, max, label) {
+                  setWizardState(() {
+                    minHumidity = min;
+                    maxHumidity = max;
+                    crop = label;
+                  });
+                },
+              ),
+              6 => const _WizardSensorStep(),
+              7 => _WizardReadyStep(
+                name: nameCtrl.text.trim().isEmpty
+                    ? 'Mi huerto terraza'
+                    : nameCtrl.text.trim(),
+                location: selectedPlace?.displayName ?? '',
+                crop: crop,
+                minHumidity: minHumidity,
+                maxHumidity: maxHumidity,
+              ),
+              _ => const SizedBox.shrink(),
+            };
+          }
+
+          return Dialog(
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: compact ? 12 : 36,
+              vertical: compact ? 18 : 32,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 920,
+                maxHeight: mq.height * 0.92,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 18 : 28,
+                      18,
+                      compact ? 10 : 18,
+                      6,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _WizardStepper(
+                            total: totalSteps,
+                            current: step,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          tooltip: l10n.t('close'),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        compact ? 18 : 28,
+                        10,
+                        compact ? 18 : 28,
+                        0,
+                      ),
+                      child: _WizardPanel(
+                        stepLabel: 'Paso $step de $totalSteps',
+                        child: content(),
+                      ),
+                    ),
+                  ),
+                  _WizardFooter(
+                    onBack: back,
+                    onNext: next,
+                    backLabel: step == 1 ? l10n.t('cancel') : 'Atrás',
+                    nextLabel: step == totalSteps
+                        ? l10n.t('addDevice')
+                        : 'Continuar',
+                    muted: cs.outline.withValues(alpha: 0.24),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  passwordCtrl.dispose();
+  nameCtrl.dispose();
+  plantCountCtrl.dispose();
+}
+
+class _WizardStepper extends StatelessWidget {
+  final int total;
+  final int current;
+
+  const _WizardStepper({required this.total, required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        for (var i = 1; i <= total; i++) ...[
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: i <= current ? cs.primary : cs.surface,
+              border: Border.all(
+                color: i <= current
+                    ? cs.primary
+                    : cs.outline.withValues(alpha: 0.62),
+              ),
+            ),
+            child: i < current
+                ? Icon(Icons.check_rounded, size: 14, color: cs.onPrimary)
+                : null,
+          ),
+          if (i != total)
+            Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: 2,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                color: i < current
+                    ? cs.primary
+                    : cs.outline.withValues(alpha: 0.45),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WizardPanel extends StatelessWidget {
+  final String stepLabel;
+  final Widget child;
+
+  const _WizardPanel({required this.stepLabel, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(28, 22, 28, 28),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.primary.withValues(alpha: 0.16)
+            : cs.primary.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            stepLabel,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardFooter extends StatelessWidget {
+  final VoidCallback onBack;
+  final VoidCallback onNext;
+  final String backLabel;
+  final String nextLabel;
+  final Color muted;
+
+  const _WizardFooter({
+    required this.onBack,
+    required this.onNext,
+    required this.backLabel,
+    required this.nextLabel,
+    required this.muted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 16, 28, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(color: muted),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SizedBox(
+                width: 132,
+                child: OutlinedButton(
+                  onPressed: onBack,
+                  child: Text(backLabel),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 190,
+                child: ElevatedButton(
+                  onPressed: onNext,
+                  child: Text(nextLabel),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardPrepStep extends StatelessWidget {
+  const _WizardPrepStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return _WizardResponsiveRow(
+      left: _Esp32Illustration(color: cs.onSurface),
+      right: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Conecta tu ESP32 a AquaSave',
+            style: tt.headlineMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Antes de continuar:',
+            style: tt.titleMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const _WizardCheckRow(
+            icon: Icons.light_mode_outlined,
+            text: 'El ESP32 está encendido con el LED azul fijo.',
+          ),
+          const SizedBox(height: 9),
+          const _WizardCheckRow(
+            icon: Icons.wifi_rounded,
+            text: 'Estás cerca del router WiFi.',
+          ),
+          const SizedBox(height: 9),
+          const _WizardCheckRow(
+            icon: Icons.settings_input_antenna_rounded,
+            text: 'Tu computadora está conectada a la misma red.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardWifiStep extends StatelessWidget {
+  final String ssid;
+  final TextEditingController passwordCtrl;
+  final bool rememberNetwork;
+  final ValueChanged<String> onSsidChanged;
+  final ValueChanged<bool> onRememberChanged;
+
+  const _WizardWifiStep({
+    required this.ssid,
+    required this.passwordCtrl,
+    required this.rememberNetwork,
+    required this.onSsidChanged,
+    required this.onRememberChanged,
+  });
+
+  static const _networks = [
+    ('CASA_VERA_5G', 4),
+    ('CASA_VERA_2.4', 4),
+    ('AQUASAVE_SETUP', 3),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Conectar a WiFi',
+          style: tt.headlineMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Selecciona la red a la que se conectará el dispositivo. Recomendamos 2.4 GHz.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.74),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 24),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 720;
+            final networks = _NetworkList(
+              networks: _networks,
+              selected: ssid,
+              onChanged: onSsidChanged,
+            );
+            final form = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _WizardUpperLabel('RED SELECCIONADA'),
+                const SizedBox(height: 6),
+                _SelectedNetworkField(ssid: ssid),
+                const SizedBox(height: 18),
+                _WizardUpperLabel('CONTRASEÑA'),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
+                    hintText: 'Contraseña WiFi',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: rememberNetwork,
+                  onChanged: (value) => onRememberChanged(value ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(
+                    'Recordar esta red',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.72),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            );
+
+            if (compact) {
+              return Column(
+                children: [networks, const SizedBox(height: 18), form],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: networks),
+                const SizedBox(width: 28),
+                Expanded(child: form),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardVerificationStep extends StatelessWidget {
+  const _WizardVerificationStep();
+
+  static const _checks = [
+    'Conexión WiFi',
+    'Asignación IP',
+    'Servidor AquaSave',
+    'Sincronización inicial',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Verificación',
+          style: tt.headlineMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Estamos comprobando la conexión del ESP32 con AquaSave.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.74),
+          ),
+        ),
+        const SizedBox(height: 24),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 680;
+            final success = Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 38),
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      color: cs.onPrimary,
+                      size: 38,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Dispositivo conectado',
+                    style: tt.titleMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'AQUASAVE-D7E1 está en línea y reportando.',
+                    textAlign: TextAlign.center,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.58),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            );
+            final list = Column(
+              children: [
+                for (final check in _checks)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _VerificationRow(label: check),
+                  ),
+              ],
+            );
+
+            if (compact) {
+              return Column(
+                children: [success, const SizedBox(height: 16), list],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: success),
+                const SizedBox(width: 24),
+                Expanded(child: list),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardGardenStep extends StatelessWidget {
+  final TextEditingController nameCtrl;
+  final TextEditingController plantCountCtrl;
+  final String crop;
+  final _PlaceResult? selectedPlace;
+  final ValueChanged<String> onCropChanged;
+  final ValueChanged<_PlaceResult?> onPlaceChanged;
+
+  const _WizardGardenStep({
+    required this.nameCtrl,
+    required this.plantCountCtrl,
+    required this.crop,
+    required this.selectedPlace,
+    required this.onCropChanged,
+    required this.onPlaceChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Datos del huerto',
+          style: tt.headlineMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'La ubicación se guardará con coordenadas exactas para consultar el clima del huerto.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.74),
+          ),
+        ),
+        const SizedBox(height: 22),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 720;
+            final fields = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre del huerto',
+                    prefixIcon: Icon(Icons.sensors_rounded),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: plantCountCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad de plantas',
+                    prefixIcon: Icon(Icons.eco_rounded),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _WizardUpperLabel('TIPO DE CULTIVO'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final item in const [
+                      'Hortalizas',
+                      'Hierbas',
+                      'Suculentas',
+                      'Vegetales de hoja',
+                    ])
+                      ChoiceChip(
+                        label: Text(item),
+                        selected: crop == item,
+                        onSelected: (_) => onCropChanged(item),
+                      ),
+                  ],
+                ),
+              ],
+            );
+            final location = _LocationSearchPanel(
+              initialSelection: selectedPlace,
+              onChanged: onPlaceChanged,
+            );
+
+            if (compact) {
+              return Column(
+                children: [fields, const SizedBox(height: 16), location],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: fields),
+                const SizedBox(width: 18),
+                Expanded(flex: 7, child: location),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardThresholdStep extends StatelessWidget {
+  final double minHumidity;
+  final double maxHumidity;
+  final String crop;
+  final ValueChanged<RangeValues> onChanged;
+  final void Function(double min, double max, String label) onPreset;
+
+  const _WizardThresholdStep({
+    required this.minHumidity,
+    required this.maxHumidity,
+    required this.crop,
+    required this.onChanged,
+    required this.onPreset,
+  });
+
+  static const _presets = [
+    ('Hortalizas', 35.0, 75.0),
+    ('Hierbas', 35.0, 70.0),
+    ('Suculentas', 20.0, 50.0),
+    ('Vegetales de hoja', 50.0, 80.0),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Umbrales de humedad',
+          style: tt.headlineMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Define el rango óptimo. AquaSave alertará y regará dentro de este rango.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.74),
+          ),
+        ),
+        const SizedBox(height: 28),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 760;
+            final slider = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _ValuePill(label: 'Mínimo', value: minHumidity),
+                    _ValuePill(label: 'Máximo', value: maxHumidity),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                RangeSlider(
+                  min: 0,
+                  max: 100,
+                  divisions: 100,
+                  labels: RangeLabels(
+                    '${minHumidity.round()}%',
+                    '${maxHumidity.round()}%',
+                  ),
+                  values: RangeValues(minHumidity, maxHumidity),
+                  onChanged: (values) {
+                    if (values.end - values.start < 10) return;
+                    onChanged(values);
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: ['0%', '25%', '50%', '75%', '100%']
+                        .map(
+                          (value) => Text(
+                            value,
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurface.withValues(alpha: 0.62),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _WizardCheckRow(
+                  icon: Icons.tips_and_updates_outlined,
+                  text:
+                      'Sugerimos ${minHumidity.round()}-${maxHumidity.round()}% para $crop.',
+                ),
+              ],
+            );
+            final presets = Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Presets por cultivo',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final preset in _presets)
+                    _PresetTile(
+                      label: preset.$1,
+                      min: preset.$2,
+                      max: preset.$3,
+                      selected:
+                          crop == preset.$1 &&
+                          minHumidity == preset.$2 &&
+                          maxHumidity == preset.$3,
+                      onTap: () => onPreset(preset.$2, preset.$3, preset.$1),
+                    ),
+                ],
+              ),
+            );
+
+            if (compact) {
+              return Column(
+                children: [slider, const SizedBox(height: 18), presets],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 7, child: slider),
+                const SizedBox(width: 28),
+                Expanded(flex: 4, child: presets),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardSensorStep extends StatelessWidget {
+  const _WizardSensorStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    final cards = const [
+      _WizardSensorCard(
+        icon: Icons.water_drop_rounded,
+        label: 'Humedad de suelo',
+        value: '62%',
+        color: Color(0xFF52A7D8),
+      ),
+      _WizardSensorCard(
+        icon: Icons.thermostat_rounded,
+        label: 'Temperatura',
+        value: '24.3°C',
+        color: Color(0xFFE25E4F),
+      ),
+      _WizardSensorCard(
+        icon: Icons.light_mode_rounded,
+        label: 'Luminosidad',
+        value: '48 200 lx',
+        color: Color(0xFFD7B850),
+      ),
+      _WizardSensorCard(
+        icon: Icons.opacity_rounded,
+        label: 'Humedad ambiental',
+        value: '58%',
+        color: Color(0xFF5FA06E),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Prueba de sensores',
+          style: tt.headlineMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Vamos a leer los sensores conectados al ESP32 para verificar que funcionan.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.74),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        const SizedBox(height: 24),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth < 620 ? 1 : 2;
+            return Wrap(
+              spacing: 14,
+              runSpacing: 14,
+              children: [
+                for (final card in cards)
+                  SizedBox(
+                    width: columns == 1
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 14) / 2,
+                    child: card,
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardReadyStep extends StatelessWidget {
+  final String name;
+  final String location;
+  final String crop;
+  final double minHumidity;
+  final double maxHumidity;
+
+  const _WizardReadyStep({
+    required this.name,
+    required this.location,
+    required this.crop,
+    required this.minHumidity,
+    required this.maxHumidity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final rows = [
+      ('Nombre', name),
+      ('Código', 'AQUASAVE-D7E1-2026'),
+      ('Ubicación', location.isEmpty ? 'Pendiente' : location),
+      ('Tipo de espacio', 'Balcón'),
+      ('Cultivo', crop),
+      ('Umbrales', '${minHumidity.round()}% - ${maxHumidity.round()}%'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Todo listo',
+          style: tt.headlineMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Tu dispositivo ya forma parte de tu huerto AquaSave.',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.74),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        const SizedBox(height: 26),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 700;
+            final illustration = Container(
+              height: 230,
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 82,
+                      height: 82,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.local_florist_rounded,
+                        color: cs.primary,
+                        size: 46,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Conectado',
+                      style: tt.titleMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+            final summary = _SummaryTable(rows: rows);
+
+            if (compact) {
+              return Column(
+                children: [illustration, const SizedBox(height: 16), summary],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 4, child: illustration),
+                const SizedBox(width: 24),
+                Expanded(flex: 6, child: summary),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardResponsiveRow extends StatelessWidget {
+  final Widget left;
+  final Widget right;
+
+  const _WizardResponsiveRow({required this.left, required this.right});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 680) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [left, const SizedBox(height: 20), right],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 4, child: left),
+            const SizedBox(width: 28),
+            Expanded(flex: 7, child: right),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Esp32Illustration extends StatelessWidget {
+  final Color color;
+
+  const _Esp32Illustration({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 188,
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
+        child: Container(
+          width: 170,
+          height: 86,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1D1C),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 24,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _LedDot(on: true, color: cs.primary),
+              const SizedBox(width: 7),
+              const _LedDot(on: false, color: Colors.white),
+              const SizedBox(width: 7),
+              const _LedDot(on: false, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LedDot extends StatelessWidget {
+  final bool on;
+  final Color color;
+
+  const _LedDot({required this.on, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: on ? 8 : 6,
+      height: on ? 8 : 6,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: on ? color : Colors.white.withValues(alpha: 0.18),
+        boxShadow: on
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.7),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+    );
+  }
+}
+
+class _WizardCheckRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _WizardCheckRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: cs.onSurface),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetworkList extends StatelessWidget {
+  final List<(String, int)> networks;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  const _NetworkList({
+    required this.networks,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Column(
+        children: [
+          for (final network in networks)
+            Material(
+              color: selected == network.$1
+                  ? cs.primary.withValues(alpha: 0.18)
+                  : cs.surface.withValues(alpha: 0.94),
+              child: InkWell(
+                onTap: () => onChanged(network.$1),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 15,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.signal_wifi_4_bar_rounded, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          network.$1,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: cs.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      _SignalBars(value: network.$2),
+                      if (selected == network.$1) ...[
+                        const SizedBox(width: 12),
+                        Icon(Icons.check_rounded, color: cs.primary),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedNetworkField extends StatelessWidget {
+  final String ssid;
+
+  const _SelectedNetworkField({required this.ssid});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_rounded, size: 18, color: cs.onSurface),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              ssid,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignalBars extends StatelessWidget {
+  final int value;
+
+  const _SignalBars({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 1; i <= 4; i++)
+          Container(
+            width: 4,
+            height: 5.0 + i * 3,
+            margin: const EdgeInsets.only(left: 2),
+            decoration: BoxDecoration(
+              color: i <= value
+                  ? color
+                  : Theme.of(
+                      context,
+                    ).colorScheme.outline.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _VerificationRow extends StatelessWidget {
+  final String label;
+
+  const _VerificationRow({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.surface.withValues(alpha: 0.72)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.34),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'OK',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardUpperLabel extends StatelessWidget {
+  final String text;
+
+  const _WizardUpperLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+class _ValuePill extends StatelessWidget {
+  final String label;
+  final double value;
+
+  const _ValuePill({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        '$label: ${value.round()}%',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: cs.onSurface,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetTile extends StatelessWidget {
+  final String label;
+  final double min;
+  final double max;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PresetTile({
+    required this.label,
+    required this.min,
+    required this.max,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? cs.primary.withValues(alpha: 0.12)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? cs.primary.withValues(alpha: 0.48)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '${min.round()} - ${max.round()}%',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.62),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WizardSensorCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _WizardSensorCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: color, size: 30),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: tt.titleLarge?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryTable extends StatelessWidget {
+  final List<(String, String)> rows;
+
+  const _SummaryTable({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 118,
+                    child: Text(
+                      rows[i].$1,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      rows[i].$2,
+                      textAlign: TextAlign.right,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w800,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i != rows.length - 1)
+              Divider(color: cs.outline.withValues(alpha: 0.34)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Add / edit device dialog ─────────────────────────────────────────────────
+
 Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
   final editing = device != null;
   final nameCtrl = TextEditingController(text: device?.name ?? '');
   final plantCountCtrl = TextEditingController(
     text: (device?.plantCount ?? 1).toString(),
   );
-  final locationParts = _locationParts(device?.location ?? '');
-  final countryCtrl = TextEditingController(text: locationParts.country);
-  final cityCtrl = TextEditingController(text: locationParts.city);
-  final districtCtrl = TextEditingController(text: locationParts.district);
-  final postalCodeCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
   final l10n = AppLocalizations.of(context);
-  _ResolvedLocation? resolvedLocation;
-  String? locationMessage;
-  var isResolvingLocation = false;
+
+  _PlaceResult? selectedPlace =
+      (device?.latitude != null && device?.longitude != null)
+      ? _PlaceResult(
+          name: device!.location,
+          displayName: device.location,
+          country: '',
+          countryCode: '',
+          latitude: device.latitude!,
+          longitude: device.longitude!,
+        )
+      : null;
 
   await showDialog<void>(
     context: context,
@@ -246,38 +1904,6 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
 
       return StatefulBuilder(
         builder: (dialogContext, setDialogState) {
-          Future<void> resolveLocation() async {
-            setDialogState(() {
-              isResolvingLocation = true;
-              locationMessage = null;
-            });
-            final result = await _resolveLocation(
-              country: countryCtrl.text,
-              city: cityCtrl.text,
-              district: districtCtrl.text,
-              postalCode: postalCodeCtrl.text,
-            );
-            if (!dialogContext.mounted) return;
-            setDialogState(() {
-              isResolvingLocation = false;
-              resolvedLocation = result;
-              if (result != null) {
-                if ((result.country ?? '').isNotEmpty) {
-                  countryCtrl.text = result.country!;
-                }
-                if ((result.city ?? '').isNotEmpty) {
-                  cityCtrl.text = result.city!;
-                }
-                if ((result.district ?? '').isNotEmpty) {
-                  districtCtrl.text = result.district!;
-                }
-              }
-              locationMessage = result == null
-                  ? l10n.t('locationNotFound')
-                  : '${l10n.t(result.fromPostalCode ? 'locationResolvedWithPostal' : 'resolvedLocation')}: ${result.displayName}';
-            });
-          }
-
           return AlertDialog(
             insetPadding: EdgeInsets.symmetric(
               horizontal: compact ? 14 : 32,
@@ -383,14 +2009,10 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                         ),
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      _LocationLookupPanel(
-                        countryCtrl: countryCtrl,
-                        cityCtrl: cityCtrl,
-                        districtCtrl: districtCtrl,
-                        postalCodeCtrl: postalCodeCtrl,
-                        isResolving: isResolvingLocation,
-                        message: locationMessage,
-                        onResolve: resolveLocation,
+                      _LocationSearchPanel(
+                        initialSelection: selectedPlace,
+                        onChanged: (place) =>
+                            setDialogState(() => selectedPlace = place),
                       ),
                     ],
                   ),
@@ -405,22 +2027,25 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                     ? l10n.t('saveChanges')
                     : l10n.t('register'),
                 onCancel: () => Navigator.of(dialogContext).pop(),
-                onSubmit: () => _submitDeviceDialog(
-                  context,
-                  dialogContext,
-                  formKey,
-                  nameCtrl,
-                  _buildLocation(
-                    resolvedLocation: resolvedLocation,
-                    countryCtrl: countryCtrl,
-                    cityCtrl: cityCtrl,
-                    districtCtrl: districtCtrl,
-                    postalCodeCtrl: postalCodeCtrl,
-                  ),
-                  plantCountCtrl,
-                  device,
-                  l10n,
-                ),
+                onSubmit: () {
+                  final resolvedName = selectedPlace?.displayName.trim();
+                  final location =
+                      (resolvedName != null && resolvedName.isNotEmpty)
+                      ? resolvedName
+                      : (device?.location ?? '');
+                  _submitDeviceDialog(
+                    context,
+                    dialogContext,
+                    formKey,
+                    nameCtrl,
+                    location,
+                    plantCountCtrl,
+                    device,
+                    l10n,
+                    latitude: selectedPlace?.latitude,
+                    longitude: selectedPlace?.longitude,
+                  );
+                },
               ),
             ],
           );
@@ -431,10 +2056,6 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
 
   nameCtrl.dispose();
   plantCountCtrl.dispose();
-  countryCtrl.dispose();
-  cityCtrl.dispose();
-  districtCtrl.dispose();
-  postalCodeCtrl.dispose();
 }
 
 void _submitDeviceDialog(
@@ -445,8 +2066,10 @@ void _submitDeviceDialog(
   String location,
   TextEditingController plantCountCtrl,
   Device? device,
-  AppLocalizations l10n,
-) {
+  AppLocalizations l10n, {
+  double? latitude,
+  double? longitude,
+}) {
   if (!formKey.currentState!.validate()) return;
   if (location.trim().length < 3) {
     ScaffoldMessenger.of(
@@ -464,6 +2087,8 @@ void _submitDeviceDialog(
         name: name,
         location: location,
         plantCount: plantCount,
+        latitude: latitude,
+        longitude: longitude,
       ),
     );
   } else {
@@ -473,6 +2098,8 @@ void _submitDeviceDialog(
         name: name,
         location: location,
         plantCount: plantCount,
+        latitude: latitude,
+        longitude: longitude,
       ),
     );
   }
@@ -480,44 +2107,187 @@ void _submitDeviceDialog(
   Navigator.of(dialogContext).pop();
 }
 
-String _buildLocation({
-  required _ResolvedLocation? resolvedLocation,
-  required TextEditingController countryCtrl,
-  required TextEditingController cityCtrl,
-  required TextEditingController districtCtrl,
-  required TextEditingController postalCodeCtrl,
-}) {
-  if (resolvedLocation != null) return resolvedLocation.displayName;
+// ── Location search panel ────────────────────────────────────────────────────
 
-  final parts = [
-    districtCtrl.text.trim(),
-    cityCtrl.text.trim(),
-    countryCtrl.text.trim(),
-  ].where((part) => part.isNotEmpty).toList();
-  if (parts.isEmpty && postalCodeCtrl.text.trim().isNotEmpty) {
-    return postalCodeCtrl.text.trim();
-  }
-  return parts.join(', ');
+class _LocationSearchPanel extends StatefulWidget {
+  final _PlaceResult? initialSelection;
+  final ValueChanged<_PlaceResult?> onChanged;
+
+  const _LocationSearchPanel({this.initialSelection, required this.onChanged});
+
+  @override
+  State<_LocationSearchPanel> createState() => _LocationSearchPanelState();
 }
 
-class _LocationLookupPanel extends StatelessWidget {
-  final TextEditingController countryCtrl;
-  final TextEditingController cityCtrl;
-  final TextEditingController districtCtrl;
-  final TextEditingController postalCodeCtrl;
-  final bool isResolving;
-  final String? message;
-  final VoidCallback onResolve;
+class _LocationSearchPanelState extends State<_LocationSearchPanel> {
+  final TextEditingController _ctrl = TextEditingController();
+  Timer? _debounce;
+  List<_PlaceResult> _results = const [];
+  bool _loading = false;
+  bool _error = false;
+  _PlaceResult? _selected;
+  int _requestId = 0;
 
-  const _LocationLookupPanel({
-    required this.countryCtrl,
-    required this.cityCtrl,
-    required this.districtCtrl,
-    required this.postalCodeCtrl,
-    required this.isResolving,
-    required this.message,
-    required this.onResolve,
-  });
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialSelection;
+    if (_selected != null) _ctrl.text = _selected!.displayName;
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    if (_selected != null) {
+      _selected = null;
+      widget.onChanged(null);
+    }
+    final query = value.trim();
+    if (query.length < 2) {
+      setState(() {
+        _results = const [];
+        _loading = false;
+        _error = false;
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    _debounce = Timer(const Duration(milliseconds: 450), () => _search(query));
+  }
+
+  /// Two-step location resolution.
+  ///
+  /// Geocoding: turn the user's free text into precise coordinates.
+  /// We query OpenStreetMap / Nominatim first — it indexes neighbourhoods,
+  /// suburbs and districts worldwide far better than the Open-Meteo geocoder
+  /// (the reason "Miraflores" used to resolve to a neighbouring district) — and
+  /// fall back to Open-Meteo's geocoder if Nominatim returns nothing.
+  /// Whatever the user picks, the exact lat/lon is stored on the device, so the
+  /// weather forecast is requested by coordinates and is always for that point.
+  Future<void> _search(String query) async {
+    final id = ++_requestId;
+    final lang = AppLocalizations.of(context).locale.languageCode;
+
+    final fromNominatim = await _fetchNominatim(query, lang);
+    if (!mounted || id != _requestId) return;
+
+    List<_PlaceResult>? results = fromNominatim;
+    if (results == null || results.isEmpty) {
+      final fromOpenMeteo = await _fetchOpenMeteo(query, lang);
+      if (!mounted || id != _requestId) return;
+      if (fromOpenMeteo != null) results = fromOpenMeteo;
+    }
+
+    if (results == null) {
+      setState(() {
+        _loading = false;
+        _error = true;
+        _results = const [];
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _error = false;
+      _results = results!;
+    });
+  }
+
+  /// Returns `null` on a network/parse error, or a (possibly empty) list on a
+  /// successful response.
+  Future<List<_PlaceResult>?> _fetchNominatim(String query, String lang) async {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+      'q': query,
+      'format': 'jsonv2',
+      'addressdetails': '1',
+      'limit': '8',
+      'accept-language': lang,
+    });
+    try {
+      final response = await http
+          .get(
+            uri,
+            headers: const {
+              'User-Agent': 'AquaSave/1.0 (smart irrigation app)',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode < 200 || response.statusCode >= 300) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return const [];
+      final out = <_PlaceResult>[];
+      final seen = <String>{};
+      for (final item in decoded.whereType<Map<String, dynamic>>()) {
+        final place = _PlaceResult.fromNominatim(item);
+        if (place == null) continue;
+        final key =
+            '${place.latitude.toStringAsFixed(3)},${place.longitude.toStringAsFixed(3)}';
+        if (!seen.add(key)) continue;
+        out.add(place);
+      }
+      return out;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<_PlaceResult>?> _fetchOpenMeteo(String query, String lang) async {
+    final uri = Uri.https('geocoding-api.open-meteo.com', '/v1/search', {
+      'name': query,
+      'count': '8',
+      'language': lang,
+      'format': 'json',
+    });
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode < 200 || response.statusCode >= 300) return null;
+      final payload = jsonDecode(response.body);
+      final rawResults = payload is Map<String, dynamic>
+          ? (payload['results'] as List<dynamic>? ?? const [])
+          : const [];
+      return rawResults
+          .whereType<Map<String, dynamic>>()
+          .map(_PlaceResult.fromOpenMeteo)
+          .whereType<_PlaceResult>()
+          .toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _select(_PlaceResult place) {
+    _debounce?.cancel();
+    setState(() {
+      _selected = place;
+      _results = const [];
+      _ctrl.text = place.displayName;
+      _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    });
+    widget.onChanged(place);
+    FocusScope.of(context).unfocus();
+  }
+
+  void _clearSelection() {
+    _debounce?.cancel();
+    setState(() {
+      _selected = null;
+      _ctrl.clear();
+      _results = const [];
+      _error = false;
+      _loading = false;
+    });
+    widget.onChanged(null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -542,7 +2312,7 @@ class _LocationLookupPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  l10n.t('locationLookupTitle'),
+                  l10n.t('locationSearchTitle'),
                   style: tt.titleMedium?.copyWith(
                     color: cs.onSurface,
                     fontWeight: FontWeight.w800,
@@ -553,163 +2323,307 @@ class _LocationLookupPanel extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            l10n.t('locationFieldsNotSaved'),
+            l10n.t('locationSearchSubtitle'),
             style: tt.bodySmall?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.62),
-              height: 1.35,
+              color: cs.onSurface.withValues(alpha: 0.64),
+              height: 1.4,
             ),
           ),
           const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stacked = constraints.maxWidth < 520;
-              final country = _DeviceDialogField(
-                controller: countryCtrl,
-                label: l10n.t('country'),
-                hint: l10n.t('countryHint'),
-                icon: Icons.public_outlined,
-              );
-              final city = _DeviceDialogField(
-                controller: cityCtrl,
-                label: l10n.t('city'),
-                hint: l10n.t('cityHint'),
-                icon: Icons.location_city_outlined,
-              );
-              final district = _DeviceDialogField(
-                controller: districtCtrl,
-                label: l10n.t('district'),
-                hint: l10n.t('districtHint'),
-                icon: Icons.place_outlined,
-              );
-              final postal = _DeviceDialogField(
-                controller: postalCodeCtrl,
-                label: l10n.t('postalCode'),
-                hint: l10n.t('postalCodeHint'),
-                helperText: l10n.t('postalCodeHelper'),
-                icon: Icons.local_post_office_outlined,
-                keyboardType: TextInputType.streetAddress,
-              );
+          TextField(
+            controller: _ctrl,
+            textInputAction: TextInputAction.search,
+            onChanged: _onChanged,
+            decoration: InputDecoration(
+              hintText: l10n.t('locationSearchHint'),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _ctrl.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: l10n.t('locationChange'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: _clearSelection,
+                    ),
+              filled: true,
+              fillColor: cs.surface.withValues(alpha: 0.92),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: cs.outline.withValues(alpha: 0.22),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: cs.primary, width: 1.6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildBody(context, l10n, cs, tt),
+        ],
+      ),
+    );
+  }
 
-              if (stacked) {
-                return Column(
-                  children: [
-                    country,
-                    const SizedBox(height: 12),
-                    city,
-                    const SizedBox(height: 12),
-                    district,
-                    const SizedBox(height: 12),
-                    postal,
-                  ],
-                );
-              }
-
-              return Column(
+  Widget _buildBody(
+    BuildContext context,
+    AppLocalizations l10n,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
+    if (_selected != null) {
+      final place = _selected!;
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.30)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.check_circle, color: Colors.green),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: country),
-                      const SizedBox(width: 12),
-                      Expanded(child: city),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: district),
-                      const SizedBox(width: 12),
-                      Expanded(child: postal),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: cs.primary.withValues(alpha: 0.14)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, color: cs.primary, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    l10n.t('postalAlternativeHelp'),
+                  Text(
+                    l10n.t('locationConfirmed'),
                     style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.70),
-                      height: 1.35,
+                      color: cs.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    place.displayName,
+                    style: tt.bodyMedium?.copyWith(
+                      color: cs.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: isResolving ? null : onResolve,
-              icon: isResolving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location_outlined),
-              label: Text(l10n.t('resolveLocation')),
-            ),
-          ),
-          if (message != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: cs.primary.withValues(alpha: 0.16)),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${l10n.t('locationCoordinates')}: '
+                    '${place.latitude.toStringAsFixed(3)}, '
+                    '${place.longitude.toStringAsFixed(3)}',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.58),
+                    ),
+                  ),
+                ],
               ),
-              child: Text(
-                message!,
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.72),
-                  height: 1.35,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+            ),
+            TextButton(
+              onPressed: _clearSelection,
+              child: Text(l10n.t('locationChange')),
             ),
           ],
+        ),
+      );
+    }
+
+    if (_loading) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            l10n.t('locationSearching'),
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.62),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_error) {
+      return _InfoBanner(
+        icon: Icons.wifi_off_rounded,
+        color: cs.error,
+        text: l10n.t('locationError'),
+      );
+    }
+
+    final query = _ctrl.text.trim();
+    if (query.length < 2) {
+      return _InfoBanner(
+        icon: Icons.info_outline_rounded,
+        color: cs.primary,
+        text: l10n.t('locationPickHint'),
+      );
+    }
+
+    if (_results.isEmpty) {
+      return _InfoBanner(
+        icon: Icons.search_off_rounded,
+        color: cs.error,
+        text: l10n.t('locationNoMatches'),
+      );
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < _results.length; i++) ...[
+          if (i != 0) const SizedBox(height: 8),
+          _PlaceTile(place: _results[i], onTap: () => _select(_results[i])),
+        ],
+      ],
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  const _InfoBanner({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.74),
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
+class _PlaceTile extends StatelessWidget {
+  final _PlaceResult place;
+  final VoidCallback onTap;
+
+  const _PlaceTile({required this.place, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final secondary = place.secondaryLine;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  place.flagEmoji,
+                  style: const TextStyle(fontSize: 18),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.name,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (secondary.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        secondary,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.add_location_alt_outlined,
+                color: cs.primary,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shared dialog widgets ────────────────────────────────────────────────────
+
 class _DeviceDialogField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
-  final String? hint;
   final IconData icon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
-  final String? helperText;
 
   const _DeviceDialogField({
     required this.controller,
     required this.label,
     required this.icon,
-    this.hint,
     this.keyboardType,
     this.validator,
-    this.helperText,
   });
 
   @override
@@ -722,9 +2636,6 @@ class _DeviceDialogField extends StatelessWidget {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
-        helperText: helperText,
-        helperMaxLines: 2,
         prefixIcon: Icon(icon, size: 20),
         filled: true,
         fillColor: cs.surface.withValues(alpha: 0.88),
@@ -833,509 +2744,160 @@ class _DeviceSubmitButton extends StatelessWidget {
   }
 }
 
-Future<_ResolvedLocation?> _resolveLocation({
-  required String country,
-  required String city,
-  required String district,
-  required String postalCode,
-}) async {
-  final countryCode = _countryCodeFor(country);
-  final postal = postalCode.trim();
+// ── Geocoding result model ───────────────────────────────────────────────────
 
-  if (postal.isNotEmpty) {
-    final postalResolved = countryCode == null
-        ? null
-        : await _resolvePostalCode(countryCode, postal);
-    if (postalResolved != null) return postalResolved;
+class _PlaceResult {
+  final String name;
+  final String displayName;
+  final String? region;
+  final String country;
+  final String countryCode;
+  final double latitude;
+  final double longitude;
 
-    final structuredPostalResolved = await _resolveNominatim(
-      country: country,
-      countryCode: countryCode,
-      city: city,
-      district: district,
-      postalCode: postal,
-    );
-    if (structuredPostalResolved != null) return structuredPostalResolved;
-  }
-
-  final query = district.trim().isNotEmpty
-      ? district.trim()
-      : city.trim().isNotEmpty
-      ? city.trim()
-      : postal;
-  if (query.length < 2) return null;
-
-  final params = <String, String>{
-    'name': query,
-    'count': '10',
-    'language': 'es',
-    'format': 'json',
-  };
-  if (countryCode != null) params['countryCode'] = countryCode;
-  final uri = Uri.https('geocoding-api.open-meteo.com', '/v1/search', params);
-  final http.Response response;
-  try {
-    response = await http.get(uri).timeout(const Duration(seconds: 8));
-  } catch (_) {
-    return null;
-  }
-  if (response.statusCode < 200 || response.statusCode >= 300) return null;
-
-  final payload = jsonDecode(response.body) as Map<String, dynamic>;
-  final results = (payload['results'] as List<dynamic>? ?? [])
-      .whereType<Map<String, dynamic>>()
-      .toList();
-  if (results.isEmpty) {
-    return _resolveNominatim(
-      country: country,
-      countryCode: countryCode,
-      city: city,
-      district: district,
-      postalCode: postal,
-    );
-  }
-
-  results.sort((a, b) {
-    final scoreB = _locationScore(
-      b,
-      country: country,
-      city: city,
-      district: district,
-      countryCode: countryCode,
-    );
-    final scoreA = _locationScore(
-      a,
-      country: country,
-      city: city,
-      district: district,
-      countryCode: countryCode,
-    );
-    return scoreB.compareTo(scoreA);
+  const _PlaceResult({
+    required this.name,
+    required this.displayName,
+    this.region,
+    required this.country,
+    required this.countryCode,
+    required this.latitude,
+    required this.longitude,
   });
 
-  final best = results.first;
-  final bestScore = _locationScore(
-    best,
-    country: country,
-    city: city,
-    district: district,
-    countryCode: countryCode,
-  );
-  if (bestScore <= 0) {
-    final fallback = await _resolveNominatim(
+  /// Builds a result from an Open-Meteo geocoding entry.
+  static _PlaceResult? fromOpenMeteo(Map<String, dynamic> json) {
+    final name = (json['name'] as String? ?? '').trim();
+    final lat = (json['latitude'] as num?)?.toDouble();
+    final lon = (json['longitude'] as num?)?.toDouble();
+    if (name.isEmpty || lat == null || lon == null) return null;
+
+    final admin1 = (json['admin1'] as String? ?? '').trim();
+    final admin2 = (json['admin2'] as String? ?? '').trim();
+    final country = (json['country'] as String? ?? '').trim();
+    final code = (json['country_code'] as String? ?? '').trim().toUpperCase();
+
+    return _build(
+      name: name,
+      regionCandidates: [admin2, admin1],
       country: country,
-      countryCode: countryCode,
-      city: city,
-      district: district,
-      postalCode: postal,
-    );
-    if (fallback != null) return fallback;
-  }
-
-  return _locationFromGeocoding(best);
-}
-
-Future<_ResolvedLocation?> _resolvePostalCode(
-  String countryCode,
-  String postalCode,
-) async {
-  final uri = Uri.https(
-    'api.zippopotam.us',
-    '/${countryCode.toLowerCase()}/$postalCode',
-  );
-  final http.Response response;
-  try {
-    response = await http.get(uri).timeout(const Duration(seconds: 8));
-  } catch (_) {
-    return null;
-  }
-  if (response.statusCode < 200 || response.statusCode >= 300) return null;
-
-  final payload = jsonDecode(response.body) as Map<String, dynamic>;
-  final places = (payload['places'] as List<dynamic>? ?? [])
-      .whereType<Map<String, dynamic>>()
-      .toList();
-  if (places.isEmpty) return null;
-
-  final place = places.first;
-  final district = (place['place name'] as String? ?? '').trim();
-  final city = (place['state'] as String? ?? '').trim();
-  final country = (payload['country'] as String? ?? countryCode).trim();
-  final displayName = [
-    district,
-    city,
-    country,
-  ].where((part) => part.isNotEmpty).join(', ');
-
-  if (displayName.isEmpty) return null;
-  return _ResolvedLocation(
-    displayName: displayName,
-    country: country,
-    city: city,
-    district: district,
-    fromPostalCode: true,
-  );
-}
-
-int _locationScore(
-  Map<String, dynamic> item, {
-  required String country,
-  required String city,
-  required String district,
-  required String? countryCode,
-}) {
-  final name = _normalize(item['name'] as String? ?? '');
-  final admin1 = _normalize(item['admin1'] as String? ?? '');
-  final admin2 = _normalize(item['admin2'] as String? ?? '');
-  final admin3 = _normalize(item['admin3'] as String? ?? '');
-  final admin4 = _normalize(item['admin4'] as String? ?? '');
-  final itemCountry = _normalize(item['country'] as String? ?? '');
-  final itemCountryCode = (item['country_code'] as String? ?? '')
-      .trim()
-      .toUpperCase();
-  final wantedDistrict = _normalize(district);
-  final wantedCity = _normalize(city);
-  final wantedCountry = _normalize(country);
-  var score = 0;
-
-  if (countryCode != null && itemCountryCode.isNotEmpty) {
-    score += itemCountryCode == countryCode ? 100 : -150;
-  }
-  if (wantedDistrict.isNotEmpty && name == wantedDistrict) score += 80;
-  if (wantedDistrict.isNotEmpty && admin3 == wantedDistrict) score += 72;
-  if (wantedDistrict.isNotEmpty && admin4 == wantedDistrict) score += 60;
-  if (wantedDistrict.isNotEmpty && admin2.contains(wantedDistrict)) score += 32;
-  if (wantedDistrict.isNotEmpty && admin3.contains(wantedDistrict)) score += 48;
-  if (wantedDistrict.isNotEmpty && admin4.contains(wantedDistrict)) score += 38;
-  if (wantedCity.isNotEmpty && name.contains(wantedCity)) score += 18;
-  if (wantedCity.isNotEmpty && admin1.contains(wantedCity)) score += 38;
-  if (wantedCity.isNotEmpty && admin2.contains(wantedCity)) score += 26;
-  if (wantedCity.isNotEmpty && admin3.contains(wantedCity)) score += 16;
-  if (wantedCountry.isNotEmpty && itemCountry.contains(wantedCountry)) {
-    score += 48;
-  }
-
-  return score;
-}
-
-_ResolvedLocation _locationFromGeocoding(Map<String, dynamic> item) {
-  final parts = <String>[
-    item['name'] as String? ?? '',
-    item['admin3'] as String? ?? '',
-    item['admin2'] as String? ?? '',
-    item['admin1'] as String? ?? '',
-    item['country'] as String? ?? '',
-  ];
-  final deduped = <String>[];
-  for (final part in parts.map((part) => part.trim())) {
-    if (part.isEmpty) continue;
-    if (deduped.any((existing) => _normalize(existing) == _normalize(part))) {
-      continue;
-    }
-    deduped.add(part);
-  }
-
-  return _ResolvedLocation(
-    displayName: deduped.join(', '),
-    country: item['country'] as String?,
-    city: item['admin2'] as String? ?? item['admin1'] as String?,
-    district: item['name'] as String?,
-  );
-}
-
-Future<_ResolvedLocation?> _resolveNominatim({
-  required String country,
-  required String? countryCode,
-  required String city,
-  required String district,
-  required String postalCode,
-}) async {
-  final cleanedCountry = country.trim();
-  final cleanedCity = city.trim();
-  final cleanedDistrict = district.trim();
-  final cleanedPostal = postalCode.trim();
-  final attempts = <Map<String, String>>[];
-  final base = <String, String>{
-    'format': 'jsonv2',
-    'addressdetails': '1',
-    'limit': '8',
-    'accept-language': 'es',
-  };
-  if (countryCode != null) base['countrycodes'] = countryCode.toLowerCase();
-
-  if (cleanedPostal.isNotEmpty && cleanedCountry.isNotEmpty) {
-    attempts.add({...base, 'q': '$cleanedPostal, $cleanedCountry'});
-  }
-
-  if (cleanedPostal.isNotEmpty &&
-      (cleanedDistrict.isNotEmpty || cleanedCity.isNotEmpty)) {
-    attempts.add({
-      ...base,
-      'q': [
-        cleanedDistrict,
-        cleanedCity,
-        cleanedPostal,
-        cleanedCountry,
-      ].where((part) => part.isNotEmpty).join(', '),
-    });
-  }
-
-  final structured = Map<String, String>.from(base);
-  if (cleanedCountry.isNotEmpty) structured['country'] = cleanedCountry;
-  if (cleanedCity.isNotEmpty) structured['city'] = cleanedCity;
-  if (cleanedDistrict.isNotEmpty) structured['county'] = cleanedDistrict;
-  if (cleanedPostal.isNotEmpty) structured['postalcode'] = cleanedPostal;
-  if (structured.length > base.length) attempts.add(structured);
-
-  final freeText = [
-    cleanedDistrict,
-    cleanedCity,
-    cleanedPostal,
-    cleanedCountry,
-  ].where((part) => part.isNotEmpty).join(', ');
-  if (freeText.length >= 2) {
-    attempts.add({...base, 'q': freeText});
-  }
-
-  for (final params in attempts) {
-    final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
-    final http.Response response;
-    try {
-      response = await http.get(uri).timeout(const Duration(seconds: 8));
-    } catch (_) {
-      continue;
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) continue;
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! List<dynamic>) continue;
-    final results = decoded.whereType<Map<String, dynamic>>().toList();
-    if (results.isEmpty) continue;
-
-    results.sort((a, b) {
-      final scoreB = _nominatimScore(
-        b,
-        countryCode: countryCode,
-        city: cleanedCity,
-        district: cleanedDistrict,
-        postalCode: cleanedPostal,
-      );
-      final scoreA = _nominatimScore(
-        a,
-        countryCode: countryCode,
-        city: cleanedCity,
-        district: cleanedDistrict,
-        postalCode: cleanedPostal,
-      );
-      return scoreB.compareTo(scoreA);
-    });
-
-    return _locationFromNominatim(
-      results.first,
-      fromPostalCode: cleanedPostal.isNotEmpty,
+      countryCode: code,
+      latitude: lat,
+      longitude: lon,
     );
   }
 
-  return null;
-}
+  /// Builds a result from an OpenStreetMap / Nominatim entry. Nominatim exposes
+  /// a structured `address` object, so we can pick the most specific component
+  /// (neighbourhood / suburb / district) reliably anywhere in the world.
+  static _PlaceResult? fromNominatim(Map<String, dynamic> json) {
+    final lat = double.tryParse('${json['lat'] ?? ''}');
+    final lon = double.tryParse('${json['lon'] ?? ''}');
+    if (lat == null || lon == null) return null;
 
-int _nominatimScore(
-  Map<String, dynamic> item, {
-  required String? countryCode,
-  required String city,
-  required String district,
-  required String postalCode,
-}) {
-  final address = _addressFromNominatim(item);
-  final itemCountryCode = (address['country_code'] as String? ?? '')
-      .trim()
-      .toUpperCase();
-  final itemPostcode = _normalize(address['postcode'] as String? ?? '');
-  final itemCity = _normalize(
-    _firstString(address, [
-      'city',
+    final address = json['address'] is Map
+        ? Map<String, dynamic>.from(json['address'] as Map)
+        : const <String, dynamic>{};
+    String pick(List<String> keys) {
+      for (final key in keys) {
+        final value = address[key];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+      return '';
+    }
+
+    final primary = pick([
+      'neighbourhood',
+      'suburb',
+      'quarter',
+      'city_district',
+      'borough',
       'town',
       'village',
+      'hamlet',
+      'city',
       'municipality',
       'county',
-      'state',
-    ]),
-  );
-  final itemDistrict = _normalize(
-    _firstString(address, [
-      'suburb',
-      'city_district',
-      'district',
-      'borough',
-      'quarter',
-      'neighbourhood',
-      'municipality',
-      'county',
-    ]),
-  );
-  final wantedCity = _normalize(city);
-  final wantedDistrict = _normalize(district);
-  final wantedPostal = _normalize(postalCode);
-  final importance = ((item['importance'] as num?) ?? 0).clamp(0, 1) * 20;
-  final addresstype = (item['addresstype'] as String? ?? '').trim();
-  final category = (item['category'] as String? ?? '').trim();
-  final placeRank = (item['place_rank'] as num?)?.toInt() ?? 30;
-  var score = importance.round();
+    ]);
+    final city = pick(['city', 'town', 'municipality', 'village']);
+    final state = pick(['state', 'region', 'province', 'state_district']);
+    final country = pick(['country']);
+    final code = (address['country_code'] as String? ?? '')
+        .trim()
+        .toUpperCase();
 
-  if (countryCode != null && itemCountryCode.isNotEmpty) {
-    score += itemCountryCode == countryCode ? 120 : -200;
-  }
-  if (wantedPostal.isNotEmpty && itemPostcode == wantedPostal) score += 140;
-  if (wantedPostal.isNotEmpty &&
-      itemPostcode.isNotEmpty &&
-      itemPostcode != wantedPostal) {
-    score -= 100;
-  }
-  if (wantedPostal.isNotEmpty && addresstype == 'postcode') score += 90;
-  if (category == 'boundary' || addresstype == 'city') score += 42;
-  if (placeRank >= 28 && addresstype != 'postcode') score -= 36;
-  if (wantedDistrict.isNotEmpty && itemDistrict == wantedDistrict) score += 90;
-  if (wantedDistrict.isNotEmpty && itemDistrict.contains(wantedDistrict)) {
-    score += 58;
-  }
-  if (wantedCity.isNotEmpty && itemCity == wantedCity) score += 70;
-  if (wantedCity.isNotEmpty && itemCity.contains(wantedCity)) score += 42;
-
-  return score;
-}
-
-_ResolvedLocation _locationFromNominatim(
-  Map<String, dynamic> item, {
-  required bool fromPostalCode,
-}) {
-  final address = _addressFromNominatim(item);
-  final country = _firstString(address, ['country']);
-  final city = _firstString(address, [
-    'city',
-    'town',
-    'village',
-    'municipality',
-    'county',
-  ]);
-  final state = _firstString(address, ['state', 'region']);
-  final district = _firstString(address, [
-    'suburb',
-    'city_district',
-    'district',
-    'borough',
-    'quarter',
-    'neighbourhood',
-  ]);
-  final parts = <String>[district, city, state, country];
-  final deduped = <String>[];
-  for (final part in parts.map((part) => part.trim())) {
-    if (part.isEmpty) continue;
-    if (deduped.any((existing) => _normalize(existing) == _normalize(part))) {
-      continue;
+    var name = primary;
+    if (name.isEmpty) {
+      final rawName = (json['name'] as String? ?? '').trim();
+      name = rawName.isNotEmpty
+          ? rawName
+          : (json['display_name'] as String? ?? '').split(',').first.trim();
     }
-    deduped.add(part);
+    if (name.isEmpty) return null;
+
+    return _build(
+      name: name,
+      regionCandidates: [city, state],
+      country: country,
+      countryCode: code,
+      latitude: lat,
+      longitude: lon,
+    );
   }
-  final displayName = deduped.isNotEmpty
-      ? deduped.join(', ')
-      : (item['display_name'] as String? ?? '').trim();
 
-  return _ResolvedLocation(
-    displayName: displayName,
-    country: country,
-    city: city.isNotEmpty ? city : state,
-    district: district,
-    fromPostalCode: fromPostalCode,
-  );
-}
+  static _PlaceResult _build({
+    required String name,
+    required List<String> regionCandidates,
+    required String country,
+    required String countryCode,
+    required double latitude,
+    required double longitude,
+  }) {
+    bool sameAs(String a, String b) => a.toLowerCase() == b.toLowerCase();
 
-Map<String, dynamic> _addressFromNominatim(Map<String, dynamic> item) {
-  final address = item['address'];
-  return address is Map<String, dynamic> ? address : <String, dynamic>{};
-}
+    final regionParts = <String>[];
+    for (final part in regionCandidates) {
+      if (part.isEmpty || sameAs(part, name)) continue;
+      if (regionParts.any((e) => sameAs(e, part))) continue;
+      regionParts.add(part);
+    }
 
-String _firstString(Map<String, dynamic> source, List<String> keys) {
-  for (final key in keys) {
-    final value = source[key];
-    if (value is String && value.trim().isNotEmpty) return value.trim();
+    final displayParts = <String>[name];
+    for (final part in [...regionParts, country]) {
+      if (part.isEmpty) continue;
+      if (displayParts.any((e) => sameAs(e, part))) continue;
+      displayParts.add(part);
+    }
+
+    return _PlaceResult(
+      name: name,
+      displayName: displayParts.join(', '),
+      region: regionParts.isEmpty ? null : regionParts.join(', '),
+      country: country,
+      countryCode: countryCode,
+      latitude: latitude,
+      longitude: longitude,
+    );
   }
-  return '';
-}
 
-_LocationParts _locationParts(String location) {
-  final parts = location
-      .split(',')
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList();
+  String get secondaryLine {
+    final parts = <String>[];
+    if (region != null && region!.isNotEmpty) parts.add(region!);
+    if (country.isNotEmpty &&
+        !parts.any((e) => e.toLowerCase() == country.toLowerCase())) {
+      parts.add(country);
+    }
+    return parts.join(' · ');
+  }
 
-  return _LocationParts(
-    district: parts.isNotEmpty ? parts.first : location,
-    city: parts.length >= 2 ? parts[1] : '',
-    country: parts.length >= 3 ? parts.last : '',
-  );
-}
-
-String? _countryCodeFor(String country) {
-  final normalized = _normalize(country).replaceAll(' ', '');
-  if (normalized.length == 2) return normalized.toUpperCase();
-  const codes = {
-    'peru': 'PE',
-    'argentina': 'AR',
-    'chile': 'CL',
-    'colombia': 'CO',
-    'mexico': 'MX',
-    'espana': 'ES',
-    'spain': 'ES',
-    'unitedstates': 'US',
-    'usa': 'US',
-    'estadosunidos': 'US',
-    'brazil': 'BR',
-    'brasil': 'BR',
-    'ecuador': 'EC',
-    'bolivia': 'BO',
-    'uruguay': 'UY',
-    'paraguay': 'PY',
-  };
-  return codes[normalized];
-}
-
-String _normalize(String value) {
-  return value
-      .trim()
-      .toLowerCase()
-      .replaceAll('á', 'a')
-      .replaceAll('é', 'e')
-      .replaceAll('í', 'i')
-      .replaceAll('ó', 'o')
-      .replaceAll('ú', 'u')
-      .replaceAll('ü', 'u')
-      .replaceAll('ñ', 'n');
-}
-
-class _ResolvedLocation {
-  final String displayName;
-  final String? country;
-  final String? city;
-  final String? district;
-  final bool fromPostalCode;
-
-  const _ResolvedLocation({
-    required this.displayName,
-    this.country,
-    this.city,
-    this.district,
-    this.fromPostalCode = false,
-  });
-}
-
-class _LocationParts {
-  final String district;
-  final String city;
-  final String country;
-
-  const _LocationParts({
-    required this.district,
-    required this.city,
-    required this.country,
-  });
+  String get flagEmoji {
+    if (countryCode.length != 2) return '🌍';
+    final upper = countryCode.toUpperCase();
+    final a = upper.codeUnitAt(0);
+    final b = upper.codeUnitAt(1);
+    if (a < 65 || a > 90 || b < 65 || b > 90) return '🌍';
+    const base = 0x1F1E6;
+    return String.fromCharCode(base + (a - 65)) +
+        String.fromCharCode(base + (b - 65));
+  }
 }

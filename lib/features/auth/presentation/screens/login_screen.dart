@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../shared/widgets/app_logo.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
@@ -186,19 +187,17 @@ class _FormContent extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
 
+    final cs = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Image.asset(
-          AppConstants.imgAquaSaveLogo,
-          height: 74,
-          fit: BoxFit.contain,
-        ),
+        const AppLogo(height: 74),
         const SizedBox(height: 24),
         Text(
           l10n.t('welcomeBack'),
-          style: tt.displayLarge?.copyWith(color: const Color(0xFF2D3D2C)),
+          style: tt.displayLarge?.copyWith(color: cs.onSurface),
         ),
         const SizedBox(height: 40),
         AuthUnderlineField(label: l10n.t('username'), controller: usernameCtrl),

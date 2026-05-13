@@ -24,14 +24,17 @@ class ActiveDeviceCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF94BC9A),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.48)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF4F7A5C), Color(0xFF35513F)],
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -41,28 +44,43 @@ class ActiveDeviceCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(Icons.sensors_rounded, color: Colors.white),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.t('activeDevice'),
-                      style: tt.bodyMedium?.copyWith(
-                        color: Colors.black.withValues(alpha: 0.62),
-                        fontWeight: FontWeight.w700,
+                      l10n.t('activeDevice').toUpperCase(),
+                      style: tt.labelMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       device.name,
-                      style: tt.headlineMedium?.copyWith(
-                        color: Colors.black,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.headlineSmall?.copyWith(
+                        color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               _ConnectionBadge(status: device.status),
             ],
           ),
@@ -85,27 +103,27 @@ class _ConnectionBadge extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF43574A),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            online ? Icons.wifi : Icons.wifi_off,
+            online ? Icons.wifi_rounded : Icons.wifi_off_rounded,
             color: Colors.white,
-            size: 16,
+            size: 15,
           ),
           const SizedBox(width: 6),
           Text(
             online ? l10n.t('online') : l10n.t('offline'),
             style: tt.bodySmall?.copyWith(
               color: Colors.white,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -127,18 +145,18 @@ class _StatusChips extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _Chip(icon: Icons.location_on_outlined, label: device.location),
+        _Chip(icon: Icons.place_outlined, label: device.location),
         _Chip(
-          icon: Icons.thermostat_outlined,
+          icon: Icons.thermostat_rounded,
           label: l10n.temperature(device.temperatureC),
         ),
         _Chip(
-          icon: Icons.water_drop_outlined,
+          icon: Icons.water_drop_rounded,
           label: '${l10n.t('humidity')} ${device.humidityPct}%',
         ),
-        _Chip(icon: Icons.eco_outlined, label: l10n.plants(device.plantCount)),
+        _Chip(icon: Icons.eco_rounded, label: l10n.plants(device.plantCount)),
         _Chip(
-          icon: Icons.battery_3_bar,
+          icon: Icons.battery_charging_full_rounded,
           label: '${l10n.t('battery')} ${device.batteryPct}%',
         ),
       ],
@@ -157,15 +175,16 @@ class _Chip extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF43574A),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 18),
+          Icon(icon, color: Colors.white, size: 16),
           const SizedBox(width: 7),
           Text(
             label,

@@ -12,21 +12,27 @@ class HistoryScreen extends StatelessWidget {
 
   // Mock data inline — estructura = history.json
   static const _records = [
-    _IrrigRecord('09 May · 06:30', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 07:15', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 08:00', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 09:45', 'Sector A', 'Tomate',  false, 8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 11:30', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 13:00', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 14:30', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 16:00', 'Sector A', 'Tomate',  false, 8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 17:45', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
-    _IrrigRecord('09 May · 19:00', 'Sector A', 'Tomate',  true,  8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 06:30', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 07:15', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 08:00', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 09:45', 'Sector A', 'Tomate', false, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 11:30', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 13:00', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 14:30', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 16:00', 'Sector A', 'Tomate', false, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 17:45', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
+    _IrrigRecord('09 May · 19:00', 'Sector A', 'Tomate', true, 8, 1.4, 38, 62),
   ];
 
   static const _headers = [
-    'Fecha y hora', 'Dispositivo', 'Cultivo', 'Tipo',
-    'Duración', 'Litros', 'Humedad antes', 'Humedad después',
+    'Fecha y hora',
+    'Dispositivo',
+    'Cultivo',
+    'Tipo',
+    'Duración',
+    'Litros',
+    'Humedad antes',
+    'Humedad después',
   ];
 
   @override
@@ -35,8 +41,12 @@ class HistoryScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isWide = MediaQuery.of(context).size.width >= 800;
     final authState = context.watch<AuthBloc>().state;
-    final userName  = authState is AuthAuthenticated ? authState.user.name.split(' ').first : 'Usuario';
-    final avatarUrl = authState is AuthAuthenticated ? authState.user.avatarUrl : null;
+    final userName = authState is AuthAuthenticated
+        ? authState.user.name.split(' ').first
+        : 'Usuario';
+    final avatarUrl = authState is AuthAuthenticated
+        ? authState.user.avatarUrl
+        : null;
 
     return Column(
       children: [
@@ -46,17 +56,42 @@ class HistoryScreen extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: isWide ? 32 : 16),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Historial', style: tt.displayMedium?.copyWith(color: const Color(0xFF2D3D2C))),
-              Row(children: [
-                IconButton(icon: Icon(Icons.notifications_outlined, color: cs.onSurface, size: isWide ? 28 : 22), onPressed: () {}),
-                const SizedBox(width: 4),
-                UserAvatar(name: userName, avatarUrl: avatarUrl, radius: isWide ? 24 : 18, fontSize: 12),
-              ]),
+              Text(
+                'Historial',
+                style: tt.displayMedium?.copyWith(
+                  color: const Color(0xFF2D3D2C),
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.notifications_outlined,
+                      color: cs.onSurface,
+                      size: isWide ? 28 : 22,
+                    ),
+                    onPressed: () {},
+                  ),
+                  const SizedBox(width: 4),
+                  UserAvatar(
+                    name: userName,
+                    avatarUrl: avatarUrl,
+                    radius: isWide ? 24 : 18,
+                    fontSize: 12,
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -64,12 +99,19 @@ class HistoryScreen extends StatelessWidget {
         // ── Body ─────────────────────────────────────────────────────
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd),
+            padding: EdgeInsets.all(
+              isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Historial de riegos',
-                    style: tt.headlineMedium?.copyWith(fontWeight: FontWeight.w700, color: Colors.black)),
+                Text(
+                  'Historial de riegos',
+                  style: tt.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
                 const SizedBox(height: AppDimensions.spaceMd),
                 _IrrigTable(records: _records, headers: _headers),
               ],
@@ -89,14 +131,22 @@ class _IrrigRecord {
   final int durationMin, humBefore, humAfter;
   final double liters;
 
-  const _IrrigRecord(this.datetime, this.device, this.crop, this.isAuto,
-      this.durationMin, this.liters, this.humBefore, this.humAfter);
+  const _IrrigRecord(
+    this.datetime,
+    this.device,
+    this.crop,
+    this.isAuto,
+    this.durationMin,
+    this.liters,
+    this.humBefore,
+    this.humAfter,
+  );
 }
 
 // ── Anchos fijos por columna — garantizan alineación header/filas ─────────────
 
 const _colWidths = [150.0, 110.0, 100.0, 90.0, 90.0, 80.0, 120.0, 130.0];
-const _colPad    = EdgeInsets.symmetric(horizontal: 14, vertical: 12);
+const _colPad = EdgeInsets.symmetric(horizontal: 14, vertical: 12);
 
 // ── Table ─────────────────────────────────────────────────────────────────────
 
@@ -112,10 +162,13 @@ class _IrrigTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        boxShadow: [BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 4, offset: const Offset(0, 2),
-        )],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -133,23 +186,30 @@ class _IrrigTable extends StatelessWidget {
               ),
             ),
             // ── Rows ────────────────────────────────────────────────
-            ...records.map((r) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Divider(height: 1, thickness: 1,
-                    color: const Color(0xFF31412F).withValues(alpha: 0.2)),
-                Row(children: [
-                  _Cell(r.datetime,              _colWidths[0]),
-                  _Cell(r.device,                _colWidths[1]),
-                  _Cell(r.crop,                  _colWidths[2]),
-                  _BadgeCell(isAuto: r.isAuto,   width: _colWidths[3]),
-                  _Cell('${r.durationMin} min',  _colWidths[4]),
-                  _Cell('${r.liters} L',         _colWidths[5]),
-                  _Cell('${r.humBefore}%',       _colWidths[6]),
-                  _Cell('${r.humAfter}%',        _colWidths[7]),
-                ]),
-              ],
-            )),
+            ...records.map(
+              (r) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: const Color(0xFF31412F).withValues(alpha: 0.2),
+                  ),
+                  Row(
+                    children: [
+                      _Cell(r.datetime, _colWidths[0]),
+                      _Cell(r.device, _colWidths[1]),
+                      _Cell(r.crop, _colWidths[2]),
+                      _BadgeCell(isAuto: r.isAuto, width: _colWidths[3]),
+                      _Cell('${r.durationMin} min', _colWidths[4]),
+                      _Cell('${r.liters} L', _colWidths[5]),
+                      _Cell('${r.humBefore}%', _colWidths[6]),
+                      _Cell('${r.humAfter}%', _colWidths[7]),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -167,9 +227,14 @@ class _HeaderCell extends StatelessWidget {
     width: width,
     child: Padding(
       padding: _colPad,
-      child: Text(text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black)),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+      ),
     ),
   );
 }
@@ -184,9 +249,12 @@ class _Cell extends StatelessWidget {
     width: width,
     child: Padding(
       padding: _colPad,
-      child: Text(text,
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(fontSize: 13, color: Colors.black)),
+      child: Text(
+        text,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontSize: 13, color: Colors.black),
+      ),
     ),
   );
 }

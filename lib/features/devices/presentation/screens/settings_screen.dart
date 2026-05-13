@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -25,26 +25,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ];
 
   void _addScheduleSlot() {
-    setState(() => _scheduleSlots.add(const _ScheduleSlot(timeText: '06:30')));
+    setState(() => _scheduleSlots.add(const _ScheduleSlot(timeText: '18:00')));
   }
 
   void _removeScheduleSlot(int index) {
+    setState(() => _scheduleSlots.removeAt(index));
+  }
+
+  void _setScheduleSlotTime(int index, String timeText) {
     setState(() {
-      _scheduleSlots.removeAt(index);
-      if (_scheduleSlots.length == 1 &&
-          _scheduleSlots.first.timeText.trim().isEmpty) {
-        _scheduleSlots[0] = _scheduleSlots.first.copyWith(timeText: '06:30');
-      }
+      final valid = _isValidTime24(timeText);
+      _scheduleSlots[index] = _scheduleSlots[index].copyWith(
+        timeText: timeText,
+        enabled: valid ? _scheduleSlots[index].enabled : false,
+      );
     });
   }
 
-  void _updateScheduleSlotTime(int index, String value) {
+  void _setScheduleSlotEnabled(int index, bool enabled) {
     setState(
       () => _scheduleSlots[index] = _scheduleSlots[index].copyWith(
-        timeText: value,
-        enabled: _isValidTime24(value.trim())
-            ? _scheduleSlots[index].enabled
-            : false,
+        enabled: enabled,
       ),
     );
   }
@@ -173,13 +174,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: _ScheduleList(
                               slots: _scheduleSlots,
                               onAdd: _addScheduleSlot,
-                              onTimeChanged: _updateScheduleSlotTime,
-                              onToggle: (index, value) => setState(
-                                () => _scheduleSlots[index] =
-                                    _scheduleSlots[index].copyWith(
-                                      enabled: value,
-                                    ),
-                              ),
+                              onTimeChanged: _setScheduleSlotTime,
+                              onToggle: _setScheduleSlotEnabled,
                               onRemove: _removeScheduleSlot,
                             ),
                           );
@@ -265,11 +261,12 @@ class _SettingsCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 16,
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
             offset: const Offset(0, 9),
           ),
         ],
@@ -279,8 +276,17 @@ class _SettingsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF497654)),
-              const SizedBox(width: 10),
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: cs.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
@@ -318,13 +324,17 @@ class _PlanSelector extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF3E5249),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF44594E), Color(0xFF35463D)],
+        ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -336,6 +346,7 @@ class _PlanSelector extends StatelessWidget {
               Container(
                 width: 40,
                 height: 40,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
@@ -582,11 +593,18 @@ class _SliderRow extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
-              '${value.round()}$suffix',
-              style: tt.bodyMedium?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w800,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${value.round()}$suffix',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
@@ -596,7 +614,7 @@ class _SliderRow extends StatelessWidget {
           min: min,
           max: max,
           divisions: (max - min).round(),
-          activeColor: const Color(0xFF497654),
+          activeColor: cs.primary,
           onChanged: onChanged,
         ),
       ],
@@ -604,54 +622,7 @@ class _SliderRow extends StatelessWidget {
   }
 }
 
-// ignore: unused_element
-class _LegacyScheduleRow extends StatelessWidget {
-  final String label;
-  final String time;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  const _LegacyScheduleRow({
-    required this.label,
-    required this.time,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: tt.bodyMedium?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '$time · ${enabled ? l10n.t('enabled') : l10n.t('disabled')}',
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.62),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Switch(value: enabled, onChanged: onChanged),
-      ],
-    );
-  }
-}
+// ── Schedule (automatic watering) ────────────────────────────────────────────
 
 class _ScheduleSlot {
   final String timeText;
@@ -670,7 +641,7 @@ class _ScheduleSlot {
 class _ScheduleList extends StatelessWidget {
   final List<_ScheduleSlot> slots;
   final VoidCallback onAdd;
-  final void Function(int index, String value) onTimeChanged;
+  final void Function(int index, String timeText) onTimeChanged;
   final void Function(int index, bool value) onToggle;
   final void Function(int index) onRemove;
 
@@ -695,36 +666,47 @@ class _ScheduleList extends StatelessWidget {
           l10n.t('freeScheduleSubtitle'),
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.62),
-            height: 1.35,
+            height: 1.4,
           ),
         ),
         const SizedBox(height: 14),
         if (slots.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.64),
-              borderRadius: BorderRadius.circular(14),
+              color: cs.surface.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
             ),
-            child: Text(
-              l10n.t('noSchedules'),
-              style: tt.bodySmall?.copyWith(
-                color: cs.onSurface.withValues(alpha: 0.62),
-              ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.alarm_add_rounded,
+                  color: cs.onSurface.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    l10n.t('noSchedules'),
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.62),
+                    ),
+                  ),
+                ),
+              ],
             ),
           )
         else
           ...List.generate(slots.length, (index) {
-            final slot = slots[index];
             return Padding(
               padding: EdgeInsets.only(
-                bottom: index == slots.length - 1 ? 0 : 10,
+                bottom: index == slots.length - 1 ? 0 : 12,
               ),
               child: _ScheduleRow(
-                slot: slot,
-                onTimeChanged: (value) => onTimeChanged(index, value),
+                index: index,
+                slot: slots[index],
+                onTimeChanged: (time) => onTimeChanged(index, time),
                 onToggle: (value) => onToggle(index, value),
                 onRemove: slots.length == 1 ? null : () => onRemove(index),
               ),
@@ -735,7 +717,7 @@ class _ScheduleList extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: onAdd,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_alarm_rounded),
             label: Text(l10n.t('addSchedule')),
           ),
         ),
@@ -745,12 +727,14 @@ class _ScheduleList extends StatelessWidget {
 }
 
 class _ScheduleRow extends StatefulWidget {
+  final int index;
   final _ScheduleSlot slot;
   final ValueChanged<String> onTimeChanged;
   final ValueChanged<bool> onToggle;
   final VoidCallback? onRemove;
 
   const _ScheduleRow({
+    required this.index,
     required this.slot,
     required this.onTimeChanged,
     required this.onToggle,
@@ -775,6 +759,9 @@ class _ScheduleRowState extends State<_ScheduleRow> {
     super.didUpdateWidget(oldWidget);
     if (widget.slot.timeText != _timeCtrl.text) {
       _timeCtrl.text = widget.slot.timeText;
+      _timeCtrl.selection = TextSelection.collapsed(
+        offset: _timeCtrl.text.length,
+      );
     }
   }
 
@@ -784,243 +771,205 @@ class _ScheduleRowState extends State<_ScheduleRow> {
     super.dispose();
   }
 
+  ({IconData icon, String key}) _dayPart(int hour) {
+    if (hour < 12) return (icon: Icons.wb_twilight_rounded, key: 'morningTag');
+    if (hour < 19) return (icon: Icons.wb_sunny_rounded, key: 'afternoonTag');
+    return (icon: Icons.nightlight_round, key: 'nightTag');
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final hasTime = _timeCtrl.text.trim().isNotEmpty;
-    final hasValidTime = _isValidTime24(_timeCtrl.text.trim());
-    final showError = hasTime && !hasValidTime;
-    final effectiveEnabled = widget.slot.enabled && hasValidTime;
+
+    final raw = _timeCtrl.text.trim();
+    final valid = _isValidTime24(raw);
+    final showError = raw.isNotEmpty && !valid;
+    final hour = valid ? int.parse(raw.split(':').first) : 6;
+    final part = _dayPart(hour);
+    final enabled = widget.slot.enabled && valid;
+    final accent = showError ? cs.error : cs.primary;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.78),
+        color: cs.surface.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: effectiveEnabled
-              ? cs.primary.withValues(alpha: 0.22)
+          color: showError
+              ? cs.error
+              : enabled
+              ? cs.primary.withValues(alpha: 0.30)
               : cs.outline.withValues(alpha: 0.18),
+          width: (showError || enabled) ? 1.4 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 560;
-          final timeField = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                l10n.t('time24Label'),
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.66),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                height: 58,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: cs.surface.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: showError
-                        ? Theme.of(context).colorScheme.error
-                        : cs.outline.withValues(alpha: 0.18),
-                    width: showError ? 1.4 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.schedule_outlined, color: cs.primary, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _timeCtrl,
-                        keyboardType: TextInputType.datetime,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
-                          LengthLimitingTextInputFormatter(5),
-                        ],
-                        style: tt.titleMedium?.copyWith(
-                          color: cs.onSurface,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        decoration: InputDecoration.collapsed(
-                          hintText: l10n.t('time24Hint'),
-                          hintStyle: tt.titleMedium?.copyWith(
-                            color: cs.onSurface.withValues(alpha: 0.38),
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          widget.onTimeChanged(value);
-                          setState(() {});
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '24h',
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.primary,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                showError
-                    ? l10n.t('invalidTime24')
-                    : hasTime
-                    ? l10n.t('time24Helper')
-                    : l10n.t('scheduleRequiresTime'),
-                style: tt.bodySmall?.copyWith(
-                  color: showError || !hasTime
-                      ? Theme.of(context).colorScheme.error
-                      : cs.onSurface.withValues(alpha: 0.56),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          );
-          final statusPill = Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: effectiveEnabled
-                  ? cs.primary.withValues(alpha: 0.12)
-                  : cs.outline.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: widget.slot.enabled
-                    ? cs.primary.withValues(alpha: 0.18)
-                    : cs.outline.withValues(alpha: 0.16),
-              ),
-            ),
-            child: Text(
-              effectiveEnabled ? l10n.t('enabled') : l10n.t('disabled'),
-              style: tt.bodySmall?.copyWith(
-                color: effectiveEnabled ? cs.primary : cs.onSurface,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          );
-          final header = Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(Icons.alarm_outlined, color: cs.primary),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  l10n.t('scheduleTimeTitle'),
-                  style: tt.titleMedium?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w900,
+                  '${l10n.t('scheduleTimeTitle')} ${widget.index + 1}',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ),
-              statusPill,
+              if (valid)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(part.icon, size: 13, color: cs.primary),
+                      const SizedBox(width: 5),
+                      Text(
+                        l10n.t(part.key),
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (widget.onRemove != null) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: l10n.t('removeSchedule'),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.onRemove,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ],
             ],
-          );
-          final stateControl = Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          const SizedBox(height: 10),
+          // Custom digits-only time field — no native clock / time picker.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: cs.surface.withValues(alpha: 0.78),
+              color: accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+              border: Border.all(
+                color: accent.withValues(alpha: showError ? 0.6 : 0.24),
+                width: showError ? 1.4 : 1,
+              ),
             ),
             child: Row(
-              mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
               children: [
+                Icon(Icons.schedule_rounded, color: accent, size: 22),
+                const SizedBox(width: 14),
                 Expanded(
+                  child: TextField(
+                    controller: _timeCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [_TimeDigitsInputFormatter()],
+                    cursorColor: cs.primary,
+                    style: tt.headlineMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 3,
+                    ),
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: 'HH:MM',
+                      hintStyle: tt.headlineMedium?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.26),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      widget.onTimeChanged(value);
+                      setState(() {});
+                    },
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                   child: Text(
-                    hasValidTime
-                        ? l10n.t('scheduleState')
-                        : l10n.t('scheduleRequiresTime'),
+                    '24h',
                     style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.68),
-                      fontWeight: FontWeight.w800,
+                      color: cs.primary,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-                Switch(
-                  value: effectiveEnabled,
-                  onChanged: hasValidTime ? widget.onToggle : null,
-                ),
               ],
             ),
-          );
-          final removeButton = IconButton(
-            tooltip: l10n.t('removeSchedule'),
-            onPressed: widget.onRemove,
-            icon: const Icon(Icons.delete_outline),
-          );
-
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                header,
-                const SizedBox(height: 14),
-                timeField,
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: stateControl),
-                    const SizedBox(width: 10),
-                    removeButton,
-                  ],
-                ),
-              ],
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            showError
+                ? l10n.t('invalidTime24')
+                : raw.isEmpty
+                ? l10n.t('scheduleRequiresTime')
+                : l10n.t('time24Helper'),
+            style: tt.bodySmall?.copyWith(
+              color: (showError || raw.isEmpty)
+                  ? cs.error
+                  : cs.onSurface.withValues(alpha: 0.56),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
             children: [
-              header,
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: timeField),
-                  const SizedBox(width: 12),
-                  SizedBox(width: 190, child: stateControl),
-                  const SizedBox(width: 8),
-                  removeButton,
-                ],
+              Icon(
+                enabled
+                    ? Icons.check_circle_rounded
+                    : Icons.pause_circle_outline_rounded,
+                size: 18,
+                color: enabled
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.5),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  !valid
+                      ? l10n.t('scheduleRequiresTime')
+                      : enabled
+                      ? l10n.t('scheduleEnabledHint')
+                      : l10n.t('scheduleDisabledHint'),
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.66),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Switch(value: enabled, onChanged: valid ? widget.onToggle : null),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -1028,4 +977,27 @@ class _ScheduleRowState extends State<_ScheduleRow> {
 
 bool _isValidTime24(String value) {
   return RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value);
+}
+
+/// Keeps only digits, caps the length, auto-pads the hours digit and inserts
+/// the `:` so the field always reads `HH:MM`. No native clock / time picker.
+class _TimeDigitsInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length == 1 && (int.tryParse(digits) ?? 0) > 2) {
+      digits = '0$digits';
+    }
+    if (digits.length > 4) digits = digits.substring(0, 4);
+    final out = digits.length <= 2
+        ? digits
+        : '${digits.substring(0, 2)}:${digits.substring(2)}';
+    return TextEditingValue(
+      text: out,
+      selection: TextSelection.collapsed(offset: out.length),
+    );
+  }
 }
