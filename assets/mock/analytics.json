@@ -2,10 +2,10 @@
   "kpis": {
     "total_consumption_l": 2130,
     "daily_avg_l": 71,
-    "saving_vs_manual_pct": 32,
+    "irrigation_efficiency_pct": 32,
     "irrigation_events": 184,
-    "saved_this_month_l": 980,
-    "saved_days_equivalent": 9.8
+    "stable_cycles_l": 980,
+    "covered_days_equivalent": 9.8
   },
   "daily_consumption": [
     {"day": 16, "value": 68},
@@ -23,7 +23,7 @@
     {"day": 28, "value": 68},
     {"day": 29, "value": 90}
   ],
-  "savings_cumulative": [10, 25, 45, 70, 100, 140, 190, 250, 320, 400, 490, 590, 700, 820, 980],
+  "monthly_cumulative": [10, 25, 45, 70, 100, 140, 190, 250, 320, 400, 490, 590, 700, 820, 980],
   "crop_consumption": [
     {"name": "Tomate",   "value": 580, "color": "#12480E"},
     {"name": "Lechuga",  "value": 420, "color": "#599974"},

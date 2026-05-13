@@ -14,11 +14,15 @@ class AddDeviceRequested extends DevicesEvent {
   final String name;
   final String location;
   final int plantCount;
+  final double? latitude;
+  final double? longitude;
 
   const AddDeviceRequested({
     required this.name,
     required this.location,
     required this.plantCount,
+    this.latitude,
+    this.longitude,
   });
 
   @override
@@ -30,12 +34,16 @@ class EditDeviceRequested extends DevicesEvent {
   final String name;
   final String location;
   final int plantCount;
+  final double? latitude;
+  final double? longitude;
 
   const EditDeviceRequested({
     required this.deviceId,
     required this.name,
     required this.location,
     required this.plantCount,
+    this.latitude,
+    this.longitude,
   });
 
   @override
