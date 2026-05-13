@@ -35,4 +35,11 @@ jobs:
           token: ${{ secrets.FIREBASE_TOKEN }}
           file: build/app/outputs/flutter-apk/app-release.apk
           groups: "testers"
-          releaseNotes: "Build automático desde main — ${{ github.sha }}"
+          releaseNotes: |
+            🚀 Nueva versión de AquaSave disponible
+
+            📦 Commit: ${{ github.sha }}
+            👤 Subido por: ${{ github.actor }}
+            🕐 Fecha: ${{ github.event.head_commit.timestamp }}
+
+            📝 Cambios: ${{ github.event.head_commit.message }}
