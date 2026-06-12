@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../bloc/devices_bloc.dart';
 import '../bloc/irrigation_cubit.dart';
 
@@ -16,6 +18,67 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final List<_IrrigationRecord> _manualEntries = [];
+
+  // En modo real los eventos vienen de GET /api/irrigation/devices/{id}/events.
+  final IrrigationRemoteDataSource? _remote =
+      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+  List<_IrrigationRecord> _serverRecords = [];
+  String? _fetchedDeviceId;
+  bool _wasIrrigating = false;
+
+  Future<void> _fetchServerEvents(String deviceId, String deviceName) async {
+    final remote = _remote;
+    if (remote == null) return;
+
+    try {
+      final events = await remote.getEvents(deviceId);
+      events.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      if (!mounted) return;
+      setState(() {
+        _serverRecords = events
+            .map((event) => _recordFromEvent(event, deviceName))
+            .toList();
+      });
+    } catch (_) {
+      // Si falla (sin red, backend dormido) se conserva lo que ya habia.
+    }
+  }
+
+  _IrrigationRecord _recordFromEvent(
+    IrrigationEventModel event,
+    String deviceName,
+  ) {
+    final start = event.startedAt.toLocal();
+    final end = event.endedAt?.toLocal();
+    final elapsed = (end ?? DateTime.now()).difference(start);
+    return _IrrigationRecord(
+      dateTime: _formatDate(start),
+      device: deviceName,
+      type: event.triggerType == 'manual'
+          ? _IrrigationType.manual
+          : _IrrigationType.auto,
+      minutes: elapsed.inMinutes < 1 ? 1 : elapsed.inMinutes,
+      liters: event.litersConsumed,
+      humidityBefore: null,
+      humidityAfter: null,
+    );
+  }
+
+  void _maybeRefetch(DevicesState devicesState, IrrigationState irrigation) {
+    if (_remote == null || devicesState is! DevicesLoaded) return;
+    if (devicesState.devices.isEmpty) return;
+
+    final device = devicesState.activeDevice;
+    final deviceChanged = device.id != _fetchedDeviceId;
+    final irrigationToggled = _wasIrrigating != irrigation.isIrrigating;
+    if (!deviceChanged && !irrigationToggled) return;
+
+    _fetchedDeviceId = device.id;
+    _wasIrrigating = irrigation.isIrrigating;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchServerEvents(device.id, device.name);
+    });
+  }
 
   Future<void> _openManualDialog(String activeDeviceName) async {
     final entry = await showDialog<_IrrigationRecord>(
@@ -43,14 +106,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ? devicesState.activeDevice
         : null;
     final activeDeviceName = activeDevice?.name ?? 'Mi huerto terraza';
+    _maybeRefetch(devicesState, irrigationState);
     final records = [
       ..._manualEntries,
-      ..._records(
-        l10n,
-        irrigationState,
-        activeDeviceName: activeDeviceName,
-        activeDeviceId: activeDevice?.id,
-      ),
+      if (_remote != null)
+        ..._serverRecords
+      else
+        ..._records(
+          l10n,
+          irrigationState,
+          activeDeviceName: activeDeviceName,
+          activeDeviceId: activeDevice?.id,
+        ),
     ];
     final width = MediaQuery.sizeOf(context).width;
     final horizontalPadding = width < 640
@@ -452,7 +519,7 @@ BoxDecoration _cellBorder(BuildContext context, {required bool isLast}) {
 }
 
 class _MoistureCell extends StatelessWidget {
-  final int value;
+  final int? value;
   final double width;
   final bool accent;
   final bool isLast;
@@ -490,7 +557,7 @@ class _MoistureCell extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           Text(
-            '$value%',
+            value == null ? '—' : '$value%',
             style: tt.bodySmall?.copyWith(
               color: color,
               fontWeight: FontWeight.w800,
@@ -652,8 +719,9 @@ class _IrrigationRecord {
   final _IrrigationType type;
   final int minutes;
   final double liters;
-  final int humidityBefore;
-  final int humidityAfter;
+  // Null cuando el backend no registra humedad para el evento.
+  final int? humidityBefore;
+  final int? humidityAfter;
 
   const _IrrigationRecord({
     required this.dateTime,

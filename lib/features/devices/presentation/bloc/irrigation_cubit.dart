@@ -3,29 +3,92 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/errors/exceptions.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
+
 class IrrigationCubit extends Cubit<IrrigationState> {
+  /// Cuando es null funciona en modo local (mock); cuando esta presente,
+  /// iniciar/detener riego llama a la API del backend.
+  final IrrigationRemoteDataSource? remote;
   Timer? _timer;
 
-  IrrigationCubit() : super(const IrrigationState.initial());
+  IrrigationCubit({this.remote}) : super(const IrrigationState.initial());
 
-  void start(String deviceId) {
-    final startedAt = DateTime.now();
+  Future<bool> start(String deviceId) async {
+    if (remote != null) {
+      try {
+        await remote!.start(deviceId);
+      } catch (e) {
+        _emitError(e, 'No se pudo iniciar el riego');
+        return false;
+      }
+    }
+
     emit(
       IrrigationState(
         deviceId: deviceId,
         isIrrigating: true,
-        startedAt: startedAt,
+        startedAt: DateTime.now(),
         elapsedSeconds: 0,
       ),
     );
     _startTicker();
+    return true;
   }
 
-  void stop() {
-    if (!state.isIrrigating) return;
+  Future<bool> stop() async {
+    if (!state.isIrrigating) return true;
+
+    final deviceId = state.deviceId;
+    if (remote != null && deviceId != null) {
+      try {
+        await remote!.stop(deviceId);
+      } catch (e) {
+        _emitError(e, 'No se pudo detener el riego');
+        return false;
+      }
+    }
 
     _timer?.cancel();
     emit(state.copyWith(isIrrigating: false));
+    return true;
+  }
+
+  /// Consulta el estado real del riego en el backend (por ejemplo al cambiar
+  /// de dispositivo o reabrir la app) y sincroniza el temporizador.
+  Future<void> syncWithServer(String deviceId) async {
+    if (remote == null) return;
+
+    try {
+      final serverState = await remote!.getState(deviceId);
+      if (serverState.isRunning) {
+        emit(
+          IrrigationState(
+            deviceId: deviceId,
+            isIrrigating: true,
+            startedAt: DateTime.now().subtract(
+              Duration(seconds: serverState.elapsedSeconds),
+            ),
+            elapsedSeconds: serverState.elapsedSeconds,
+          ),
+        );
+        _startTicker();
+      } else if (state.isIrrigating && state.deviceId == deviceId) {
+        _timer?.cancel();
+        emit(state.copyWith(isIrrigating: false));
+      }
+    } catch (_) {
+      // La sincronizacion es best-effort; no interrumpe la UI.
+    }
+  }
+
+  void _emitError(Object error, String fallback) {
+    final message = error is ServerException
+        ? error.message
+        : error is AuthException
+        ? error.message
+        : fallback;
+    emit(state.copyWith(errorMessage: message));
   }
 
   void _startTicker() {
@@ -57,30 +120,37 @@ class IrrigationState extends Equatable {
   final DateTime? startedAt;
   final int elapsedSeconds;
 
+  /// Error de la ultima accion contra la API (null si no hubo error).
+  final String? errorMessage;
+
   const IrrigationState({
     required this.deviceId,
     required this.isIrrigating,
     required this.startedAt,
     required this.elapsedSeconds,
+    this.errorMessage,
   });
 
   const IrrigationState.initial()
     : deviceId = null,
       isIrrigating = false,
       startedAt = null,
-      elapsedSeconds = 0;
+      elapsedSeconds = 0,
+      errorMessage = null;
 
   IrrigationState copyWith({
     String? deviceId,
     bool? isIrrigating,
     DateTime? startedAt,
     int? elapsedSeconds,
+    String? errorMessage,
   }) {
     return IrrigationState(
       deviceId: deviceId ?? this.deviceId,
       isIrrigating: isIrrigating ?? this.isIrrigating,
       startedAt: startedAt ?? this.startedAt,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      errorMessage: errorMessage,
     );
   }
 
@@ -90,5 +160,6 @@ class IrrigationState extends Equatable {
     isIrrigating,
     startedAt,
     elapsedSeconds,
+    errorMessage,
   ];
 }

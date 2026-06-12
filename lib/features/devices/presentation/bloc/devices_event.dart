@@ -69,6 +69,10 @@ class DeleteDeviceRequested extends DevicesEvent {
   List<Object> get props => [deviceId];
 }
 
+class ResetDevices extends DevicesEvent {
+  const ResetDevices();
+}
+
 class SelectActiveDevice extends DevicesEvent {
   final String deviceId;
 

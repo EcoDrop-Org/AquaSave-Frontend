@@ -44,7 +44,19 @@ class _DevicesContent extends StatelessWidget {
         children: [
           AppHeader(title: l10n.t('navDevices')),
           Expanded(
-            child: BlocBuilder<DevicesBloc, DevicesState>(
+            child: BlocConsumer<DevicesBloc, DevicesState>(
+              listenWhen: (previous, current) =>
+                  current is DevicesLoaded &&
+                  current.lastError != null &&
+                  (previous is! DevicesLoaded ||
+                      previous.lastError != current.lastError),
+              listener: (context, state) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text((state as DevicesLoaded).lastError!),
+                  ),
+                );
+              },
               builder: (context, state) {
                 if (state is DevicesLoading) {
                   return const Center(child: CircularProgressIndicator());

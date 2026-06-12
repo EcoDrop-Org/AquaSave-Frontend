@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
@@ -50,7 +52,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
-  void _onLogoutRequested(LogoutRequested event, Emitter<AuthState> emit) {
+  Future<void> _onLogoutRequested(
+    LogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    // El JWT es stateless: basta con descartar el token guardado.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(AppConstants.authTokenKey);
+    await prefs.remove(AppConstants.authExpiresAtKey);
     emit(const AuthInitial());
   }
 }

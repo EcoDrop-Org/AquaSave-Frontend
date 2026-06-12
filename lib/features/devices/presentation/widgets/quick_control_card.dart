@@ -21,7 +21,15 @@ class QuickControlCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
 
-    return BlocBuilder<IrrigationCubit, IrrigationState>(
+    return BlocConsumer<IrrigationCubit, IrrigationState>(
+      listenWhen: (previous, current) =>
+          current.errorMessage != null &&
+          current.errorMessage != previous.errorMessage,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(state.errorMessage!)),
+        );
+      },
       builder: (context, state) {
         final isIrrigating = state.isIrrigating && state.deviceId == deviceId;
 
@@ -87,18 +95,22 @@ class QuickControlCard extends StatelessWidget {
                     label: l10n.t('startIrrigation'),
                     onPressed: isIrrigating
                         ? null
-                        : () {
-                            onStartIrrigation?.call();
-                            context.read<IrrigationCubit>().start(deviceId);
+                        : () async {
+                            final started = await context
+                                .read<IrrigationCubit>()
+                                .start(deviceId);
+                            if (started) onStartIrrigation?.call();
                           },
                   );
                   final stopButton = _ControlButton(
                     icon: Icons.stop_rounded,
                     label: l10n.t('stopIrrigation'),
                     onPressed: isIrrigating
-                        ? () {
-                            onStopIrrigation?.call();
-                            context.read<IrrigationCubit>().stop();
+                        ? () async {
+                            final stopped = await context
+                                .read<IrrigationCubit>()
+                                .stop();
+                            if (stopped) onStopIrrigation?.call();
                           }
                         : null,
                     inverse: true,

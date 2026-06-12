@@ -18,7 +18,11 @@ class DevicesLoaded extends DevicesState {
   final List<Device> devices;
   final String? activeDeviceId;
 
-  const DevicesLoaded(this.devices, {this.activeDeviceId});
+  /// Mensaje de error de la ultima operacion (agregar/editar/eliminar)
+  /// cuando la API la rechazo; la lista se mantiene sin cambios.
+  final String? lastError;
+
+  const DevicesLoaded(this.devices, {this.activeDeviceId, this.lastError});
 
   Device get activeDevice {
     return devices.firstWhere(
@@ -28,7 +32,7 @@ class DevicesLoaded extends DevicesState {
   }
 
   @override
-  List<Object?> get props => [devices, activeDeviceId];
+  List<Object?> get props => [devices, activeDeviceId, lastError];
 }
 
 class DevicesFailureState extends DevicesState {

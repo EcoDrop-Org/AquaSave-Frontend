@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 
+import 'core/constants/app_constants.dart';
 import 'core/l10n/app_localizations.dart';
 import 'core/l10n/locale_cubit.dart';
 import 'core/navigation/nav_cubit.dart';
@@ -19,6 +20,7 @@ import 'features/auth/presentation/screens/register_screen.dart';
 import 'features/auth/presentation/screens/user_profile_screen.dart';
 import 'features/devices/data/datasources/local/devices_local_datasource.dart';
 import 'features/devices/data/datasources/remote/devices_remote_datasource.dart';
+import 'features/devices/data/datasources/remote/irrigation_remote_datasource.dart';
 import 'features/devices/data/repositories/devices_repository_impl.dart';
 import 'features/devices/domain/usecases/get_devices_usecase.dart';
 import 'features/devices/presentation/bloc/devices_bloc.dart';
@@ -36,7 +38,9 @@ import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import 'features/subscription/presentation/cubit/plan_cubit.dart';
 import 'shared/widgets/app_sidebar.dart';
 
-const bool useMock = true;
+// Controlado por AppConstants.useMockData (--dart-define=USE_MOCK=true).
+// Por defecto la app consume la API real del backend.
+const bool useMock = AppConstants.useMockData;
 
 void main() {
   runApp(const AquaSaveApp());
@@ -72,8 +76,10 @@ class AquaSaveApp extends StatelessWidget {
           ),
         ),
         BlocProvider<DevicesBloc>(
-          create: (_) =>
-              DevicesBloc(getDevicesUseCase: GetDevicesUseCase(devicesRepo)),
+          create: (_) => DevicesBloc(
+            getDevicesUseCase: GetDevicesUseCase(devicesRepo),
+            devicesRepository: devicesRepo,
+          ),
         ),
         BlocProvider<WeatherBloc>(
           create: (_) => WeatherBloc(
@@ -81,7 +87,11 @@ class AquaSaveApp extends StatelessWidget {
                 GetCurrentWeatherForDeviceUseCase(weatherRepo),
           ),
         ),
-        BlocProvider<IrrigationCubit>(create: (_) => IrrigationCubit()),
+        BlocProvider<IrrigationCubit>(
+          create: (_) => IrrigationCubit(
+            remote: useMock ? null : IrrigationRemoteDataSourceImpl(),
+          ),
+        ),
         BlocProvider<IrrigationSettingsCubit>(
           create: (_) => IrrigationSettingsCubit(),
         ),
@@ -183,6 +193,7 @@ class _AppRouterState extends State<_AppRouter> {
 
     _lastWeatherDeviceKey = deviceKey;
     context.read<WeatherBloc>().add(LoadWeatherForDevice(device));
+    context.read<IrrigationCubit>().syncWithServer(device.id);
   }
 
   @override
@@ -193,6 +204,10 @@ class _AppRouterState extends State<_AppRouter> {
           setState(() => _appScreen = _AppScreen.home);
         }
         if (state is AuthInitial) {
+          // Al cerrar sesion se limpian los dispositivos de la cuenta anterior
+          // para que el proximo login los cargue de la API de nuevo.
+          context.read<DevicesBloc>().add(const ResetDevices());
+          _lastWeatherDeviceKey = null;
           setState(() => _authScreen = _AuthScreen.login);
         }
       },
