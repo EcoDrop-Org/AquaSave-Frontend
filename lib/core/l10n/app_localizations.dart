@@ -402,6 +402,10 @@ class AppLocalizations {
       'weatherSnow': 'Nieve',
       'weatherStorm': 'Tormenta',
       'weatherVariable': 'Clima variable',
+      'fieldRequired': 'Este campo es requerido',
+      'invalidEmail': 'Ingresa un email válido',
+      'fullName': 'Nombre completo',
+      'errorGeneric': 'Ocurrió un error, intenta de nuevo',
     },
     'en': {
       'appName': 'AquaSave',
@@ -756,6 +760,10 @@ class AppLocalizations {
       'weatherSnow': 'Snow',
       'weatherStorm': 'Storm',
       'weatherVariable': 'Variable weather',
+      'fieldRequired': 'This field is required',
+      'invalidEmail': 'Enter a valid email',
+      'fullName': 'Full name',
+      'errorGeneric': 'An error occurred, please try again',
     },
   };
 }

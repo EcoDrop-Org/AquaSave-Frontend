@@ -9,10 +9,18 @@ import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
 
 void showDeviceDetailDialog(BuildContext context, Device device) {
+  final devicesBloc = context.read<DevicesBloc>();
+  final navCubit = context.read<NavCubit>();
   showDialog<void>(
     context: context,
     barrierDismissible: true,
-    builder: (_) => _DeviceDetailDialog(device: device),
+    builder: (_) => MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: devicesBloc),
+        BlocProvider.value(value: navCubit),
+      ],
+      child: _DeviceDetailDialog(device: device),
+    ),
   );
 }
 

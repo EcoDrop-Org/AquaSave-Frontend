@@ -73,14 +73,20 @@ class AppHeader extends StatelessWidget {
                   const NotificationButton(),
                   if (!compact) ...[
                     const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () =>
-                          context.read<NavCubit>().goTo(AppTab.profile),
-                      child: UserAvatar(
-                        name: userName,
-                        avatarUrl: avatarUrl,
-                        radius: 22,
-                        fontSize: 13,
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () =>
+                            context.read<NavCubit>().goTo(AppTab.profile),
+                        child: Tooltip(
+                          message: userName,
+                          child: UserAvatar(
+                            name: userName,
+                            avatarUrl: avatarUrl,
+                            radius: 22,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   ],

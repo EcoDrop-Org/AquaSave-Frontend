@@ -999,17 +999,24 @@ class _WizardGardenStep extends StatelessWidget {
 
             if (compact) {
               return Column(
-                children: [fields, const SizedBox(height: 16), location],
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  fields,
+                  const SizedBox(height: 20),
+                  location,
+                ],
               );
             }
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: fields),
-                const SizedBox(width: 18),
-                Expanded(flex: 7, child: location),
-              ],
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 5, child: fields),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 7, child: location),
+                ],
+              ),
             );
           },
         ),

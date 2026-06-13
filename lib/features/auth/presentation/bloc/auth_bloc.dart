@@ -54,10 +54,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final publicUser = body['user'] as Map<String, dynamic>;
       final profile =
           publicUser['profile'] as Map<String, dynamic>? ?? const {};
+      final email = publicUser['email'] as String;
+      final rawName = profile['fullName'] as String? ?? email;
+      final name = rawName.contains('@') ? rawName.split('@').first : rawName;
       final user = UserModel(
         id: publicUser['id'] as String,
-        name: profile['fullName'] as String? ?? publicUser['email'] as String,
-        email: publicUser['email'] as String,
+        name: name,
+        email: email,
+        phone: publicUser['phone'] as String?,
         avatarUrl: publicUser['avatarUrl'] as String?,
         userType: profile['profileType'] as String?,
       );

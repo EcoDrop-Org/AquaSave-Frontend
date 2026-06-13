@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _scheduleSlots = slots
               .whereType<Map<String, dynamic>>()
               .map((s) => _ScheduleSlot(
-                    timeText: s['time']?.toString() ?? '06:30',
+                    timeText: (s['timeText'] ?? s['time'])?.toString() ?? '06:30',
                     enabled: s['enabled'] as bool? ?? true,
                   ))
               .toList();
@@ -95,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'coldAlertC': settings.coldAlertC,
         'rainPausePct': settings.rainPausePct,
         'schedules': _scheduleSlots
-            .map((s) => {'time': s.timeText, 'enabled': s.enabled})
+            .map((s) => {'timeText': s.timeText, 'enabled': s.enabled})
             .toList(),
       };
       await _remote.putDeviceSettings(deviceId, payload);

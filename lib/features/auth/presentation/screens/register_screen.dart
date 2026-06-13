@@ -26,16 +26,19 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _usernameCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
-  String? _usernameError;
+  String? _nameError;
+  String? _emailError;
   String? _passwordError;
   String? _confirmError;
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
@@ -43,24 +46,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _submit() {
     final l10n = AppLocalizations.of(context);
-    final username = _usernameCtrl.text.trim();
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
     final confirm = _confirmCtrl.text;
 
     setState(() {
-      _usernameError = username.isEmpty ? l10n.t('fieldRequired') : null;
+      _nameError = name.isEmpty ? l10n.t('fieldRequired') : null;
+      _emailError = email.isEmpty
+          ? l10n.t('fieldRequired')
+          : (!email.contains('@') ? l10n.t('invalidEmail') : null);
       _passwordError = password.isEmpty ? l10n.t('fieldRequired') : null;
       _confirmError = confirm.isEmpty
           ? l10n.t('fieldRequired')
           : (confirm != password ? l10n.t('passwordMismatch') : null);
     });
 
-    if (_usernameError != null || _passwordError != null || _confirmError != null) return;
+    if (_nameError != null ||
+        _emailError != null ||
+        _passwordError != null ||
+        _confirmError != null) {
+      return;
+    }
 
     context.read<AuthBloc>().add(
       RegisterRequested(
-        username: username,
-        email: '',
+        username: name,
+        email: email,
         password: password,
       ),
     );
@@ -86,24 +98,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
               final isWide = constraints.maxWidth >= 800;
               final body = isWide
                   ? _WideLayout(
-                      usernameCtrl: _usernameCtrl,
+                      nameCtrl: _nameCtrl,
+                      emailCtrl: _emailCtrl,
                       passwordCtrl: _passwordCtrl,
                       confirmCtrl: _confirmCtrl,
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
-                      usernameError: _usernameError,
+                      nameError: _nameError,
+                      emailError: _emailError,
                       passwordError: _passwordError,
                       confirmError: _confirmError,
                     )
                   : _NarrowLayout(
-                      usernameCtrl: _usernameCtrl,
+                      nameCtrl: _nameCtrl,
+                      emailCtrl: _emailCtrl,
                       passwordCtrl: _passwordCtrl,
                       confirmCtrl: _confirmCtrl,
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
-                      usernameError: _usernameError,
+                      nameError: _nameError,
+                      emailError: _emailError,
                       passwordError: _passwordError,
                       confirmError: _confirmError,
                     );
@@ -122,24 +138,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
 }
 
 class _WideLayout extends StatelessWidget {
-  final TextEditingController usernameCtrl;
+  final TextEditingController nameCtrl;
+  final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
-  final String? usernameError;
+  final String? nameError;
+  final String? emailError;
   final String? passwordError;
   final String? confirmError;
 
   const _WideLayout({
-    required this.usernameCtrl,
+    required this.nameCtrl,
+    required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
-    this.usernameError,
+    this.nameError,
+    this.emailError,
     this.passwordError,
     this.confirmError,
   });
@@ -158,13 +178,15 @@ class _WideLayout extends StatelessWidget {
             color: Theme.of(context).scaffoldBackgroundColor,
             padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
             child: _FormContent(
-              usernameCtrl: usernameCtrl,
+              nameCtrl: nameCtrl,
+              emailCtrl: emailCtrl,
               passwordCtrl: passwordCtrl,
               confirmCtrl: confirmCtrl,
               isLoading: isLoading,
               onSubmit: onSubmit,
               onGoToLogin: onGoToLogin,
-              usernameError: usernameError,
+              nameError: nameError,
+              emailError: emailError,
               passwordError: passwordError,
               confirmError: confirmError,
             ),
@@ -176,24 +198,28 @@ class _WideLayout extends StatelessWidget {
 }
 
 class _NarrowLayout extends StatelessWidget {
-  final TextEditingController usernameCtrl;
+  final TextEditingController nameCtrl;
+  final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
-  final String? usernameError;
+  final String? nameError;
+  final String? emailError;
   final String? passwordError;
   final String? confirmError;
 
   const _NarrowLayout({
-    required this.usernameCtrl,
+    required this.nameCtrl,
+    required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
-    this.usernameError,
+    this.nameError,
+    this.emailError,
     this.passwordError,
     this.confirmError,
   });
@@ -203,13 +229,15 @@ class _NarrowLayout extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
       child: _FormContent(
-        usernameCtrl: usernameCtrl,
+        nameCtrl: nameCtrl,
+        emailCtrl: emailCtrl,
         passwordCtrl: passwordCtrl,
         confirmCtrl: confirmCtrl,
         isLoading: isLoading,
         onSubmit: onSubmit,
         onGoToLogin: onGoToLogin,
-        usernameError: usernameError,
+        nameError: nameError,
+        emailError: emailError,
         passwordError: passwordError,
         confirmError: confirmError,
       ),
@@ -218,24 +246,28 @@ class _NarrowLayout extends StatelessWidget {
 }
 
 class _FormContent extends StatelessWidget {
-  final TextEditingController usernameCtrl;
+  final TextEditingController nameCtrl;
+  final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
-  final String? usernameError;
+  final String? nameError;
+  final String? emailError;
   final String? passwordError;
   final String? confirmError;
 
   const _FormContent({
-    required this.usernameCtrl,
+    required this.nameCtrl,
+    required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
-    this.usernameError,
+    this.nameError,
+    this.emailError,
     this.passwordError,
     this.confirmError,
   });
@@ -258,9 +290,16 @@ class _FormContent extends StatelessWidget {
         ),
         const SizedBox(height: 40),
         AuthUnderlineField(
-          label: l10n.t('username'),
-          controller: usernameCtrl,
-          errorText: usernameError,
+          label: l10n.t('fullName'),
+          controller: nameCtrl,
+          errorText: nameError,
+        ),
+        const SizedBox(height: AppDimensions.spaceMd),
+        AuthUnderlineField(
+          label: l10n.t('email'),
+          controller: emailCtrl,
+          errorText: emailError,
+          keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(

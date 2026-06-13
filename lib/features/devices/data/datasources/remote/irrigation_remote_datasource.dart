@@ -119,6 +119,9 @@ class IrrigationRemoteDataSourceImpl implements IrrigationRemoteDataSource {
         _errorMessage(body, 'No se pudo cargar la configuración'),
       );
     }
+    // Backend devuelve { settings: { ... } } — desempaquetar
+    final inner = body['settings'];
+    if (inner is Map<String, dynamic>) return inner;
     return body;
   }
 

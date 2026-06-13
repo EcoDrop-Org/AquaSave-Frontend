@@ -107,10 +107,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   UserModel _userFromPublicUser(Map<String, dynamic> json) {
     final profile = json['profile'] as Map<String, dynamic>? ?? const {};
+    final email = json['email'] as String;
+    final rawName = profile['fullName'] as String? ?? email;
+    final name = rawName.contains('@') ? rawName.split('@').first : rawName;
     return UserModel(
       id: json['id'] as String,
-      name: profile['fullName'] as String? ?? json['email'] as String,
-      email: json['email'] as String,
+      name: name,
+      email: email,
+      phone: json['phone'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       userType: profile['profileType'] as String?,
     );

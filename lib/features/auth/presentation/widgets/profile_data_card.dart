@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -37,7 +36,9 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     _nameCtrl = TextEditingController(text: widget.user.name);
     _emailCtrl = TextEditingController(text: widget.user.email);
     _phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
-    _userTypeCtrl = TextEditingController(text: widget.user.userType ?? '');
+    _userTypeCtrl = TextEditingController(
+      text: _readableUserType(widget.user.userType),
+    );
   }
 
   @override
@@ -47,6 +48,14 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     _phoneCtrl.dispose();
     _userTypeCtrl.dispose();
     super.dispose();
+  }
+
+  static String _readableUserType(String? raw) {
+    return switch (raw) {
+      'horticultor-urbano' => 'Horticultor urbano',
+      'micro-agricultor-periurbano' => 'Micro-agricultor periurbano',
+      _ => raw ?? '',
+    };
   }
 
   Future<void> _pickAndUploadPhoto() async {
@@ -64,7 +73,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     final authBloc = context.read<AuthBloc>();
 
     try {
-      final bytes = await File(picked.path).readAsBytes();
+      final bytes = await picked.readAsBytes();
       final base64Image = base64Encode(bytes);
       final ext = picked.path.split('.').last.toLowerCase();
       final dataUrl = 'data:image/$ext;base64,$base64Image';
@@ -105,10 +114,14 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     final publicUser = decoded['user'] as Map<String, dynamic>? ?? decoded;
     final profile =
         publicUser['profile'] as Map<String, dynamic>? ?? const {};
+    final email = publicUser['email'] as String;
+    final rawName = profile['fullName'] as String? ?? email;
+    final name = rawName.contains('@') ? rawName.split('@').first : rawName;
     return UserModel(
       id: publicUser['id'] as String,
-      name: profile['fullName'] as String? ?? publicUser['email'] as String,
-      email: publicUser['email'] as String,
+      name: name,
+      email: email,
+      phone: publicUser['phone'] as String?,
       avatarUrl: publicUser['avatarUrl'] as String?,
       userType: profile['profileType'] as String?,
     );
@@ -121,8 +134,10 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
 
     setState(() => _saving = true);
     try {
+      final phone = _phoneCtrl.text.trim();
       final user = await _patchMe({
         'fullName': _nameCtrl.text.trim(),
+        if (phone.isNotEmpty) 'phone': phone,
       });
 
       if (!mounted) return;
@@ -285,6 +300,7 @@ class _ProfileFields extends StatelessWidget {
             controller: emailCtrl,
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
+            readOnly: true,
           ),
           _EditableProfileField(
             label: l10n.t('phone'),
@@ -296,6 +312,7 @@ class _ProfileFields extends StatelessWidget {
             label: l10n.t('userType'),
             controller: userTypeCtrl,
             icon: Icons.badge_outlined,
+            readOnly: true,
           ),
         ];
 
@@ -339,12 +356,14 @@ class _EditableProfileField extends StatelessWidget {
   final TextEditingController controller;
   final IconData icon;
   final TextInputType? keyboardType;
+  final bool readOnly;
 
   const _EditableProfileField({
     required this.label,
     required this.controller,
     required this.icon,
     this.keyboardType,
+    this.readOnly = false,
   });
 
   @override
@@ -355,25 +374,44 @@ class _EditableProfileField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: tt.labelLarge?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.78),
-            letterSpacing: 0,
-          ),
+        Row(
+          children: [
+            Text(
+              label,
+              style: tt.labelLarge?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.78),
+                letterSpacing: 0,
+              ),
+            ),
+            if (readOnly) ...[
+              const SizedBox(width: 6),
+              Text(
+                '(solo lectura)',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.40),
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 7),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
+          readOnly: readOnly,
           style: tt.bodyMedium?.copyWith(
-            color: cs.onSurface,
+            color: readOnly
+                ? cs.onSurface.withValues(alpha: 0.54)
+                : cs.onSurface,
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, size: 19),
             filled: true,
-            fillColor: cs.surface.withValues(alpha: 0.82),
+            fillColor: readOnly
+                ? cs.surfaceContainerHighest.withValues(alpha: 0.54)
+                : cs.surface.withValues(alpha: 0.82),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -384,7 +422,12 @@ class _EditableProfileField extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: cs.primary, width: 1.5),
+              borderSide: BorderSide(
+                color: readOnly
+                    ? cs.outline.withValues(alpha: 0.18)
+                    : cs.primary,
+                width: 1.5,
+              ),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
