@@ -73,7 +73,7 @@ class AquaSaveApp extends StatelessWidget {
           create: (_) => AuthBloc(
             loginUseCase: LoginUseCase(authRepo),
             registerUseCase: RegisterUseCase(authRepo),
-          ),
+          )..add(const AppStarted()),
         ),
         BlocProvider<DevicesBloc>(
           create: (_) => DevicesBloc(
@@ -213,6 +213,11 @@ class _AppRouterState extends State<_AppRouter> {
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
+          if (authState is AuthCheckingSession) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
           if (authState is! AuthAuthenticated) {
             return switch (_authScreen) {
               _AuthScreen.login => LoginScreen(

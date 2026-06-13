@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 /// Avatar circular que muestra la foto si existe,
@@ -8,6 +10,7 @@ class UserAvatar extends StatelessWidget {
   final double radius;
   final double fontSize;
   final bool showEditBadge;
+  final VoidCallback? onEditTap;
 
   const UserAvatar({
     super.key,
@@ -16,6 +19,7 @@ class UserAvatar extends StatelessWidget {
     this.radius = 50,
     this.fontSize = 28,
     this.showEditBadge = false,
+    this.onEditTap,
   });
 
   static Color _colorFromName(String name) {
@@ -43,6 +47,45 @@ class UserAvatar extends StatelessWidget {
 
   bool get _hasImage => avatarUrl != null && avatarUrl!.isNotEmpty;
 
+  Widget _buildImage(
+    String url,
+    double diameter,
+    Color bg,
+    String initials,
+  ) {
+    final fallback = _InitialsCircle(
+      bg: bg,
+      initials: initials,
+      diameter: diameter,
+      fontSize: fontSize,
+    );
+
+    if (url.startsWith('data:')) {
+      try {
+        final comma = url.indexOf(',');
+        if (comma < 0) return fallback;
+        final bytes = base64Decode(url.substring(comma + 1));
+        return Image.memory(
+          bytes,
+          width: diameter,
+          height: diameter,
+          fit: BoxFit.cover,
+          errorBuilder: (context, e, s) => fallback,
+        );
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    return Image.network(
+      url,
+      width: diameter,
+      height: diameter,
+      fit: BoxFit.cover,
+      errorBuilder: (context, e, s) => fallback,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bg = _colorFromName(name);
@@ -50,18 +93,7 @@ class UserAvatar extends StatelessWidget {
     final diameter = radius * 2;
 
     Widget content = _hasImage
-        ? Image.asset(
-            avatarUrl!,
-            width: diameter,
-            height: diameter,
-            fit: BoxFit.cover,
-            errorBuilder: (context, e, stack) => _InitialsCircle(
-              bg: bg,
-              initials: initials,
-              diameter: diameter,
-              fontSize: fontSize,
-            ),
-          )
+        ? _buildImage(avatarUrl!, diameter, bg, initials)
         : _InitialsCircle(
             bg: bg,
             initials: initials,
@@ -82,15 +114,18 @@ class UserAvatar extends StatelessWidget {
         Positioned(
           bottom: 0,
           right: 0,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFF84D57E),
-              shape: BoxShape.circle,
-              border: Border.all(color: bg, width: 1.5),
+          child: GestureDetector(
+            onTap: onEditTap,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xFF84D57E),
+                shape: BoxShape.circle,
+                border: Border.all(color: bg, width: 1.5),
+              ),
+              child: const Icon(Icons.edit, size: 14, color: Colors.white),
             ),
-            child: const Icon(Icons.edit, size: 14, color: Colors.white),
           ),
         ),
       ],

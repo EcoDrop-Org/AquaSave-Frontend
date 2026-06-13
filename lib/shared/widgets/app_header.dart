@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/l10n/app_localizations.dart';
+import '../../core/navigation/nav_cubit.dart';
 import '../../core/theme/theme_mode_cubit.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/widgets/user_avatar.dart';
@@ -72,11 +73,15 @@ class AppHeader extends StatelessWidget {
                   const NotificationButton(),
                   if (!compact) ...[
                     const SizedBox(width: 12),
-                    UserAvatar(
-                      name: userName,
-                      avatarUrl: avatarUrl,
-                      radius: 22,
-                      fontSize: 13,
+                    GestureDetector(
+                      onTap: () =>
+                          context.read<NavCubit>().goTo(AppTab.profile),
+                      child: UserAvatar(
+                        name: userName,
+                        avatarUrl: avatarUrl,
+                        radius: 22,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ],

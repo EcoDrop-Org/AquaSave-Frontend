@@ -82,6 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToRegister: widget.onGoToRegister,
+                      usernameError: _usernameError,
+                      passwordError: _passwordError,
                     )
                   : _NarrowLayout(
                       usernameCtrl: _usernameCtrl,
@@ -89,6 +91,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToRegister: widget.onGoToRegister,
+                      usernameError: _usernameError,
+                      passwordError: _passwordError,
                     );
               return Stack(
                 children: [

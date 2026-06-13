@@ -1,8 +1,18 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../data/models/user_model.dart';
 import '../../domain/entities/user.dart';
+import '../bloc/auth_bloc.dart';
 import 'user_avatar.dart';
 
 class ProfileDataCard extends StatefulWidget {
@@ -19,6 +29,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
   late final TextEditingController _emailCtrl;
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _userTypeCtrl;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -36,6 +47,103 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     _phoneCtrl.dispose();
     _userTypeCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final authBloc = context.read<AuthBloc>();
+
+    try {
+      final bytes = await File(picked.path).readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final ext = picked.path.split('.').last.toLowerCase();
+      final dataUrl = 'data:image/$ext;base64,$base64Image';
+
+      final user = await _patchMe({'avatarUrl': dataUrl});
+      if (!mounted) return;
+      if (user != null) {
+        authBloc.add(UserUpdated(user));
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.t('profileUpdated'))),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.t('errorGeneric'))),
+      );
+    }
+  }
+
+  Future<User?> _patchMe(Map<String, dynamic> body) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AppConstants.authTokenKey);
+    if (token == null) return null;
+
+    final response = await http.patch(
+      Uri.parse('${AppConstants.apiBaseUrl}/api/auth/me'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode(body),
+    );
+
+    if (response.statusCode != 200) return null;
+
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    final publicUser = decoded['user'] as Map<String, dynamic>? ?? decoded;
+    final profile =
+        publicUser['profile'] as Map<String, dynamic>? ?? const {};
+    return UserModel(
+      id: publicUser['id'] as String,
+      name: profile['fullName'] as String? ?? publicUser['email'] as String,
+      email: publicUser['email'] as String,
+      avatarUrl: publicUser['avatarUrl'] as String?,
+      userType: profile['profileType'] as String?,
+    );
+  }
+
+  Future<void> _saveProfile() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final authBloc = context.read<AuthBloc>();
+
+    setState(() => _saving = true);
+    try {
+      final user = await _patchMe({
+        'fullName': _nameCtrl.text.trim(),
+      });
+
+      if (!mounted) return;
+      if (user != null) {
+        authBloc.add(UserUpdated(user));
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.t('profileUpdated'))),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.t('errorGeneric'))),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.t('errorGeneric'))),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -82,6 +190,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
                     avatarUrl: widget.user.avatarUrl,
                     radius: AppDimensions.avatarSize / 2,
                     showEditBadge: true,
+                    onEditTap: _pickAndUploadPhoto,
                   ),
                 ),
                 const SizedBox(height: AppDimensions.spaceLg),
@@ -95,6 +204,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
                       avatarUrl: widget.user.avatarUrl,
                       radius: AppDimensions.avatarSize / 2,
                       showEditBadge: true,
+                      onEditTap: _pickAndUploadPhoto,
                     ),
                     const SizedBox(width: AppDimensions.spaceLg),
                     Expanded(child: fields),
@@ -116,12 +226,17 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.t('profileUpdated'))),
-                    );
-                  },
-                  icon: const Icon(Icons.save_outlined, size: 18),
+                  onPressed: _saving ? null : _saveProfile,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save_outlined, size: 18),
                   label: Text(
                     l10n.t('saveChanges'),
                     style: tt.bodyMedium?.copyWith(

@@ -11,6 +11,10 @@ class AuthInitial extends AuthState {
   const AuthInitial();
 }
 
+class AuthCheckingSession extends AuthState {
+  const AuthCheckingSession();
+}
+
 class AuthLoading extends AuthState {
   const AuthLoading();
 }

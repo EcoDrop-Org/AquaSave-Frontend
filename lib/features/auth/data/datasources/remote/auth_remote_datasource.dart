@@ -111,6 +111,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       id: json['id'] as String,
       name: profile['fullName'] as String? ?? json['email'] as String,
       email: json['email'] as String,
+      avatarUrl: json['avatarUrl'] as String?,
       userType: profile['profileType'] as String?,
     );
   }

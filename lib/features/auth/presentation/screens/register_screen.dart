@@ -29,6 +29,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  String? _usernameError;
+  String? _passwordError;
+  String? _confirmError;
 
   @override
   void dispose() {
@@ -40,17 +43,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _submit() {
     final l10n = AppLocalizations.of(context);
-    if (_passwordCtrl.text != _confirmCtrl.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.t('passwordMismatch'))));
-      return;
-    }
+    final username = _usernameCtrl.text.trim();
+    final password = _passwordCtrl.text;
+    final confirm = _confirmCtrl.text;
+
+    setState(() {
+      _usernameError = username.isEmpty ? l10n.t('fieldRequired') : null;
+      _passwordError = password.isEmpty ? l10n.t('fieldRequired') : null;
+      _confirmError = confirm.isEmpty
+          ? l10n.t('fieldRequired')
+          : (confirm != password ? l10n.t('passwordMismatch') : null);
+    });
+
+    if (_usernameError != null || _passwordError != null || _confirmError != null) return;
+
     context.read<AuthBloc>().add(
       RegisterRequested(
-        username: _usernameCtrl.text.trim(),
+        username: username,
         email: '',
-        password: _passwordCtrl.text,
+        password: password,
       ),
     );
   }
@@ -81,6 +92,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
+                      usernameError: _usernameError,
+                      passwordError: _passwordError,
+                      confirmError: _confirmError,
                     )
                   : _NarrowLayout(
                       usernameCtrl: _usernameCtrl,
@@ -89,6 +103,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
+                      usernameError: _usernameError,
+                      passwordError: _passwordError,
+                      confirmError: _confirmError,
                     );
               return Stack(
                 children: [
@@ -111,6 +128,9 @@ class _WideLayout extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
+  final String? usernameError;
+  final String? passwordError;
+  final String? confirmError;
 
   const _WideLayout({
     required this.usernameCtrl,
@@ -119,6 +139,9 @@ class _WideLayout extends StatelessWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
+    this.usernameError,
+    this.passwordError,
+    this.confirmError,
   });
 
   @override
@@ -141,6 +164,9 @@ class _WideLayout extends StatelessWidget {
               isLoading: isLoading,
               onSubmit: onSubmit,
               onGoToLogin: onGoToLogin,
+              usernameError: usernameError,
+              passwordError: passwordError,
+              confirmError: confirmError,
             ),
           ),
         ),
@@ -156,6 +182,9 @@ class _NarrowLayout extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
+  final String? usernameError;
+  final String? passwordError;
+  final String? confirmError;
 
   const _NarrowLayout({
     required this.usernameCtrl,
@@ -164,6 +193,9 @@ class _NarrowLayout extends StatelessWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
+    this.usernameError,
+    this.passwordError,
+    this.confirmError,
   });
 
   @override
@@ -177,6 +209,9 @@ class _NarrowLayout extends StatelessWidget {
         isLoading: isLoading,
         onSubmit: onSubmit,
         onGoToLogin: onGoToLogin,
+        usernameError: usernameError,
+        passwordError: passwordError,
+        confirmError: confirmError,
       ),
     );
   }
@@ -189,6 +224,9 @@ class _FormContent extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
+  final String? usernameError;
+  final String? passwordError;
+  final String? confirmError;
 
   const _FormContent({
     required this.usernameCtrl,
@@ -197,6 +235,9 @@ class _FormContent extends StatelessWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
+    this.usernameError,
+    this.passwordError,
+    this.confirmError,
   });
 
   @override
@@ -216,18 +257,24 @@ class _FormContent extends StatelessWidget {
           style: tt.displayLarge?.copyWith(color: cs.onSurface),
         ),
         const SizedBox(height: 40),
-        AuthUnderlineField(label: l10n.t('username'), controller: usernameCtrl),
+        AuthUnderlineField(
+          label: l10n.t('username'),
+          controller: usernameCtrl,
+          errorText: usernameError,
+        ),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(
           label: l10n.t('password'),
           controller: passwordCtrl,
           obscureText: true,
+          errorText: passwordError,
         ),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(
           label: l10n.t('confirmPassword'),
           controller: confirmCtrl,
           obscureText: true,
+          errorText: confirmError,
         ),
         const SizedBox(height: AppDimensions.spaceXs),
         Align(
