@@ -14,6 +14,15 @@ abstract class IrrigationRemoteDataSource {
   Future<IrrigationEventModel> stop(String deviceId);
 
   Future<List<IrrigationEventModel>> getEvents(String deviceId);
+
+  Future<AnalyticsModel> getAnalytics(String? deviceId);
+
+  Future<Map<String, dynamic>> getDeviceSettings(String deviceId);
+
+  Future<Map<String, dynamic>> putDeviceSettings(
+    String deviceId,
+    Map<String, dynamic> settings,
+  );
 }
 
 class IrrigationRemoteDataSourceImpl implements IrrigationRemoteDataSource {
@@ -78,6 +87,62 @@ class IrrigationRemoteDataSourceImpl implements IrrigationRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         .map(IrrigationEventModel.fromJson)
         .toList();
+  }
+
+  @override
+  Future<AnalyticsModel> getAnalytics(String? deviceId) async {
+    final queryParam = deviceId != null ? '?deviceId=$deviceId' : '';
+    final response = await client.get(
+      _uri('/api/irrigation/analytics$queryParam'),
+      headers: await _authHeaders(),
+    );
+
+    final body = _decodeBody(response.body);
+    if (response.statusCode != 200) {
+      throw ServerException(
+        _errorMessage(body, 'No se pudo cargar los analíticos'),
+      );
+    }
+    return AnalyticsModel.fromJson(body);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getDeviceSettings(String deviceId) async {
+    final response = await client.get(
+      _uri('/api/devices/$deviceId/settings'),
+      headers: await _authHeaders(),
+    );
+
+    final body = _decodeBody(response.body);
+    if (response.statusCode != 200) {
+      throw ServerException(
+        _errorMessage(body, 'No se pudo cargar la configuración'),
+      );
+    }
+    return body;
+  }
+
+  @override
+  Future<Map<String, dynamic>> putDeviceSettings(
+    String deviceId,
+    Map<String, dynamic> settings,
+  ) async {
+    final response = await client.put(
+      _uri('/api/devices/$deviceId/settings'),
+      headers: {
+        ...await _authHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(settings),
+    );
+
+    final body = _decodeBody(response.body);
+    if (response.statusCode != 200) {
+      throw ServerException(
+        _errorMessage(body, 'No se pudo guardar la configuración'),
+      );
+    }
+    return body;
   }
 
   Future<IrrigationEventModel> _postEvent({
@@ -189,5 +254,84 @@ class IrrigationEventModel {
   static DateTime? _parseDate(Object? value) {
     if (value is! String || value.isEmpty) return null;
     return DateTime.tryParse(value);
+  }
+}
+
+class AnalyticsKpis {
+  final double totalLiters;
+  final double avgDailyLiters;
+  final int totalEvents;
+  final double avgDurationMin;
+
+  const AnalyticsKpis({
+    required this.totalLiters,
+    required this.avgDailyLiters,
+    required this.totalEvents,
+    required this.avgDurationMin,
+  });
+
+  factory AnalyticsKpis.fromJson(Map<String, dynamic> json) {
+    return AnalyticsKpis(
+      totalLiters: (json['totalLiters'] as num?)?.toDouble() ?? 0,
+      avgDailyLiters: (json['avgDailyLiters'] as num?)?.toDouble() ?? 0,
+      totalEvents: (json['totalEvents'] as num?)?.toInt() ?? 0,
+      avgDurationMin: (json['avgDurationMin'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class CropBreakdownItem {
+  final String crop;
+  final double liters;
+  const CropBreakdownItem({required this.crop, required this.liters});
+
+  factory CropBreakdownItem.fromJson(Map<String, dynamic> json) {
+    return CropBreakdownItem(
+      crop: json['crop'] as String? ?? 'Otro',
+      liters: (json['liters'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class AnalyticsModel {
+  final AnalyticsKpis kpis;
+  final List<String> dailyLabels;
+  final List<double> dailyValues;
+  final List<double> cumulative;
+  final List<CropBreakdownItem> cropBreakdown;
+
+  const AnalyticsModel({
+    required this.kpis,
+    required this.dailyLabels,
+    required this.dailyValues,
+    required this.cumulative,
+    required this.cropBreakdown,
+  });
+
+  factory AnalyticsModel.fromJson(Map<String, dynamic> json) {
+    final daily = json['daily'] as Map<String, dynamic>? ?? {};
+    final labels = (daily['labels'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+    final values = (daily['values'] as List<dynamic>? ?? [])
+        .map((e) => (e as num).toDouble())
+        .toList();
+    final cumulative = (json['cumulative'] as List<dynamic>? ?? [])
+        .map((e) => (e as num).toDouble())
+        .toList();
+    final crops = (json['cropBreakdown'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(CropBreakdownItem.fromJson)
+        .toList();
+
+    return AnalyticsModel(
+      kpis: AnalyticsKpis.fromJson(
+        json['kpis'] as Map<String, dynamic>? ?? {},
+      ),
+      dailyLabels: labels,
+      dailyValues: values,
+      cumulative: cumulative,
+      cropBreakdown: crops,
+    );
   }
 }

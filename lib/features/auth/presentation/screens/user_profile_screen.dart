@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -639,7 +640,25 @@ class _NotificationsCard extends StatefulWidget {
 }
 
 class _NotificationsCardState extends State<_NotificationsCard> {
+  static const _prefKey = 'notifications_enabled';
   bool _enabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPref();
+  }
+
+  Future<void> _loadPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _enabled = prefs.getBool(_prefKey) ?? true);
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -711,7 +730,7 @@ class _NotificationsCardState extends State<_NotificationsCard> {
                 const SizedBox(width: 8),
                 Switch(
                   value: _enabled,
-                  onChanged: (v) => setState(() => _enabled = v),
+                  onChanged: _toggle,
                 ),
               ],
             ),

@@ -30,6 +30,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  String? _usernameError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -39,11 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _submit() {
+    final l10n = AppLocalizations.of(context);
+    final username = _usernameCtrl.text.trim();
+    final password = _passwordCtrl.text;
+
+    setState(() {
+      _usernameError = username.isEmpty ? l10n.t('fieldRequired') : null;
+      _passwordError = password.isEmpty ? l10n.t('fieldRequired') : null;
+    });
+
+    if (_usernameError != null || _passwordError != null) return;
+
     context.read<AuthBloc>().add(
-      LoginRequested(
-        username: _usernameCtrl.text.trim(),
-        password: _passwordCtrl.text,
-      ),
+      LoginRequested(username: username, password: password),
     );
   }
 
@@ -102,6 +112,8 @@ class _WideLayout extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToRegister;
+  final String? usernameError;
+  final String? passwordError;
 
   const _WideLayout({
     required this.usernameCtrl,
@@ -109,6 +121,8 @@ class _WideLayout extends StatelessWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToRegister,
+    this.usernameError,
+    this.passwordError,
   });
 
   @override
@@ -132,6 +146,8 @@ class _WideLayout extends StatelessWidget {
               isLoading: isLoading,
               onSubmit: onSubmit,
               onGoToRegister: onGoToRegister,
+              usernameError: usernameError,
+              passwordError: passwordError,
             ),
           ),
         ),
@@ -148,6 +164,8 @@ class _NarrowLayout extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToRegister;
+  final String? usernameError;
+  final String? passwordError;
 
   const _NarrowLayout({
     required this.usernameCtrl,
@@ -155,6 +173,8 @@ class _NarrowLayout extends StatelessWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToRegister,
+    this.usernameError,
+    this.passwordError,
   });
 
   @override
@@ -167,6 +187,8 @@ class _NarrowLayout extends StatelessWidget {
         isLoading: isLoading,
         onSubmit: onSubmit,
         onGoToRegister: onGoToRegister,
+        usernameError: usernameError,
+        passwordError: passwordError,
       ),
     );
   }
@@ -180,6 +202,8 @@ class _FormContent extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToRegister;
+  final String? usernameError;
+  final String? passwordError;
 
   const _FormContent({
     required this.usernameCtrl,
@@ -187,13 +211,14 @@ class _FormContent extends StatelessWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToRegister,
+    this.usernameError,
+    this.passwordError,
   });
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
-
     final cs = Theme.of(context).colorScheme;
 
     return Column(
@@ -207,12 +232,17 @@ class _FormContent extends StatelessWidget {
           style: tt.displayLarge?.copyWith(color: cs.onSurface),
         ),
         const SizedBox(height: 40),
-        AuthUnderlineField(label: l10n.t('username'), controller: usernameCtrl),
+        AuthUnderlineField(
+          label: l10n.t('username'),
+          controller: usernameCtrl,
+          errorText: usernameError,
+        ),
         const SizedBox(height: AppDimensions.spaceMd),
         AuthUnderlineField(
           label: l10n.t('password'),
           controller: passwordCtrl,
           obscureText: true,
+          errorText: passwordError,
         ),
         const SizedBox(height: AppDimensions.spaceXs),
         Align(

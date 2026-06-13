@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/navigation/nav_cubit.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
 
@@ -268,7 +270,7 @@ class _DetailBody extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        const _MiniHistoryTable(),
+        _MiniHistoryTable(deviceId: device.id, deviceName: device.name),
       ],
     );
   }
@@ -478,22 +480,94 @@ class _HumidityRangeBar extends StatelessWidget {
   }
 }
 
-class _MiniHistoryTable extends StatelessWidget {
-  const _MiniHistoryTable();
+class _MiniHistoryTable extends StatefulWidget {
+  final String deviceId;
+  final String deviceName;
+
+  const _MiniHistoryTable({required this.deviceId, required this.deviceName});
+
+  @override
+  State<_MiniHistoryTable> createState() => _MiniHistoryTableState();
+}
+
+class _MiniHistoryTableState extends State<_MiniHistoryTable> {
+  static const _hardcoded = [
+    ('09 May · 06:30', '8 min', '1.4 L', 'auto'),
+    ('08 May · 19:15', '6 min', '1.0 L', 'manual'),
+    ('08 May · 06:30', '8 min', '1.4 L', 'auto'),
+    ('07 May · 06:30', '10 min', '1.7 L', 'auto'),
+    ('06 May · 18:00', '5 min', '0.9 L', 'manual'),
+    ('06 May · 06:30', '8 min', '1.4 L', 'auto'),
+    ('05 May · 06:30', '8 min', '1.4 L', 'auto'),
+  ];
+
+  final IrrigationRemoteDataSourceImpl? _remote =
+      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+
+  List<(String, String, String, String)> _rows = _hardcoded;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!AppConstants.useMockData) _fetch();
+  }
+
+  Future<void> _fetch() async {
+    setState(() => _loading = true);
+    try {
+      final events = await _remote!.getEvents(widget.deviceId);
+      events.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      final top7 = events.take(7).toList();
+      if (top7.isEmpty) return;
+
+      final built = top7.map((e) {
+        final day = e.startedAt;
+        final dateStr =
+            '${day.day.toString().padLeft(2, '0')} '
+            '${_monthName(day.month)} · '
+            '${day.hour.toString().padLeft(2, '0')}:'
+            '${day.minute.toString().padLeft(2, '0')}';
+        final durationMin = e.endedAt != null
+            ? ((e.endedAt!.difference(e.startedAt).inSeconds) / 60)
+                .round()
+                .toString()
+            : '—';
+        final liters = '${e.litersConsumed.toStringAsFixed(1)} L';
+        final type = e.triggerType == 'manual' ? 'manual' : 'auto';
+        return (dateStr, '$durationMin min', liters, type);
+      }).toList();
+
+      if (mounted) setState(() => _rows = built);
+    } catch (_) {
+      // fallback a datos hardcoded
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _monthName(int month) {
+    const names = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+    ];
+    return names[month - 1];
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final rows = const [
-      ('09 May · 06:30', '8 min', '1.4 L', 'auto'),
-      ('08 May · 19:15', '6 min', '1.0 L', 'manual'),
-      ('08 May · 06:30', '8 min', '1.4 L', 'auto'),
-      ('07 May · 06:30', '10 min', '1.7 L', 'auto'),
-      ('06 May · 18:00', '5 min', '0.9 L', 'manual'),
-      ('06 May · 06:30', '8 min', '1.4 L', 'auto'),
-      ('05 May · 06:30', '8 min', '1.4 L', 'auto'),
-    ];
+    final rows = _rows;
+
+    if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../subscription/presentation/cubit/plan_cubit.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
+import '../bloc/devices_bloc.dart';
 import '../cubit/irrigation_settings_cubit.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,9 +19,97 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final List<_ScheduleSlot> _scheduleSlots = [
+  List<_ScheduleSlot> _scheduleSlots = [
     const _ScheduleSlot(timeText: '06:30'),
   ];
+
+  final IrrigationRemoteDataSourceImpl? _remote =
+      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+
+  bool _savingSettings = false;
+  String? _loadedDeviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettings());
+  }
+
+  String? _activeDeviceId() {
+    final state = context.read<DevicesBloc>().state;
+    if (state is DevicesLoaded && state.devices.isNotEmpty) {
+      return state.activeDevice.id;
+    }
+    return null;
+  }
+
+  Future<void> _loadSettings() async {
+    if (_remote == null) return;
+    final deviceId = _activeDeviceId();
+    if (deviceId == null) return;
+    _loadedDeviceId = deviceId;
+    try {
+      final settings = await _remote.getDeviceSettings(deviceId);
+      if (!mounted) return;
+      context.read<IrrigationSettingsCubit>().loadFromMap(
+        Map<String, dynamic>.from(settings),
+      );
+      final slots = settings['schedules'];
+      if (slots is List && slots.isNotEmpty) {
+        setState(() {
+          _scheduleSlots = slots
+              .whereType<Map<String, dynamic>>()
+              .map((s) => _ScheduleSlot(
+                    timeText: s['time']?.toString() ?? '06:30',
+                    enabled: s['enabled'] as bool? ?? true,
+                  ))
+              .toList();
+        });
+      }
+    } catch (_) {
+      // fallback: keeps defaults
+    }
+  }
+
+  Future<void> _saveSettings(BuildContext ctx) async {
+    if (_remote == null) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(ctx).t('settingsSaved'))),
+      );
+      return;
+    }
+    final deviceId = _loadedDeviceId ?? _activeDeviceId();
+    if (deviceId == null) return;
+
+    final messenger = ScaffoldMessenger.of(ctx);
+    final l10n = AppLocalizations.of(ctx);
+    final settings = context.read<IrrigationSettingsCubit>().state;
+
+    setState(() => _savingSettings = true);
+    try {
+      final payload = <String, dynamic>{
+        'minMoisture': settings.minMoisture,
+        'optimalMoisture': settings.optimalMoisture,
+        'maxMoisture': settings.maxMoisture,
+        'hotAlertC': settings.hotAlertC,
+        'coldAlertC': settings.coldAlertC,
+        'rainPausePct': settings.rainPausePct,
+        'schedules': _scheduleSlots
+            .map((s) => {'time': s.timeText, 'enabled': s.enabled})
+            .toList(),
+      };
+      await _remote.putDeviceSettings(deviceId, payload);
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.t('settingsSaved'))),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingSettings = false);
+    }
+  }
 
   void _addScheduleSlot() {
     setState(() => _scheduleSlots.add(const _ScheduleSlot(timeText: '18:00')));
@@ -223,14 +314,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: SizedBox(
                               width: fullWidth ? double.infinity : null,
                               child: ElevatedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l10n.t('settingsSaved')),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.save_outlined),
+                                onPressed: _savingSettings
+                                    ? null
+                                    : () => _saveSettings(context),
+                                icon: _savingSettings
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.save_outlined),
                                 label: Text(l10n.t('saveSettings')),
                               ),
                             ),
