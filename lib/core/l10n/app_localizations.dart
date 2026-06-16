@@ -406,6 +406,7 @@ class AppLocalizations {
       'invalidEmail': 'Ingresa un email válido',
       'fullName': 'Nombre completo',
       'errorGeneric': 'Ocurrió un error, intenta de nuevo',
+      'logout': 'Cerrar sesión',
     },
     'en': {
       'appName': 'AquaSave',
@@ -764,6 +765,7 @@ class AppLocalizations {
       'invalidEmail': 'Enter a valid email',
       'fullName': 'Full name',
       'errorGeneric': 'An error occurred, please try again',
+      'logout': 'Log out',
     },
   };
 }

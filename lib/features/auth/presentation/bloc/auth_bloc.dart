@@ -33,7 +33,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthCheckingSession());
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.authTokenKey);
-    if (token == null || token.isEmpty) return; // queda en AuthInitial
+    if (token == null || token.isEmpty) {
+      emit(const AuthInitial());
+      return;
+    }
 
     try {
       final response = await http.get(
@@ -47,6 +50,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (response.statusCode != 200) {
         await prefs.remove(AppConstants.authTokenKey);
         await prefs.remove(AppConstants.authExpiresAtKey);
+        emit(const AuthInitial());
         return;
       }
 
@@ -67,8 +71,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       emit(AuthAuthenticated(user: user, token: token));
     } catch (_) {
-      // Sin red al arrancar: no se cierra sesión, se queda en AuthInitial
-      // y el usuario puede reintentar iniciando sesión.
+      emit(const AuthInitial());
     }
   }
 

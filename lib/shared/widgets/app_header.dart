@@ -73,22 +73,7 @@ class AppHeader extends StatelessWidget {
                   const NotificationButton(),
                   if (!compact) ...[
                     const SizedBox(width: 12),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () =>
-                            context.read<NavCubit>().goTo(AppTab.profile),
-                        child: Tooltip(
-                          message: userName,
-                          child: UserAvatar(
-                            name: userName,
-                            avatarUrl: avatarUrl,
-                            radius: 22,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
+                    _AvatarMenu(userName: userName, avatarUrl: avatarUrl),
                   ],
                 ],
               ),
@@ -99,6 +84,100 @@ class AppHeader extends StatelessWidget {
     );
   }
 }
+
+class _AvatarMenu extends StatelessWidget {
+  final String userName;
+  final String? avatarUrl;
+
+  const _AvatarMenu({required this.userName, this.avatarUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final authState = context.read<AuthBloc>().state;
+    final email = authState is AuthAuthenticated ? authState.user.email : '';
+
+    return PopupMenuButton<_AvatarAction>(
+      offset: const Offset(0, 52),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      color: cs.surface,
+      elevation: 8,
+      tooltip: '',
+      onSelected: (action) {
+        switch (action) {
+          case _AvatarAction.profile:
+            context.read<NavCubit>().goTo(AppTab.profile);
+          case _AvatarAction.logout:
+            context.read<AuthBloc>().add(const LogoutRequested());
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          enabled: false,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                userName,
+                style: tt.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                email,
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuDivider(height: 1),
+        PopupMenuItem(
+          value: _AvatarAction.profile,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Icon(Icons.person_outline, size: 18, color: cs.onSurface),
+              const SizedBox(width: 10),
+              Text(l10n.t('navProfile'), style: tt.bodyMedium),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: _AvatarAction.logout,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 18, color: cs.error),
+              const SizedBox(width: 10),
+              Text(
+                l10n.t('logout'),
+                style: tt.bodyMedium?.copyWith(color: cs.error),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: UserAvatar(
+          name: userName,
+          avatarUrl: avatarUrl,
+          radius: 22,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+enum _AvatarAction { profile, logout }
 
 class _ThemeModeButton extends StatelessWidget {
   const _ThemeModeButton();
