@@ -158,10 +158,6 @@ class _StatusChips extends StatelessWidget {
           label: '${l10n.t('humidity')} ${device.humidityPct}%',
         ),
         _Chip(icon: Icons.eco_rounded, label: l10n.plants(device.plantCount)),
-        _Chip(
-          icon: Icons.battery_charging_full_rounded,
-          label: '${l10n.t('battery')} ${device.batteryPct}%',
-        ),
       ],
     );
   }

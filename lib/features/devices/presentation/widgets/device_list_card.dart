@@ -149,9 +149,9 @@ class _DeviceListCardState extends State<DeviceListCard> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _InlineStat(
-                      icon: Icons.battery_charging_full_rounded,
-                      value: '${widget.device.batteryPct}%',
-                      label: l10n.t('battery'),
+                      icon: Icons.thermostat_rounded,
+                      value: '${widget.device.temperatureC.round()}°C',
+                      label: l10n.t('temperature'),
                     ),
                   ),
                 ],

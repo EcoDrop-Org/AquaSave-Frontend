@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -202,10 +203,12 @@ class _DetailBody extends StatelessWidget {
                 caption: l10n.t('comfortRange'),
               ),
               _MetricTile(
-                icon: Icons.history_rounded,
-                label: l10n.t('lastWatering'),
-                value: l10n.t('lastWateringAgo'),
-                caption: '8 min · 1.4 L',
+                icon: Icons.eco_rounded,
+                label: l10n.t('plantsLabel'),
+                value: '${device.plantCount}',
+                caption: device.status == DeviceStatus.online
+                    ? l10n.t('online')
+                    : l10n.t('offline'),
               ),
             ];
 
@@ -230,6 +233,10 @@ class _DetailBody extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 14),
+        // ID del dispositivo: se copia en el firmware del ESP32 (DEVICE_ID)
+        // para vincular el hardware con este huerto.
+        _DeviceIdCard(deviceId: device.id),
         const SizedBox(height: 18),
         Text(
           l10n.t('currentMoisture'),
@@ -280,6 +287,77 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: 12),
         _MiniHistoryTable(deviceId: device.id, deviceName: device.name),
       ],
+    );
+  }
+}
+
+class _DeviceIdCard extends StatelessWidget {
+  final String deviceId;
+
+  const _DeviceIdCard({required this.deviceId});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.memory_rounded, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.t('deviceIdLabel'),
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.t('deviceIdLabel'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: deviceId));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.t('deviceIdCopied'))),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            deviceId,
+            style: tt.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              color: cs.onSurface.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.t('deviceIdHint'),
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -527,7 +605,6 @@ class _MiniHistoryTableState extends State<_MiniHistoryTable> {
       final events = await _remote!.getEvents(widget.deviceId);
       events.sort((a, b) => b.startedAt.compareTo(a.startedAt));
       final top7 = events.take(7).toList();
-      if (top7.isEmpty) return;
 
       final built = top7.map((e) {
         final day = e.startedAt;
@@ -548,7 +625,8 @@ class _MiniHistoryTableState extends State<_MiniHistoryTable> {
 
       if (mounted) setState(() => _rows = built);
     } catch (_) {
-      // fallback a datos hardcoded
+      // Sin conexion con la API: mostrar estado vacio en lugar de datos falsos.
+      if (mounted) setState(() => _rows = []);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -573,6 +651,35 @@ class _MiniHistoryTableState extends State<_MiniHistoryTable> {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (rows.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.water_drop_outlined,
+              color: cs.onSurface.withValues(alpha: 0.45),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                l10n.t('noWateringsYet'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
