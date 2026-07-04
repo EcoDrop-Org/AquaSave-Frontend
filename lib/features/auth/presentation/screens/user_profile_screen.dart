@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
@@ -176,6 +180,7 @@ class _PasswordCardState extends State<_PasswordCard> {
   final _currentCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  bool _savingPassword = false;
 
   @override
   void initState() {
@@ -194,20 +199,98 @@ class _PasswordCardState extends State<_PasswordCard> {
     super.dispose();
   }
 
-  void _savePassword(AppLocalizations l10n) {
-    if (_newCtrl.text.isEmpty || _newCtrl.text != _confirmCtrl.text) {
+  Future<void> _savePassword(AppLocalizations l10n) async {
+    if (_savingPassword) return;
+
+    final currentPassword = _currentCtrl.text;
+    final newPassword = _newCtrl.text;
+    final confirmPassword = _confirmCtrl.text;
+
+    if (currentPassword.isEmpty || newPassword.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('fieldRequired'))));
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('newPasswordHelp'))));
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.t('passwordMismatch'))));
       return;
     }
 
-    _currentCtrl.clear();
-    _newCtrl.clear();
-    _confirmCtrl.clear();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.t('passwordUpdated'))));
+    setState(() => _savingPassword = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(AppConstants.authTokenKey);
+      if (token == null || token.isEmpty) {
+        throw const _PasswordChangeException('No hay una sesion activa');
+      }
+
+      final response = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/change-password'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 204) {
+        _currentCtrl.clear();
+        _newCtrl.clear();
+        _confirmCtrl.clear();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.t('passwordUpdated'))));
+        return;
+      }
+
+      final message = _passwordChangeError(response) ?? l10n.t('errorGeneric');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } on _PasswordChangeException catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(err.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('errorGeneric'))));
+    } finally {
+      if (mounted) setState(() => _savingPassword = false);
+    }
+  }
+
+  String? _passwordChangeError(http.Response response) {
+    if (response.bodyBytes.isEmpty) return null;
+    try {
+      final decoded = json.decode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'];
+        if (message is String && message.isNotEmpty) return message;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   @override
@@ -343,8 +426,16 @@ class _PasswordCardState extends State<_PasswordCard> {
                 child: SizedBox(
                   width: full ? double.infinity : null,
                   child: ElevatedButton.icon(
-                    onPressed: () => _savePassword(l10n),
-                    icon: const Icon(Icons.verified_user_outlined),
+                    onPressed: _savingPassword
+                        ? null
+                        : () => _savePassword(l10n),
+                    icon: _savingPassword
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.verified_user_outlined),
                     label: Text(l10n.t('savePassword')),
                   ),
                 ),
@@ -355,6 +446,12 @@ class _PasswordCardState extends State<_PasswordCard> {
       ),
     );
   }
+}
+
+class _PasswordChangeException implements Exception {
+  final String message;
+
+  const _PasswordChangeException(this.message);
 }
 
 class _PasswordField extends StatefulWidget {
@@ -728,10 +825,7 @@ class _NotificationsCardState extends State<_NotificationsCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Switch(
-                  value: _enabled,
-                  onChanged: _toggle,
-                ),
+                Switch(value: _enabled, onChanged: _toggle),
               ],
             ),
           );
