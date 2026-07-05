@@ -16,6 +16,7 @@ class DeviceModel extends Device {
     super.longitude,
     super.description,
     super.locationByLocale,
+    super.isActive,
   });
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {

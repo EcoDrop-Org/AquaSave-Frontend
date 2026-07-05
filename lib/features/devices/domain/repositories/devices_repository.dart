@@ -25,4 +25,7 @@ abstract class DevicesRepository {
   });
 
   Future<Either<Failure, Unit>> deleteDevice(String deviceId);
+
+  /// Pausa (true) o reactiva (false) el riego del dispositivo remotamente.
+  Future<Either<Failure, Device>> setDevicePaused(String deviceId, bool paused);
 }

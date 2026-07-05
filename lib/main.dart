@@ -193,7 +193,9 @@ class _AppRouterState extends State<_AppRouter> {
 
     _lastWeatherDeviceKey = deviceKey;
     context.read<WeatherBloc>().add(LoadWeatherForDevice(device));
-    context.read<IrrigationCubit>().syncWithServer(device.id);
+    // Observa el riego del dispositivo activo (polling): si el riego lo
+    // inicia el propio dispositivo o la programacion, la app lo refleja.
+    context.read<IrrigationCubit>().watchDevice(device.id);
   }
 
   @override

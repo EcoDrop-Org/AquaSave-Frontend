@@ -36,6 +36,10 @@ abstract class DevicesRemoteDataSource {
 
   // DELETE /api/devices/{deviceId}
   Future<void> deleteDevice(String deviceId);
+
+  // POST /api/devices/{deviceId}/pause | /resume — pausa/reactiva el riego
+  // del dispositivo de forma remota.
+  Future<DeviceModel> setDevicePaused(String deviceId, bool paused);
 }
 
 class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
@@ -150,6 +154,25 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
     }
   }
 
+  @override
+  Future<DeviceModel> setDevicePaused(String deviceId, bool paused) async {
+    final action = paused ? 'pause' : 'resume';
+    final response = await _send(
+      client.post(
+        _uri('/api/devices/$deviceId/$action'),
+        headers: await _authHeaders(),
+      ),
+    );
+
+    final body = _decodeBody(response.body);
+    if (response.statusCode != 200) {
+      throw ServerException(
+        _errorMessage(body, 'No se pudo cambiar el estado del dispositivo'),
+      );
+    }
+    return _deviceFromBody(body);
+  }
+
   Map<String, dynamic> _devicePayload({
     required String name,
     required String location,
@@ -254,6 +277,7 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
       latitude: (location['latitude'] as num?)?.toDouble(),
       longitude: (location['longitude'] as num?)?.toDouble(),
       description: json['cropType'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
     );
   }
 

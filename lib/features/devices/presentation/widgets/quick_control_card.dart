@@ -85,6 +85,7 @@ class QuickControlCard extends StatelessWidget {
               _IrrigationTimer(
                 elapsedSeconds: isIrrigating ? state.elapsedSeconds : 0,
                 isIrrigating: isIrrigating,
+                triggerType: isIrrigating ? state.triggerType : null,
               ),
               const SizedBox(height: 18),
               LayoutBuilder(
@@ -205,10 +206,27 @@ class _IrrigationTimer extends StatelessWidget {
   final int elapsedSeconds;
   final bool isIrrigating;
 
+  /// Origen del riego en curso ('manual' | 'automatic' | 'scheduled').
+  /// Cuando lo inicio el propio dispositivo o la programacion, se aclara al
+  /// usuario que NO fue el quien lo activo.
+  final String? triggerType;
+
   const _IrrigationTimer({
     required this.elapsedSeconds,
     required this.isIrrigating,
+    this.triggerType,
   });
+
+  String _originLabel(AppLocalizations l10n) {
+    switch (triggerType) {
+      case 'automatic':
+        return 'Activado automáticamente por los sensores';
+      case 'scheduled':
+        return 'Activado por la programación automática';
+      default:
+        return l10n.t('wateringSessionTime');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -253,9 +271,7 @@ class _IrrigationTimer extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isIrrigating
-                      ? l10n.t('wateringSessionTime')
-                      : l10n.t('timerWillStart'),
+                  isIrrigating ? _originLabel(l10n) : l10n.t('timerWillStart'),
                   style: tt.bodySmall?.copyWith(
                     color: Colors.white.withValues(alpha: 0.68),
                   ),

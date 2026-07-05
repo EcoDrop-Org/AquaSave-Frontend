@@ -82,6 +82,18 @@ class DeviceProvisioned extends DevicesEvent {
   List<Object> get props => [device.id];
 }
 
+/// Pausa (paused=true) o reactiva (false) el riego del dispositivo de forma
+/// remota. La bomba se apaga y el firmware bloquea el riego hasta reactivar.
+class ToggleDevicePause extends DevicesEvent {
+  final String deviceId;
+  final bool paused;
+
+  const ToggleDevicePause({required this.deviceId, required this.paused});
+
+  @override
+  List<Object> get props => [deviceId, paused];
+}
+
 class ResetDevices extends DevicesEvent {
   const ResetDevices();
 }
