@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -45,9 +46,8 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
 
   @override
   Future<List<DeviceModel>> getDevices() async {
-    final response = await client.get(
-      _uri('/api/devices'),
-      headers: await _authHeaders(),
+    final response = await _send(
+      client.get(_uri('/api/devices'), headers: await _authHeaders()),
     );
 
     final body = _decodeBody(response.body);
@@ -71,17 +71,19 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
     double? longitude,
     String? description,
   }) async {
-    final response = await client.post(
-      _uri('/api/devices'),
-      headers: await _authHeaders(json: true),
-      body: json.encode(
-        _devicePayload(
-          name: name,
-          location: location,
-          plantCount: plantCount,
-          latitude: latitude,
-          longitude: longitude,
-          description: description,
+    final response = await _send(
+      client.post(
+        _uri('/api/devices'),
+        headers: await _authHeaders(json: true),
+        body: json.encode(
+          _devicePayload(
+            name: name,
+            location: location,
+            plantCount: plantCount,
+            latitude: latitude,
+            longitude: longitude,
+            description: description,
+          ),
         ),
       ),
     );
@@ -105,18 +107,20 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
     double? longitude,
     String? description,
   }) async {
-    final response = await client.patch(
-      _uri('/api/devices/$deviceId'),
-      headers: await _authHeaders(json: true),
-      body: json.encode(
-        _devicePayload(
-          name: name,
-          location: location,
-          plantCount: plantCount,
-          latitude: latitude,
-          longitude: longitude,
-          description: description,
-          nullableCropType: true,
+    final response = await _send(
+      client.patch(
+        _uri('/api/devices/$deviceId'),
+        headers: await _authHeaders(json: true),
+        body: json.encode(
+          _devicePayload(
+            name: name,
+            location: location,
+            plantCount: plantCount,
+            latitude: latitude,
+            longitude: longitude,
+            description: description,
+            nullableCropType: true,
+          ),
         ),
       ),
     );
@@ -132,9 +136,8 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
 
   @override
   Future<void> deleteDevice(String deviceId) async {
-    final response = await client.delete(
-      _uri('/api/devices/$deviceId'),
-      headers: await _authHeaders(),
+    final response = await _send(
+      client.delete(_uri('/api/devices/$deviceId'), headers: await _authHeaders()),
     );
 
     if (response.statusCode != 204 && response.statusCode != 200) {
@@ -181,6 +184,27 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
       throw const ServerException('Respuesta de dispositivos invalida');
     }
     return _deviceFromApi(device);
+  }
+
+  // Aplica un timeout a cualquier peticion HTTP y traduce fallos de red o de
+  // servidor lento a un ServerException con mensaje claro. El backend en
+  // Render free puede tardar en "despertar"; sin timeout las llamadas se
+  // colgarian indefinidamente (spinner infinito al crear/editar dispositivos).
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const ServerException(
+        'El servidor tardo demasiado en responder. Puede estar iniciando; '
+        'intenta de nuevo en unos segundos.',
+      );
+    } on ServerException {
+      rethrow;
+    } catch (_) {
+      throw const ServerException(
+        'No se pudo conectar con el servidor. Revisa tu conexion a internet.',
+      );
+    }
   }
 
   Uri _uri(String path) => Uri.parse('${AppConstants.apiBaseUrl}$path');
