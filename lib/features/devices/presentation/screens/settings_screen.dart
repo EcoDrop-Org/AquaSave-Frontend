@@ -190,120 +190,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      BlocBuilder<IrrigationSettingsCubit, IrrigationSettings>(
-                        builder: (context, settings) {
-                          final cubit = context.read<IrrigationSettingsCubit>();
-                          return _SettingsCard(
-                            title: l10n.t('moistureThresholds'),
-                            icon: Icons.water_drop_outlined,
-                            child: Column(
-                              children: [
-                                _SliderRow(
-                                  label: l10n.t('minimum'),
-                                  value: settings.minMoisture,
-                                  min: 10,
-                                  max: 60,
-                                  suffix: '%',
-                                  onChanged: cubit.setMin,
-                                ),
-                                _SliderRow(
-                                  label: l10n.t('optimal'),
-                                  value: settings.optimalMoisture,
-                                  min: 35,
-                                  max: 75,
-                                  suffix: '%',
-                                  onChanged: cubit.setOptimal,
-                                ),
-                                _SliderRow(
-                                  label: l10n.t('maximum'),
-                                  value: settings.maxMoisture,
-                                  min: 60,
-                                  max: 95,
-                                  suffix: '%',
-                                  onChanged: cubit.setMax,
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppDimensions.spaceMd),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final wide = constraints.maxWidth >= 760;
-                          final weatherCard =
-                              BlocBuilder<
-                                IrrigationSettingsCubit,
-                                IrrigationSettings
-                              >(
-                                builder: (context, settings) {
-                                  final cubit = context
-                                      .read<IrrigationSettingsCubit>();
-                                  return _SettingsCard(
-                                    title: l10n.t('weatherGarden'),
-                                    icon: Icons.cloud_outlined,
-                                    child: Column(
-                                      children: [
-                                        _SliderRow(
-                                          label: l10n.t('temperatureHot'),
-                                          value: settings.hotAlertC,
-                                          min: 22,
-                                          max: 40,
-                                          suffix: '°C',
-                                          onChanged: cubit.setHotAlert,
-                                        ),
-                                        _SliderRow(
-                                          label: l10n.t('temperatureCold'),
-                                          value: settings.coldAlertC,
-                                          min: -5,
-                                          max: 18,
-                                          suffix: '°C',
-                                          onChanged: cubit.setColdAlert,
-                                        ),
-                                        _SliderRow(
-                                          label: l10n.t('rainPauseThreshold'),
-                                          value: settings.rainPausePct,
-                                          min: 20,
-                                          max: 95,
-                                          suffix: '%',
-                                          onChanged: cubit.setRainPause,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                          final scheduleCard = _SettingsCard(
-                            title: l10n.t('automaticSchedule'),
-                            icon: Icons.schedule,
-                            child: _ScheduleList(
-                              slots: _scheduleSlots,
-                              onAdd: _addScheduleSlot,
-                              onTimeChanged: _setScheduleSlotTime,
-                              onToggle: _setScheduleSlotEnabled,
-                              onRemove: _removeScheduleSlot,
-                            ),
-                          );
-
-                          if (!wide) {
-                            return Column(
-                              children: [
-                                weatherCard,
-                                const SizedBox(height: AppDimensions.spaceMd),
-                                scheduleCard,
-                              ],
-                            );
-                          }
-
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: weatherCard),
-                              const SizedBox(width: AppDimensions.spaceMd),
-                              Expanded(child: scheduleCard),
-                            ],
-                          );
-                        },
+                      // Programacion automatica: unica configuracion de riego.
+                      // (Los umbrales de humedad y el clima del huerto se
+                      // retiraron: el dispositivo riega con sus umbrales y el
+                      // clima solo se usa para recomendaciones.)
+                      _SettingsCard(
+                        title: l10n.t('automaticSchedule'),
+                        icon: Icons.schedule,
+                        child: _ScheduleList(
+                          slots: _scheduleSlots,
+                          onAdd: _addScheduleSlot,
+                          onTimeChanged: _setScheduleSlotTime,
+                          onToggle: _setScheduleSlotEnabled,
+                          onRemove: _removeScheduleSlot,
+                        ),
                       ),
                       const SizedBox(height: AppDimensions.spaceLg),
                       LayoutBuilder(
@@ -665,73 +565,6 @@ class _PlanFeature extends StatelessWidget {
     );
   }
 }
-
-class _SliderRow extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final String suffix;
-  final ValueChanged<double> onChanged;
-
-  const _SliderRow({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.suffix,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: tt.bodyMedium?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '${value.round()}$suffix',
-                style: tt.bodySmall?.copyWith(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: (max - min).round(),
-          activeColor: cs.primary,
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-// ── Schedule (automatic watering) ────────────────────────────────────────────
 
 class _ScheduleSlot {
   final String timeText;

@@ -7,9 +7,7 @@ import '../../../../shared/widgets/app_header.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/active_device_card.dart';
-import '../widgets/humidity_card.dart';
 import '../widgets/quick_control_card.dart';
-import '../widgets/weather_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -93,35 +91,6 @@ class _HomeContent extends StatelessWidget {
                           ),
                           const SizedBox(height: AppDimensions.spaceMd),
                           ActiveDeviceCard(device: device),
-                          const SizedBox(height: AppDimensions.spaceMd),
-                          LayoutBuilder(
-                            builder: (context, c) {
-                              final wide = c.maxWidth >= 600;
-                              if (wide) {
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: WeatherCard(device: device),
-                                    ),
-                                    const SizedBox(
-                                      width: AppDimensions.spaceMd,
-                                    ),
-                                    Expanded(
-                                      child: HumidityCard(device: device),
-                                    ),
-                                  ],
-                                );
-                              }
-                              return Column(
-                                children: [
-                                  WeatherCard(device: device),
-                                  const SizedBox(height: AppDimensions.spaceMd),
-                                  HumidityCard(device: device),
-                                ],
-                              );
-                            },
-                          ),
                           const SizedBox(height: AppDimensions.spaceMd),
                           QuickControlCard(
                             deviceId: device.id,
