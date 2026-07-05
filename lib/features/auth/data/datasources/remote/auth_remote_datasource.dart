@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -33,10 +34,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String username,
     required String password,
   }) async {
-    final response = await client.post(
-      _uri('/api/auth/login'),
-      headers: _jsonHeaders,
-      body: json.encode({'email': username, 'password': password}),
+    final response = await _post(
+      '/api/auth/login',
+      json.encode({'email': username, 'password': password}),
     );
 
     final body = _decodeBody(response.body);
@@ -63,10 +63,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
   }) async {
     final effectiveEmail = email.trim().isNotEmpty ? email.trim() : username;
-    final response = await client.post(
-      _uri('/api/auth/register'),
-      headers: _jsonHeaders,
-      body: json.encode({
+    final response = await _post(
+      '/api/auth/register',
+      json.encode({
         'email': effectiveEmail,
         'password': password,
         'fullName': username,
@@ -88,6 +87,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       user: _userFromPublicUser(body['user'] as Map<String, dynamic>),
       token: token,
     );
+  }
+
+  // POST con timeout. El backend en Render free puede tardar en "despertar";
+  // sin timeout la peticion se colgaria indefinidamente (spinner infinito).
+  Future<http.Response> _post(String path, String body) async {
+    try {
+      return await client
+          .post(_uri(path), headers: _jsonHeaders, body: body)
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      throw const ServerException(
+        'El servidor tardo demasiado en responder. Puede estar iniciando; '
+        'intenta de nuevo en unos segundos.',
+      );
+    } catch (_) {
+      throw const ServerException(
+        'No se pudo conectar con el servidor. Revisa tu conexion a internet.',
+      );
+    }
   }
 
   Uri _uri(String path) => Uri.parse('${AppConstants.apiBaseUrl}$path');

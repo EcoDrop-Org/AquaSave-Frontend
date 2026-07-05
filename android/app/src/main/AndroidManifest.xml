@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Necesario para todas las peticiones HTTP (login, API, telemetria).
+         Sin esto, un APK release no tiene acceso a red y las llamadas se
+         cuelgan indefinidamente (el debug lo agrega solo). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="aquasave"
         android:name="${applicationName}"

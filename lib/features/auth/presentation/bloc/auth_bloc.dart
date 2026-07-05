@@ -39,13 +39,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/me'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.apiBaseUrl}/api/auth/me'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          // El backend en Render free puede tardar en "despertar"; sin este
+          // timeout la verificacion de sesion se colgaria indefinidamente.
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode != 200) {
         await prefs.remove(AppConstants.authTokenKey);
