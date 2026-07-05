@@ -12,6 +12,7 @@ import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
 import 'device_detail_dialog.dart';
+import 'esp32_provisioning_dialog.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -267,12 +268,18 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
 Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   const totalSteps = 7;
   var step = 1;
-  var selectedSsid = 'CASA_VERA_2.4';
+  var selectedSsid = '';
   var rememberNetwork = true;
   var crop = 'Plantas de vegetales';
   var minHumidity = 50.0;
   var maxHumidity = 80.0;
   _PlaceResult? selectedPlace;
+
+  // Estado de aprovisionamiento real del ESP32. Si el usuario vincula el
+  // dispositivo en el paso WiFi, aqui queda el id que genero el backend, para
+  // no volver a crear el dispositivo al finalizar el wizard.
+  String? provisionedDeviceId;
+  bool deviceLinked = false;
 
   final l10n = AppLocalizations.of(context);
   final passwordCtrl = TextEditingController(text: 'aquasave123');
@@ -287,8 +294,11 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   }
 
   bool validateCurrentStep() {
-    if (step == 2 && selectedSsid.trim().isEmpty) {
-      showMessage('Selecciona una red WiFi.');
+    if (step == 2 && !deviceLinked && selectedSsid.trim().isEmpty) {
+      showMessage(
+        'Vincula el dispositivo (botón "Vincular dispositivo") o continúa '
+        'sin vincular para configurarlo luego.',
+      );
       return false;
     }
     if (step == 4) {
@@ -320,20 +330,91 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
       return;
     }
 
-    context.read<DevicesBloc>().add(
-      AddDeviceRequested(
-        name: nameCtrl.text.trim(),
-        location: location,
-        plantCount: plantCount,
-        latitude: place?.latitude,
-        longitude: place?.longitude,
-        description: description.isEmpty ? null : description,
-        locationByLocale: place == null || place.byLocale.isEmpty
-            ? null
-            : Map<String, String>.from(place.byLocale),
-      ),
-    );
+    final localeMap = place == null || place.byLocale.isEmpty
+        ? null
+        : Map<String, String>.from(place.byLocale);
+
+    if (provisionedDeviceId != null) {
+      // El dispositivo ya se creo en el backend al vincularlo en el paso WiFi.
+      // Aqui solo actualizamos sus datos finales (nombre, ubicacion, cultivo).
+      context.read<DevicesBloc>().add(
+        EditDeviceRequested(
+          deviceId: provisionedDeviceId!,
+          name: nameCtrl.text.trim(),
+          location: location,
+          plantCount: plantCount,
+          latitude: place?.latitude,
+          longitude: place?.longitude,
+          description: description.isEmpty ? null : description,
+          locationByLocale: localeMap,
+        ),
+      );
+    } else {
+      // Flujo sin vincular ESP32: se crea el dispositivo normalmente.
+      context.read<DevicesBloc>().add(
+        AddDeviceRequested(
+          name: nameCtrl.text.trim(),
+          location: location,
+          plantCount: plantCount,
+          latitude: place?.latitude,
+          longitude: place?.longitude,
+          description: description.isEmpty ? null : description,
+          locationByLocale: localeMap,
+        ),
+      );
+    }
     Navigator.of(dialogContext).pop();
+  }
+
+  // Vincula el ESP32: crea el dispositivo en el backend (para obtener su id) y
+  // abre el flujo de aprovisionamiento (scan + connect) con ese id. Devuelve
+  // true si el dispositivo quedo conectado a WiFi. Se llama desde el paso 2.
+  Future<bool> linkDevice(
+    void Function(void Function()) setWizardState,
+  ) async {
+    if (deviceLinked) return true;
+
+    final repo = context.read<DevicesBloc>().devicesRepository;
+    final tentativeName = nameCtrl.text.trim().isEmpty
+        ? 'Dispositivo AquaSave'
+        : nameCtrl.text.trim();
+
+    // 1. Crear el dispositivo en el backend para obtener su id (uuid).
+    final created = await repo.addDevice(
+      name: tentativeName,
+      location: 'Pendiente de configurar',
+      plantCount: 1,
+    );
+
+    final device = created.fold((failure) {
+      showMessage(failure.message);
+      return null;
+    }, (device) => device);
+    if (device == null) return false;
+
+    if (!context.mounted) return false;
+
+    // 2. Abrir el flujo real de aprovisionamiento con el id recien creado.
+    final result = await showEsp32ProvisioningDialog(
+      context,
+      deviceId: device.id,
+    );
+
+    if (result == null) {
+      // El usuario cancelo el aprovisionamiento: revertir el device creado
+      // para no dejar dispositivos huerfanos.
+      await repo.deleteDevice(device.id);
+      return false;
+    }
+
+    setWizardState(() {
+      provisionedDeviceId = device.id;
+      deviceLinked = true;
+      selectedSsid = result.ssid;
+      passwordCtrl.text = result.password;
+    });
+    showMessage('Dispositivo vinculado y conectado a "${result.ssid}".');
+    return true;
   }
 
   await showDialog<void>(
@@ -370,10 +451,12 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
                 ssid: selectedSsid,
                 passwordCtrl: passwordCtrl,
                 rememberNetwork: rememberNetwork,
+                deviceLinked: deviceLinked,
                 onSsidChanged: (value) =>
                     setWizardState(() => selectedSsid = value),
                 onRememberChanged: (value) =>
                     setWizardState(() => rememberNetwork = value),
+                onLinkDevice: () => linkDevice(setWizardState),
               ),
               3 => const _WizardVerificationStep(),
               4 => _WizardGardenStep(
@@ -678,26 +761,40 @@ class _WizardPrepStep extends StatelessWidget {
   }
 }
 
-class _WizardWifiStep extends StatelessWidget {
+class _WizardWifiStep extends StatefulWidget {
   final String ssid;
   final TextEditingController passwordCtrl;
   final bool rememberNetwork;
+  final bool deviceLinked;
   final ValueChanged<String> onSsidChanged;
   final ValueChanged<bool> onRememberChanged;
+  final Future<bool> Function() onLinkDevice;
 
   const _WizardWifiStep({
     required this.ssid,
     required this.passwordCtrl,
     required this.rememberNetwork,
+    required this.deviceLinked,
     required this.onSsidChanged,
     required this.onRememberChanged,
+    required this.onLinkDevice,
   });
 
-  static const _networks = [
-    ('CASA_VERA_5G', 4),
-    ('CASA_VERA_2.4', 4),
-    ('AQUASAVE_SETUP', 3),
-  ];
+  @override
+  State<_WizardWifiStep> createState() => _WizardWifiStepState();
+}
+
+class _WizardWifiStepState extends State<_WizardWifiStep> {
+  bool _linking = false;
+
+  Future<void> _link() async {
+    setState(() => _linking = true);
+    try {
+      await widget.onLinkDevice();
+    } finally {
+      if (mounted) setState(() => _linking = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -708,7 +805,7 @@ class _WizardWifiStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Conectar a WiFi',
+          'Conectar el dispositivo a WiFi',
           style: tt.headlineMedium?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w900,
@@ -716,72 +813,138 @@ class _WizardWifiStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Selecciona la red a la que se conectará el dispositivo. Recomendamos 2.4 GHz.',
+          'Vincula tu ESP32 para que escanee tu red WiFi y se conecte. '
+          'Recomendamos una red de 2.4 GHz.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 24),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 720;
-            final networks = _NetworkList(
-              networks: _networks,
-              selected: ssid,
-              onChanged: onSsidChanged,
-            );
-            final form = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _WizardUpperLabel('RED SELECCIONADA'),
-                const SizedBox(height: 6),
-                _SelectedNetworkField(ssid: ssid),
-                const SizedBox(height: 18),
-                _WizardUpperLabel('CONTRASEÑA'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: passwordCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.lock_outline_rounded),
-                    hintText: 'Contraseña WiFi',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  value: rememberNetwork,
-                  onChanged: (value) => onRememberChanged(value ?? false),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(
-                    'Recordar esta red',
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.72),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            );
-
-            if (compact) {
-              return Column(
-                children: [networks, const SizedBox(height: 18), form],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: networks),
-                const SizedBox(width: 28),
-                Expanded(child: form),
-              ],
-            );
-          },
-        ),
+        if (widget.deviceLinked)
+          _LinkedBanner(ssid: widget.ssid)
+        else
+          _LinkPrompt(linking: _linking, onLink: _link),
       ],
+    );
+  }
+}
+
+class _LinkPrompt extends StatelessWidget {
+  final bool linking;
+  final VoidCallback onLink;
+
+  const _LinkPrompt({required this.linking, required this.onLink});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.router_outlined, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Antes de vincular:',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _WizardCheckRow(
+            icon: Icons.power_settings_new_rounded,
+            text: 'El ESP32 está encendido. La primera vez crea su red '
+                '"AquaSave-XXXX".',
+          ),
+          const SizedBox(height: 6),
+          _WizardCheckRow(
+            icon: Icons.wifi_rounded,
+            text: 'Conéctate a esa red WiFi desde tu equipo (clave: '
+                'aquasave123).',
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: linking ? null : onLink,
+              icon: linking
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.link_rounded),
+              label: Text(linking ? 'Vinculando...' : 'Vincular dispositivo'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinkedBanner extends StatelessWidget {
+  final String ssid;
+
+  const _LinkedBanner({required this.ssid});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+            child: Icon(Icons.check_rounded, color: cs.onPrimary, size: 30),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dispositivo vinculado',
+                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Conectado a la red "$ssid". Continúa para configurar tu '
+                  'huerto.',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1499,133 +1662,6 @@ class _WizardCheckRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _NetworkList extends StatelessWidget {
-  final List<(String, int)> networks;
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  const _NetworkList({
-    required this.networks,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Column(
-        children: [
-          for (final network in networks)
-            Material(
-              color: selected == network.$1
-                  ? cs.primary.withValues(alpha: 0.18)
-                  : cs.surface.withValues(alpha: 0.94),
-              child: InkWell(
-                onTap: () => onChanged(network.$1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 15,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.signal_wifi_4_bar_rounded, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          network.$1,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: cs.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      _SignalBars(value: network.$2),
-                      if (selected == network.$1) ...[
-                        const SizedBox(width: 12),
-                        Icon(Icons.check_rounded, color: cs.primary),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SelectedNetworkField extends StatelessWidget {
-  final String ssid;
-
-  const _SelectedNetworkField({required this.ssid});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.wifi_rounded, size: 18, color: cs.onSurface),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              ssid,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SignalBars extends StatelessWidget {
-  final int value;
-
-  const _SignalBars({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        for (var i = 1; i <= 4; i++)
-          Container(
-            width: 4,
-            height: 5.0 + i * 3,
-            margin: const EdgeInsets.only(left: 2),
-            decoration: BoxDecoration(
-              color: i <= value
-                  ? color
-                  : Theme.of(
-                      context,
-                    ).colorScheme.outline.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-      ],
     );
   }
 }
