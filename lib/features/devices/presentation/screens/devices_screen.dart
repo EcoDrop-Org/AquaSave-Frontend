@@ -293,14 +293,9 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   }
 
   bool validateCurrentStep() {
-    if (step == 2 && !deviceLinked && selectedSsid.trim().isEmpty) {
-      showMessage(
-        'Vincula el dispositivo (botón "Vincular dispositivo") o continúa '
-        'sin vincular para configurarlo luego.',
-      );
-      return false;
-    }
-    if (step == 4) {
+    // Paso 2: datos del huerto (se validan ANTES de vincular, porque el
+    // dispositivo se crea en el backend con estos datos).
+    if (step == 2) {
       if (nameCtrl.text.trim().length < 3) {
         showMessage(l10n.t('invalidName'));
         return false;
@@ -314,6 +309,14 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         showMessage(l10n.t('invalidLocation'));
         return false;
       }
+    }
+    // Paso 3: vincular es opcional; se puede crear el huerto sin dispositivo
+    // y conectarlo despues con "Reconectar WiFi" en el detalle.
+    if (step == 3 && !deviceLinked) {
+      showMessage(
+        'Continuarás sin dispositivo vinculado. Podrás conectarlo luego '
+        'desde el detalle del huerto.',
+      );
     }
     return true;
   }
@@ -393,15 +396,21 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
     if (deviceLinked) return true;
 
     final repo = context.read<DevicesBloc>().devicesRepository;
-    final tentativeName = nameCtrl.text.trim().isEmpty
-        ? 'Dispositivo AquaSave'
-        : nameCtrl.text.trim();
 
-    // 1. Crear el dispositivo en el backend (necesita internet AHORA).
+    // 1. Crear el dispositivo en el backend (necesita internet AHORA), con
+    //    los datos reales del paso anterior: asi, aunque el flujo se corte
+    //    despues de vincular, el huerto ya quedo con nombre y ubicacion.
+    final place = selectedPlace;
+    final description = descriptionCtrl.text.trim();
     final created = await repo.addDevice(
-      name: tentativeName,
-      location: 'Pendiente de configurar',
-      plantCount: 1,
+      name: nameCtrl.text.trim().isEmpty
+          ? 'Mi huerto AquaSave'
+          : nameCtrl.text.trim(),
+      location: place?.displayName.trim() ?? 'Sin ubicación',
+      plantCount: int.tryParse(plantCountCtrl.text.trim()) ?? 1,
+      latitude: place?.latitude,
+      longitude: place?.longitude,
+      description: description.isEmpty ? null : description,
     );
 
     final device = created.fold((failure) {
@@ -472,9 +481,23 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
           }
 
           Widget content() {
+            // Orden: los datos del huerto se piden ANTES de vincular, para
+            // que el dispositivo se cree en el backend con el nombre y la
+            // ubicacion reales (y no con valores por defecto si el flujo se
+            // interrumpe despues de vincular).
             return switch (step) {
               1 => const _WizardPrepStep(),
-              2 => _WizardWifiStep(
+              2 => _WizardGardenStep(
+                nameCtrl: nameCtrl,
+                plantCountCtrl: plantCountCtrl,
+                descriptionCtrl: descriptionCtrl,
+                crop: crop,
+                selectedPlace: selectedPlace,
+                onCropChanged: (value) => setWizardState(() => crop = value),
+                onPlaceChanged: (value) =>
+                    setWizardState(() => selectedPlace = value),
+              ),
+              3 => _WizardWifiStep(
                 ssid: selectedSsid,
                 passwordCtrl: passwordCtrl,
                 rememberNetwork: rememberNetwork,
@@ -485,16 +508,9 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
                     setWizardState(() => rememberNetwork = value),
                 onLinkDevice: () => linkDevice(setWizardState),
               ),
-              3 => const _WizardVerificationStep(),
-              4 => _WizardGardenStep(
-                nameCtrl: nameCtrl,
-                plantCountCtrl: plantCountCtrl,
-                descriptionCtrl: descriptionCtrl,
-                crop: crop,
-                selectedPlace: selectedPlace,
-                onCropChanged: (value) => setWizardState(() => crop = value),
-                onPlaceChanged: (value) =>
-                    setWizardState(() => selectedPlace = value),
+              4 => _WizardVerificationStep(
+                deviceLinked: deviceLinked,
+                ssid: selectedSsid,
               ),
               5 => const _WizardSensorStep(),
               6 => _WizardReadyStep(
@@ -941,8 +957,8 @@ class _LinkedBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Conectado a la red "$ssid". Continúa para configurar tu '
-                  'huerto.',
+                  'Conectado a la red "$ssid". Continúa para verificar y '
+                  'terminar.',
                   style: tt.bodySmall?.copyWith(
                     color: cs.onSurface.withValues(alpha: 0.7),
                   ),
@@ -957,19 +973,32 @@ class _LinkedBanner extends StatelessWidget {
 }
 
 class _WizardVerificationStep extends StatelessWidget {
-  const _WizardVerificationStep();
+  // Estado REAL de la vinculacion (nada de datos de ejemplo): si el usuario
+  // no vinculo el dispositivo, este paso lo dice claramente.
+  final bool deviceLinked;
+  final String ssid;
 
-  static const _checks = [
-    'Conexión WiFi',
-    'Asignación IP',
-    'Servidor AquaSave',
-    'Sincronización inicial',
-  ];
+  const _WizardVerificationStep({
+    required this.deviceLinked,
+    required this.ssid,
+  });
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+
+    final checks = deviceLinked
+        ? const [
+            'Dispositivo registrado en AquaSave',
+            'Credenciales WiFi entregadas',
+            'Conexión confirmada por el dispositivo',
+          ]
+        : const [
+            'Huerto con nombre y ubicación listos',
+            'Sin dispositivo vinculado (opcional)',
+            'Puedes conectarlo luego desde el detalle',
+          ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -983,7 +1012,9 @@ class _WizardVerificationStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Estamos comprobando la conexión del dispositivo con AquaSave.',
+          deviceLinked
+              ? 'Resumen de la vinculación de tu dispositivo.'
+              : 'Continuarás sin dispositivo vinculado.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
@@ -1006,18 +1037,24 @@ class _WizardVerificationStep extends StatelessWidget {
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
-                      color: cs.primary,
+                      color: deviceLinked
+                          ? cs.primary
+                          : cs.outline.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.check_rounded,
+                      deviceLinked
+                          ? Icons.check_rounded
+                          : Icons.wifi_off_rounded,
                       color: cs.onPrimary,
                       size: 38,
                     ),
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'Dispositivo conectado',
+                    deviceLinked
+                        ? 'Dispositivo conectado'
+                        : 'Sin dispositivo vinculado',
                     style: tt.titleMedium?.copyWith(
                       color: cs.onSurface,
                       fontWeight: FontWeight.w900,
@@ -1025,7 +1062,10 @@ class _WizardVerificationStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'AQUASAVE-D7E1 está en línea y reportando.',
+                    deviceLinked
+                        ? 'Conectado a la red "$ssid".'
+                        : 'Usa "Reconectar WiFi" en el detalle del huerto '
+                              'cuando tengas el dispositivo a mano.',
                     textAlign: TextAlign.center,
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.58),
@@ -1037,7 +1077,7 @@ class _WizardVerificationStep extends StatelessWidget {
             );
             final list = Column(
               children: [
-                for (final check in _checks)
+                for (final check in checks)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _VerificationRow(label: check),
