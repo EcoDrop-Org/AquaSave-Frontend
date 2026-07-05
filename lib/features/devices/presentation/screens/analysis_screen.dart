@@ -7,9 +7,9 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
-import '../../../irrigation_intelligence/domain/entities/weather_forecast.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../../data/datasources/remote/irrigation_remote_datasource.dart';
+import '../widgets/weather_advice_card.dart';
 import '../bloc/devices_bloc.dart';
 
 class AnalysisScreen extends StatefulWidget {
@@ -161,7 +161,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           const SizedBox(height: AppDimensions.spaceMd),
                           // El clima (Open-Meteo) solo se usa para recomendar
                           // al usuario sobre el riego.
-                          _WeatherAdviceCard(forecast: forecast),
+                          WeatherAdviceCard(forecast: forecast),
                           const SizedBox(height: AppDimensions.spaceMd),
                           // KPIs reales de los ultimos 30 dias (backend
                           // /api/irrigation/analytics).
@@ -1269,89 +1269,6 @@ class _RetentionCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       height: 1.35,
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Recomendación de riego según el clima (único uso del pronóstico).
-class _WeatherAdviceCard extends StatelessWidget {
-  final WeatherForecast? forecast;
-
-  const _WeatherAdviceCard({required this.forecast});
-
-  @override
-  Widget build(BuildContext context) {
-    final f = forecast;
-    if (f == null) return const SizedBox.shrink();
-
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    final IconData icon;
-    final Color color;
-    final String title;
-    final String body;
-
-    if (f.shouldPauseIrrigation) {
-      icon = Icons.umbrella_rounded;
-      color = const Color(0xFF5F8FA0);
-      title = 'Pausa de riego recomendada';
-      body =
-          'Hay ${f.rainProbabilityPct}% de probabilidad de lluvia en '
-          '${f.locationName}. Deja que la lluvia riegue por ti y ahorra agua.';
-    } else if (f.temperatureC >= 30 && f.humidityPct <= 40) {
-      icon = Icons.local_fire_department_rounded;
-      color = const Color(0xFFCB7C46);
-      title = 'Riego recomendado';
-      body =
-          'Hace ${f.temperatureC.toStringAsFixed(0)}°C con aire seco '
-          '(${f.humidityPct}%): tus plantas perderán agua rápido hoy.';
-    } else {
-      icon = Icons.check_circle_outline_rounded;
-      color = const Color(0xFF5FA06E);
-      title = 'Clima estable';
-      body =
-          '${f.conditionLabel} en ${f.locationName}. No se necesitan '
-          'ajustes: tu plan de riego actual es adecuado.';
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.32)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: tt.titleSmall?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  body,
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.75),
-                    height: 1.35,
                   ),
                 ),
               ],

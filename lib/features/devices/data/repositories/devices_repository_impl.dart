@@ -122,4 +122,21 @@ class DevicesRepositoryImpl implements DevicesRepository {
       return const Left(ServerFailure('No se pudo conectar con el servidor'));
     }
   }
+
+  @override
+  Future<Either<Failure, Device>> setDevicePaused(
+    String deviceId,
+    bool paused,
+  ) async {
+    if (useMock) return Left(ServerFailure('No disponible en modo demo'));
+
+    try {
+      final device = await remoteDataSource.setDevicePaused(deviceId, paused);
+      return Right(device);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure('No se pudo conectar con el servidor'));
+    }
+  }
 }

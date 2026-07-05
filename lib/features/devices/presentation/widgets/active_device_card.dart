@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../domain/entities/device.dart';
+import '../bloc/devices_bloc.dart';
 
 class ActiveDeviceCard extends StatelessWidget {
   final Device device;
@@ -88,6 +90,81 @@ class ActiveDeviceCard extends StatelessWidget {
           _BigStats(device: device),
           const SizedBox(height: 18),
           _FooterChips(device: device),
+          const SizedBox(height: 14),
+          _PauseControl(device: device),
+        ],
+      ),
+    );
+  }
+}
+
+/// Apagado/encendido remoto del riego: en pausa, la bomba se apaga y el
+/// dispositivo no riega (ni automatico ni manual) hasta reactivarlo. El
+/// dispositivo sigue conectado y reportando para poder volver a encenderlo.
+class _PauseControl extends StatelessWidget {
+  final Device device;
+
+  const _PauseControl({required this.device});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final paused = !device.isActive;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: paused
+            ? const Color(0xFFC0A24A).withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: paused
+              ? const Color(0xFFE8CD7A)
+              : Colors.white.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            paused ? Icons.pause_circle_outline_rounded : Icons.power_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              paused
+                  ? 'Dispositivo en pausa: no regará hasta reactivarlo'
+                  : 'Dispositivo activo',
+              style: tt.bodySmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Switch(
+            value: !paused,
+            activeThumbColor: Colors.white,
+            activeTrackColor: const Color(0xFFCBE7A3).withValues(alpha: 0.6),
+            inactiveThumbColor: Colors.white70,
+            inactiveTrackColor: Colors.black.withValues(alpha: 0.25),
+            onChanged: (active) {
+              context.read<DevicesBloc>().add(
+                ToggleDevicePause(deviceId: device.id, paused: !active),
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    active
+                        ? 'Reactivando dispositivo…'
+                        : 'Pausando dispositivo…',
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

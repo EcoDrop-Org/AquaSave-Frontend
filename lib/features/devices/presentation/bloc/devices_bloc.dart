@@ -22,8 +22,29 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     on<DeviceProvisioned>(_onDeviceProvisioned);
     on<EditDeviceRequested>(_onEditDeviceRequested);
     on<DeleteDeviceRequested>(_onDeleteDeviceRequested);
+    on<ToggleDevicePause>(_onToggleDevicePause);
     on<SelectActiveDevice>(_onSelectActiveDevice);
     on<ResetDevices>(_onResetDevices);
+  }
+
+  Future<void> _onToggleDevicePause(
+    ToggleDevicePause event,
+    Emitter<DevicesState> emit,
+  ) async {
+    final index = _devices.indexWhere((device) => device.id == event.deviceId);
+    if (index == -1) return;
+
+    final result = await devicesRepository.setDevicePaused(
+      event.deviceId,
+      event.paused,
+    );
+
+    result.fold((failure) => _emitLoaded(emit, error: failure.message), (
+      device,
+    ) {
+      _devices[index] = _devices[index].copyWith(isActive: device.isActive);
+      _emitLoaded(emit);
+    });
   }
 
   /// Incorpora un dispositivo creado fuera del bloc (aprovisionamiento del

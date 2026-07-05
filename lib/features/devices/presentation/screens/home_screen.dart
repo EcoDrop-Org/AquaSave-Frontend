@@ -5,9 +5,11 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/active_device_card.dart';
 import '../widgets/quick_control_card.dart';
+import '../widgets/weather_advice_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,6 +64,14 @@ class _HomeContent extends StatelessWidget {
 
                 final device = state.activeDevice;
 
+                // El pronostico solo se usa para recomendar sobre el riego.
+                final weatherState = context.watch<WeatherBloc>().state;
+                final forecast =
+                    weatherState is WeatherLoaded &&
+                        weatherState.forecast.deviceId == device.id
+                    ? weatherState.forecast
+                    : null;
+
                 return SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(
                     AppDimensions.spaceLg,
@@ -92,6 +102,10 @@ class _HomeContent extends StatelessWidget {
                           const SizedBox(height: AppDimensions.spaceMd),
                           ActiveDeviceCard(device: device),
                           const SizedBox(height: AppDimensions.spaceMd),
+                          // Advertencias/recomendaciones de riego segun clima.
+                          WeatherAdviceCard(forecast: forecast),
+                          if (forecast != null)
+                            const SizedBox(height: AppDimensions.spaceMd),
                           QuickControlCard(
                             deviceId: device.id,
                             onStartIrrigation: () {

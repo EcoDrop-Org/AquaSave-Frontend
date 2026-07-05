@@ -11,8 +11,22 @@ class IrrigationCubit extends Cubit<IrrigationState> {
   /// iniciar/detener riego llama a la API del backend.
   final IrrigationRemoteDataSource? remote;
   Timer? _timer;
+  Timer? _pollTimer;
 
   IrrigationCubit({this.remote}) : super(const IrrigationState.initial());
+
+  /// Observa el dispositivo activo: sincroniza ya y luego consulta el estado
+  /// del backend periodicamente. Asi, si el riego lo inicia el PROPIO
+  /// dispositivo (sensores) o la programacion automatica, la app lo refleja
+  /// sin que el usuario tenga que hacer nada.
+  void watchDevice(String deviceId) {
+    _pollTimer?.cancel();
+    syncWithServer(deviceId);
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => syncWithServer(deviceId),
+    );
+  }
 
   Future<bool> start(String deviceId) async {
     if (remote != null) {
@@ -30,6 +44,7 @@ class IrrigationCubit extends Cubit<IrrigationState> {
         isIrrigating: true,
         startedAt: DateTime.now(),
         elapsedSeconds: 0,
+        triggerType: 'manual',
       ),
     );
     _startTicker();
@@ -70,6 +85,9 @@ class IrrigationCubit extends Cubit<IrrigationState> {
               Duration(seconds: serverState.elapsedSeconds),
             ),
             elapsedSeconds: serverState.elapsedSeconds,
+            // Quien inicio el riego: 'manual' (usuario), 'automatic'
+            // (sensores del dispositivo) o 'scheduled' (programacion).
+            triggerType: serverState.runningEvent?.triggerType,
           ),
         );
         _startTicker();
@@ -110,6 +128,7 @@ class IrrigationCubit extends Cubit<IrrigationState> {
   @override
   Future<void> close() {
     _timer?.cancel();
+    _pollTimer?.cancel();
     return super.close();
   }
 }
@@ -120,6 +139,10 @@ class IrrigationState extends Equatable {
   final DateTime? startedAt;
   final int elapsedSeconds;
 
+  /// Origen del riego en curso: 'manual', 'automatic' (sensores del
+  /// dispositivo) o 'scheduled' (programacion). Null si no se sabe.
+  final String? triggerType;
+
   /// Error de la ultima accion contra la API (null si no hubo error).
   final String? errorMessage;
 
@@ -128,6 +151,7 @@ class IrrigationState extends Equatable {
     required this.isIrrigating,
     required this.startedAt,
     required this.elapsedSeconds,
+    this.triggerType,
     this.errorMessage,
   });
 
@@ -136,6 +160,7 @@ class IrrigationState extends Equatable {
       isIrrigating = false,
       startedAt = null,
       elapsedSeconds = 0,
+      triggerType = null,
       errorMessage = null;
 
   IrrigationState copyWith({
@@ -143,6 +168,7 @@ class IrrigationState extends Equatable {
     bool? isIrrigating,
     DateTime? startedAt,
     int? elapsedSeconds,
+    String? triggerType,
     String? errorMessage,
   }) {
     return IrrigationState(
@@ -150,6 +176,7 @@ class IrrigationState extends Equatable {
       isIrrigating: isIrrigating ?? this.isIrrigating,
       startedAt: startedAt ?? this.startedAt,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      triggerType: triggerType ?? this.triggerType,
       errorMessage: errorMessage,
     );
   }
@@ -160,6 +187,7 @@ class IrrigationState extends Equatable {
     isIrrigating,
     startedAt,
     elapsedSeconds,
+    triggerType,
     errorMessage,
   ];
 }
