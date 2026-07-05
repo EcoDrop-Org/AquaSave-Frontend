@@ -9,6 +9,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
+import '../../domain/repositories/devices_repository.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
 import 'device_detail_dialog.dart';
@@ -366,9 +367,28 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
     Navigator.of(dialogContext).pop();
   }
 
-  // Vincula el ESP32: crea el dispositivo en el backend (para obtener su id) y
-  // abre el flujo de aprovisionamiento (scan + connect) con ese id. Devuelve
-  // true si el dispositivo quedo conectado a WiFi. Se llama desde el paso 2.
+  // Borra un dispositivo huerfano con reintentos. Se usa como rollback si el
+  // aprovisionamiento no se completa, para no dejar basura en el backend.
+  Future<void> rollbackDevice(DevicesRepository repo, String deviceId) async {
+    for (var intento = 0; intento < 3; intento++) {
+      final res = await repo.deleteDevice(deviceId);
+      final ok = res.fold((_) => false, (_) => true);
+      if (ok) return;
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    // Si tras 3 intentos no se pudo borrar (sin internet aun), avisar.
+    showMessage(
+      'No se pudo revertir el dispositivo. Se borrara al recuperar conexion; '
+      'revisa tu lista de dispositivos.',
+    );
+  }
+
+  // Vincula el ESP32. Orden pensado para no dejar huerfanos:
+  //   1. (CON internet) crea el dispositivo en el backend -> obtiene su id.
+  //   2. El dialogo guia: conectarse a la red del ESP32, /scan + /connect,
+  //      y luego VOLVER a una red con internet.
+  //   3. Si algo falla o se cancela -> se borra el dispositivo (rollback).
+  // Se llama desde el paso 2 del wizard, cuando aun tienes internet.
   Future<bool> linkDevice(
     void Function(void Function()) setWizardState,
   ) async {
@@ -379,7 +399,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         ? 'Dispositivo AquaSave'
         : nameCtrl.text.trim();
 
-    // 1. Crear el dispositivo en el backend para obtener su id (uuid).
+    // 1. Crear el dispositivo en el backend (necesita internet AHORA).
     final created = await repo.addDevice(
       name: tentativeName,
       location: 'Pendiente de configurar',
@@ -387,23 +407,26 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
     );
 
     final device = created.fold((failure) {
-      showMessage(failure.message);
+      showMessage(
+        'No se pudo registrar el dispositivo. Asegurate de tener internet '
+        '(tu WiFi normal) antes de vincular. ${failure.message}',
+      );
       return null;
     }, (device) => device);
     if (device == null) return false;
 
     if (!context.mounted) return false;
 
-    // 2. Abrir el flujo real de aprovisionamiento con el id recien creado.
+    // 2. Aprovisionamiento (scan + connect + volver a WiFi). El dialogo pide
+    //    conectarse a la red del ESP32 y luego regresar a una con internet.
     final result = await showEsp32ProvisioningDialog(
       context,
       deviceId: device.id,
     );
 
     if (result == null) {
-      // El usuario cancelo el aprovisionamiento: revertir el device creado
-      // para no dejar dispositivos huerfanos.
-      await repo.deleteDevice(device.id);
+      // Cancelado o fallo -> revertir para no dejar huerfano.
+      await rollbackDevice(repo, device.id);
       return false;
     }
 

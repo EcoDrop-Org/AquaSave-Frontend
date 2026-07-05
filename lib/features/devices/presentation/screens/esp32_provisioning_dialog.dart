@@ -50,7 +50,7 @@ class _ProvisioningDialog extends StatefulWidget {
   State<_ProvisioningDialog> createState() => _ProvisioningDialogState();
 }
 
-enum _Phase { intro, scanning, pickNetwork, connecting, error }
+enum _Phase { intro, scanning, pickNetwork, connecting, backToWifi, error }
 
 class _ProvisioningDialogState extends State<_ProvisioningDialog> {
   _Phase _phase = _Phase.intro;
@@ -59,6 +59,7 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
   String _error = '';
+  ProvisioningResult? _pendingResult;
 
   @override
   void dispose() {
@@ -102,13 +103,18 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
         deviceId: widget.deviceId,
       );
       if (!mounted) return;
-      Navigator.of(context).pop(
-        ProvisioningResult(
+      // El ESP32 confirmo la conexion y se esta reiniciando para unirse a tu
+      // WiFi. Guardamos el resultado pero NO cerramos todavia: primero el
+      // usuario debe volver a una red con internet para que la app pueda
+      // finalizar el registro en el backend.
+      setState(() {
+        _pendingResult = ProvisioningResult(
           ssid: selected.ssid,
           password: _passwordCtrl.text,
           deviceIp: ip,
-        ),
-      );
+        );
+        _phase = _Phase.backToWifi;
+      });
     } on ServerException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -167,9 +173,83 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
         return _pickNetwork(cs);
       case _Phase.connecting:
         return _loading('Enviando credenciales al dispositivo...');
+      case _Phase.backToWifi:
+        return _backToWifi(cs);
       case _Phase.error:
         return _errorView(cs);
     }
+  }
+
+  Widget _backToWifi(ColorScheme cs) {
+    final ssid = _pendingResult?.ssid ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: cs.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.check_rounded, color: cs.onPrimary, size: 26),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'El dispositivo se conectó a "$ssid"',
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const _Step(
+          n: 1,
+          text: 'El ESP32 ya está en tu WiFi. Ahora vuelve a conectar tu '
+              'teléfono a una red CON internet (tu WiFi normal o datos '
+              'móviles).',
+        ),
+        const _Step(
+          n: 2,
+          text: 'Cuando tengas internet de nuevo, pulsa "Finalizar" para '
+              'terminar el registro.',
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'La red "AquaSave-XXXX" desaparecerá sola: el dispositivo ya '
+                  'no la necesita.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(_pendingResult),
+            icon: const Icon(Icons.check_circle_outline_rounded),
+            label: const Text('Finalizar'),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _intro(ColorScheme cs) {
