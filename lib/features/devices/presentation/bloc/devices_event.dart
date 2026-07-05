@@ -69,6 +69,19 @@ class DeleteDeviceRequested extends DevicesEvent {
   List<Object> get props => [deviceId];
 }
 
+/// Un dispositivo fue creado fuera del bloc (wizard de aprovisionamiento,
+/// que lo registra via repositorio para obtener su id antes de configurar el
+/// ESP32). Lo incorpora a la lista para que ediciones posteriores lo
+/// encuentren.
+class DeviceProvisioned extends DevicesEvent {
+  final Device device;
+
+  const DeviceProvisioned(this.device);
+
+  @override
+  List<Object> get props => [device.id];
+}
+
 class ResetDevices extends DevicesEvent {
   const ResetDevices();
 }

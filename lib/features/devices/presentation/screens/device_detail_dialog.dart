@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -233,10 +232,6 @@ class _DetailBody extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 14),
-        // ID del dispositivo: se copia en el firmware del ESP32 (DEVICE_ID)
-        // para vincular el hardware con este huerto.
-        _DeviceIdCard(deviceId: device.id),
         const SizedBox(height: 18),
         Text(
           l10n.t('currentMoisture'),
@@ -287,77 +282,6 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: 12),
         _MiniHistoryTable(deviceId: device.id, deviceName: device.name),
       ],
-    );
-  }
-}
-
-class _DeviceIdCard extends StatelessWidget {
-  final String deviceId;
-
-  const _DeviceIdCard({required this.deviceId});
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.memory_rounded, size: 18, color: cs.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  l10n.t('deviceIdLabel'),
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: l10n.t('deviceIdLabel'),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: deviceId));
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.t('deviceIdCopied'))),
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          SelectableText(
-            deviceId,
-            style: tt.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              color: cs.onSurface.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l10n.t('deviceIdHint'),
-            style: tt.bodySmall?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.55),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -577,20 +501,11 @@ class _MiniHistoryTable extends StatefulWidget {
 }
 
 class _MiniHistoryTableState extends State<_MiniHistoryTable> {
-  static const _hardcoded = [
-    ('09 May · 06:30', '8 min', '1.4 L', 'auto'),
-    ('08 May · 19:15', '6 min', '1.0 L', 'manual'),
-    ('08 May · 06:30', '8 min', '1.4 L', 'auto'),
-    ('07 May · 06:30', '10 min', '1.7 L', 'auto'),
-    ('06 May · 18:00', '5 min', '0.9 L', 'manual'),
-    ('06 May · 06:30', '8 min', '1.4 L', 'auto'),
-    ('05 May · 06:30', '8 min', '1.4 L', 'auto'),
-  ];
-
   final IrrigationRemoteDataSourceImpl? _remote =
       AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
 
-  List<(String, String, String, String)> _rows = _hardcoded;
+  // Solo riegos reales del backend: nada de datos de ejemplo.
+  List<(String, String, String, String)> _rows = const [];
   bool _loading = false;
 
   @override

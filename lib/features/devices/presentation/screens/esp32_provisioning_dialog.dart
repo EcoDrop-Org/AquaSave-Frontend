@@ -143,7 +143,7 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Conectar el ESP32 a WiFi',
+                      'Conectar tu dispositivo a AquaSave',
                       style: Theme.of(context).textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w900),
                     ),
@@ -209,7 +209,7 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
         const SizedBox(height: 16),
         const _Step(
           n: 1,
-          text: 'El ESP32 ya está en tu WiFi. Ahora vuelve a conectar tu '
+          text: 'El dispositivo ya está en tu WiFi. Ahora vuelve a conectar tu '
               'teléfono a una red CON internet (tu WiFi normal o datos '
               'móviles).',
         ),
@@ -258,7 +258,7 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
       children: [
         const _Step(
           n: 1,
-          text: 'Enciende el ESP32. La primera vez crea su propia red WiFi.',
+          text: 'Enciende el dispositivo. La primera vez crea su propia red WiFi.',
         ),
         const _Step(
           n: 2,

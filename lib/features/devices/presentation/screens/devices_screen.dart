@@ -267,13 +267,11 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
 // ── Add device onboarding ───────────────────────────────────────────────────
 
 Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
-  const totalSteps = 7;
+  const totalSteps = 6;
   var step = 1;
   var selectedSsid = '';
   var rememberNetwork = true;
   var crop = 'Plantas de vegetales';
-  var minHumidity = 50.0;
-  var maxHumidity = 80.0;
   _PlaceResult? selectedPlace;
 
   // Estado de aprovisionamiento real del ESP32. Si el usuario vincula el
@@ -430,6 +428,12 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
       return false;
     }
 
+    // Incorporar el dispositivo al bloc: sin esto, la edicion final del
+    // wizard (nombre/ubicacion/cultivo) no lo encontraba y se descartaba.
+    if (context.mounted) {
+      context.read<DevicesBloc>().add(DeviceProvisioned(device));
+    }
+
     setWizardState(() {
       provisionedDeviceId = device.id;
       deviceLinked = true;
@@ -492,33 +496,13 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
                 onPlaceChanged: (value) =>
                     setWizardState(() => selectedPlace = value),
               ),
-              5 => _WizardThresholdStep(
-                minHumidity: minHumidity,
-                maxHumidity: maxHumidity,
-                crop: crop,
-                onChanged: (values) {
-                  setWizardState(() {
-                    minHumidity = values.start;
-                    maxHumidity = values.end;
-                  });
-                },
-                onPreset: (min, max, label) {
-                  setWizardState(() {
-                    minHumidity = min;
-                    maxHumidity = max;
-                    crop = label;
-                  });
-                },
-              ),
-              6 => const _WizardSensorStep(),
-              7 => _WizardReadyStep(
+              5 => const _WizardSensorStep(),
+              6 => _WizardReadyStep(
                 name: nameCtrl.text.trim().isEmpty
                     ? 'Mi huerto terraza'
                     : nameCtrl.text.trim(),
                 location: selectedPlace?.displayName ?? '',
                 crop: crop,
-                minHumidity: minHumidity,
-                maxHumidity: maxHumidity,
               ),
               _ => const SizedBox.shrink(),
             };
@@ -749,7 +733,7 @@ class _WizardPrepStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Conecta tu ESP32 a AquaSave',
+            'Conecta tu dispositivo a AquaSave',
             style: tt.headlineMedium?.copyWith(
               color: cs.onSurface,
               fontWeight: FontWeight.w900,
@@ -766,7 +750,7 @@ class _WizardPrepStep extends StatelessWidget {
           const SizedBox(height: 12),
           const _WizardCheckRow(
             icon: Icons.light_mode_outlined,
-            text: 'El ESP32 está encendido con el LED azul fijo.',
+            text: 'El dispositivo está encendido con el LED azul fijo.',
           ),
           const SizedBox(height: 9),
           const _WizardCheckRow(
@@ -836,7 +820,7 @@ class _WizardWifiStepState extends State<_WizardWifiStep> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Vincula tu ESP32 para que escanee tu red WiFi y se conecte. '
+          'Vincula tu dispositivo para que escanee tu red WiFi y se conecte. '
           'Recomendamos una red de 2.4 GHz.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
@@ -890,7 +874,7 @@ class _LinkPrompt extends StatelessWidget {
           const SizedBox(height: 12),
           _WizardCheckRow(
             icon: Icons.power_settings_new_rounded,
-            text: 'El ESP32 está encendido. La primera vez crea su red '
+            text: 'El dispositivo está encendido. La primera vez crea su red '
                 '"AquaSave-XXXX".',
           ),
           const SizedBox(height: 6),
@@ -999,7 +983,7 @@ class _WizardVerificationStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Estamos comprobando la conexión del ESP32 con AquaSave.',
+          'Estamos comprobando la conexión del dispositivo con AquaSave.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
@@ -1211,158 +1195,6 @@ class _WizardGardenStep extends StatelessWidget {
   }
 }
 
-class _WizardThresholdStep extends StatelessWidget {
-  final double minHumidity;
-  final double maxHumidity;
-  final String crop;
-  final ValueChanged<RangeValues> onChanged;
-  final void Function(double min, double max, String label) onPreset;
-
-  const _WizardThresholdStep({
-    required this.minHumidity,
-    required this.maxHumidity,
-    required this.crop,
-    required this.onChanged,
-    required this.onPreset,
-  });
-
-  static const _presets = [
-    ('Plantas de vegetales', 50.0, 80.0),
-    ('Plantas con frutos', 35.0, 75.0),
-    ('Hierbas aromáticas', 35.0, 70.0),
-    ('Suculentas y cactus', 20.0, 50.0),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Umbrales de humedad',
-          style: tt.headlineMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Define el rango óptimo. AquaSave alertará y regará dentro de este rango.',
-          style: tt.bodySmall?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.74),
-          ),
-        ),
-        const SizedBox(height: 28),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 760;
-            final slider = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _ValuePill(label: 'Mínimo', value: minHumidity),
-                    _ValuePill(label: 'Máximo', value: maxHumidity),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                RangeSlider(
-                  min: 0,
-                  max: 100,
-                  divisions: 100,
-                  labels: RangeLabels(
-                    '${minHumidity.round()}%',
-                    '${maxHumidity.round()}%',
-                  ),
-                  values: RangeValues(minHumidity, maxHumidity),
-                  onChanged: (values) {
-                    if (values.end - values.start < 10) return;
-                    onChanged(values);
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: ['0%', '25%', '50%', '75%', '100%']
-                        .map(
-                          (value) => Text(
-                            value,
-                            style: tt.bodySmall?.copyWith(
-                              color: cs.onSurface.withValues(alpha: 0.62),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _WizardCheckRow(
-                  icon: Icons.tips_and_updates_outlined,
-                  text:
-                      'Sugerimos ${minHumidity.round()}-${maxHumidity.round()}% para $crop.',
-                ),
-              ],
-            );
-            final presets = Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cs.surface.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Presets por cultivo',
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  for (final preset in _presets)
-                    _PresetTile(
-                      label: preset.$1,
-                      min: preset.$2,
-                      max: preset.$3,
-                      selected:
-                          crop == preset.$1 &&
-                          minHumidity == preset.$2 &&
-                          maxHumidity == preset.$3,
-                      onTap: () => onPreset(preset.$2, preset.$3, preset.$1),
-                    ),
-                ],
-              ),
-            );
-
-            if (compact) {
-              return Column(
-                children: [slider, const SizedBox(height: 18), presets],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 7, child: slider),
-                const SizedBox(width: 28),
-                Expanded(flex: 4, child: presets),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
 class _WizardSensorStep extends StatelessWidget {
   const _WizardSensorStep();
 
@@ -1410,7 +1242,7 @@ class _WizardSensorStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Vamos a leer los sensores conectados al ESP32 para verificar que funcionan.',
+          'Vamos a leer los sensores conectados al dispositivo para verificar que funcionan.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
             fontStyle: FontStyle.italic,
@@ -1444,15 +1276,11 @@ class _WizardReadyStep extends StatelessWidget {
   final String name;
   final String location;
   final String crop;
-  final double minHumidity;
-  final double maxHumidity;
 
   const _WizardReadyStep({
     required this.name,
     required this.location,
     required this.crop,
-    required this.minHumidity,
-    required this.maxHumidity,
   });
 
   @override
@@ -1461,11 +1289,8 @@ class _WizardReadyStep extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final rows = [
       ('Nombre', name),
-      ('Código', 'AQUASAVE-D7E1-2026'),
       ('Ubicación', location.isEmpty ? 'Pendiente' : location),
-      ('Tipo de espacio', 'Balcón'),
       ('Cultivo', crop),
-      ('Umbrales', '${minHumidity.round()}% - ${maxHumidity.round()}%'),
     ];
 
     return Column(
@@ -1747,99 +1572,6 @@ class _WizardUpperLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
         fontWeight: FontWeight.w900,
-      ),
-    );
-  }
-}
-
-class _ValuePill extends StatelessWidget {
-  final String label;
-  final double value;
-
-  const _ValuePill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        '$label: ${value.round()}%',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: cs.onSurface,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _PresetTile extends StatelessWidget {
-  final String label;
-  final double min;
-  final double max;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _PresetTile({
-    required this.label,
-    required this.min,
-    required this.max,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? cs.primary.withValues(alpha: 0.12)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: selected
-                    ? cs.primary.withValues(alpha: 0.48)
-                    : Colors.transparent,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  '${min.round()} - ${max.round()}%',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.62),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

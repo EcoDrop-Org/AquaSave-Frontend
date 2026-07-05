@@ -231,6 +231,9 @@ class IrrigationEventModel {
   final double litersConsumed;
   final String triggerType;
   final String status;
+  // Snapshot de condiciones al iniciar el riego. Null en eventos antiguos.
+  final double? soilMoisturePct;
+  final double? temperatureC;
 
   const IrrigationEventModel({
     required this.id,
@@ -240,6 +243,8 @@ class IrrigationEventModel {
     required this.litersConsumed,
     required this.triggerType,
     required this.status,
+    this.soilMoisturePct,
+    this.temperatureC,
   });
 
   factory IrrigationEventModel.fromJson(Map<String, dynamic> json) {
@@ -251,6 +256,8 @@ class IrrigationEventModel {
       litersConsumed: (json['litersConsumed'] as num?)?.toDouble() ?? 0,
       triggerType: json['triggerType'] as String? ?? 'manual',
       status: json['status'] as String? ?? 'completed',
+      soilMoisturePct: (json['soilMoisturePct'] as num?)?.toDouble(),
+      temperatureC: (json['temperatureC'] as num?)?.toDouble(),
     );
   }
 

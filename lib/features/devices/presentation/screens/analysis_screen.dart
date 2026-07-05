@@ -3,14 +3,65 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../../irrigation_intelligence/domain/entities/weather_forecast.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../bloc/devices_bloc.dart';
 
-class AnalysisScreen extends StatelessWidget {
+class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
+
+  @override
+  State<AnalysisScreen> createState() => _AnalysisScreenState();
+}
+
+class _AnalysisScreenState extends State<AnalysisScreen> {
+  final IrrigationRemoteDataSourceImpl? _remote =
+      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+
+  AnalyticsModel? _analytics;
+  List<IrrigationEventModel> _events = const [];
+  String? _fetchedDeviceId;
+
+  // Trae del backend los KPIs reales (litros, riegos, duracion) y los
+  // eventos (para la serie real de humedad en los ultimos riegos).
+  Future<void> _fetch(String deviceId) async {
+    final remote = _remote;
+    if (remote == null) return;
+    try {
+      final analytics = await remote.getAnalytics(deviceId);
+      final events = await remote.getEvents(deviceId);
+      if (!mounted || _fetchedDeviceId != deviceId) return;
+      setState(() {
+        _analytics = analytics;
+        _events = events;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _analytics = null;
+        _events = const [];
+      });
+    }
+  }
+
+  /// Humedad del suelo registrada al iniciar los ultimos riegos (data real
+  /// del backend). Vacia si aun no hay eventos con snapshot.
+  List<int> _realMoistureSeries() {
+    final withData =
+        _events.where((event) => event.soilMoisturePct != null).toList()
+          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    final last = withData.length > 7
+        ? withData.sublist(withData.length - 7)
+        : withData;
+    return last
+        .map((event) => event.soilMoisturePct!.round().clamp(0, 100))
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +79,15 @@ class AnalysisScreen extends StatelessWidget {
                     devicesState is DevicesLoaded &&
                     devicesState.devices.isNotEmpty;
                 final device = hasDevice ? devicesState.activeDevice : null;
+
+                // Refrescar analytics/eventos cuando cambia el dispositivo.
+                if (device != null && device.id != _fetchedDeviceId) {
+                  _fetchedDeviceId = device.id;
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => _fetch(device.id),
+                  );
+                }
+
                 final weatherState = context.watch<WeatherBloc>().state;
                 final forecast =
                     weatherState is WeatherLoaded &&
@@ -36,19 +96,14 @@ class AnalysisScreen extends StatelessWidget {
                     : null;
                 final temperature =
                     forecast?.temperatureC ?? device?.temperatureC ?? 24;
-                final humidity = device?.avgHumidityPct ?? 58;
-                final moistureSeries = _moistureSeries(humidity, hasDevice);
+                final humidity = device?.avgHumidityPct ?? 0;
+                final moistureSeries = _realMoistureSeries();
                 final stabilityScore = _soilStabilityScore(moistureSeries);
                 final waterStressAvoidedIndex = _waterStressAvoidedIndex(
                   moistureSeries,
                   temperature,
                 );
-                final pumpCapacityLiters = _pumpCapacityLiters(
-                  device?.plantCount ?? 1,
-                );
-                final pumpTankPct = _pumpTankLevelPct(humidity, hasDevice);
-                final pumpAvailableLiters =
-                    pumpCapacityLiters * pumpTankPct / 100;
+                final kpis = _analytics?.kpis;
                 final retention = _retentionDiagnostic(
                   l10n,
                   moistureSeries,
@@ -99,54 +154,55 @@ class AnalysisScreen extends StatelessWidget {
                               stabilityScore,
                             ),
                             waterStressAvoidedIndex: waterStressAvoidedIndex,
-                            pumpTankPct: pumpTankPct,
                             temperature: temperature,
                             humidity: humidity,
                             hasEnoughHistory: retention.hasEnoughHistory,
                           ),
                           const SizedBox(height: AppDimensions.spaceMd),
+                          // El clima (Open-Meteo) solo se usa para recomendar
+                          // al usuario sobre el riego.
+                          _WeatherAdviceCard(forecast: forecast),
+                          const SizedBox(height: AppDimensions.spaceMd),
+                          // KPIs reales de los ultimos 30 dias (backend
+                          // /api/irrigation/analytics).
                           LayoutBuilder(
                             builder: (context, constraints) {
                               final wide = constraints.maxWidth >= 960;
                               final compact = constraints.maxWidth < 560;
                               final cards = [
                                 _MetricCard(
-                                  icon: Icons.track_changes_outlined,
-                                  title: l10n.t('soilStability'),
-                                  value: '$stabilityScore%',
-                                  caption: _stabilityCaption(
-                                    l10n,
-                                    stabilityScore,
-                                  ),
-                                  color: _scoreColor(stabilityScore),
-                                  compact: compact,
-                                ),
-                                _MetricCard(
-                                  icon: Icons.health_and_safety_outlined,
-                                  title: l10n.t('waterStressAvoided'),
-                                  value: '$waterStressAvoidedIndex%',
-                                  caption: _stressAvoidedCaption(
-                                    l10n,
-                                    waterStressAvoidedIndex,
-                                  ),
-                                  color: _scoreColor(waterStressAvoidedIndex),
-                                  compact: compact,
-                                ),
-                                _MetricCard(
-                                  icon: Icons.grass_outlined,
-                                  title: l10n.t('substrateRetention'),
-                                  value: retention.status,
-                                  caption: retention.shortMessage,
-                                  color: retention.color,
-                                  compact: compact,
-                                ),
-                                _MetricCard(
-                                  icon: Icons.opacity,
-                                  title: l10n.t('pumpWaterTank'),
+                                  icon: Icons.water_drop_outlined,
+                                  title: 'Agua usada (30 días)',
                                   value:
-                                      '${pumpAvailableLiters.toStringAsFixed(1)} L ($pumpTankPct%)',
-                                  caption: _pumpTankCaption(l10n, pumpTankPct),
-                                  color: _scoreColor(pumpTankPct),
+                                      '${(kpis?.totalLiters ?? 0).toStringAsFixed(1)} L',
+                                  caption: 'Litros estimados por caudal',
+                                  color: const Color(0xFF5F8FA0),
+                                  compact: compact,
+                                ),
+                                _MetricCard(
+                                  icon: Icons.today_outlined,
+                                  title: 'Promedio diario',
+                                  value:
+                                      '${(kpis?.avgDailyLiters ?? 0).toStringAsFixed(1)} L',
+                                  caption: 'Consumo medio por día',
+                                  color: const Color(0xFF5FA06E),
+                                  compact: compact,
+                                ),
+                                _MetricCard(
+                                  icon: Icons.water_outlined,
+                                  title: 'Riegos (30 días)',
+                                  value: '${kpis?.totalEvents ?? 0}',
+                                  caption: 'Eventos completados',
+                                  color: const Color(0xFFC0A24A),
+                                  compact: compact,
+                                ),
+                                _MetricCard(
+                                  icon: Icons.timer_outlined,
+                                  title: 'Duración promedio',
+                                  value:
+                                      '${(kpis?.avgDurationMin ?? 0).toStringAsFixed(1)} min',
+                                  caption: 'Por evento de riego',
+                                  color: const Color(0xFF8C7BA0),
                                   compact: compact,
                                 ),
                               ];
@@ -179,10 +235,16 @@ class AnalysisScreen extends StatelessWidget {
                           LayoutBuilder(
                             builder: (context, constraints) {
                               final wide = constraints.maxWidth >= 900;
+                              // Serie real: humedad al iniciar cada riego. Si
+                              // aun no hay suficientes riegos, placeholder.
+                              final Widget trendCard =
+                                  moistureSeries.length >= 2
+                                  ? _TrendCard(values: moistureSeries)
+                                  : const _CollectingDataCard();
                               if (!wide) {
                                 return Column(
                                   children: [
-                                    _TrendCard(values: moistureSeries),
+                                    trendCard,
                                     const SizedBox(
                                       height: AppDimensions.spaceMd,
                                     ),
@@ -194,10 +256,7 @@ class AnalysisScreen extends StatelessWidget {
                               return Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    flex: 5,
-                                    child: _TrendCard(values: moistureSeries),
-                                  ),
+                                  Expanded(flex: 5, child: trendCard),
                                   const SizedBox(width: AppDimensions.spaceMd),
                                   Expanded(
                                     flex: 4,
@@ -220,14 +279,6 @@ class AnalysisScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  List<int> _moistureSeries(int currentHumidity, bool hasDevice) {
-    final base = hasDevice ? currentHumidity.clamp(42, 72) : 58;
-    final offsets = [-3, 1, 4, 2, -1, 3, 0];
-    return offsets
-        .map((offset) => (base + offset).clamp(20, 90).toInt())
-        .toList();
   }
 
   int _soilStabilityScore(List<int> values) {
@@ -272,20 +323,6 @@ class AnalysisScreen extends StatelessWidget {
             .round();
 
     return score.clamp(0, 100);
-  }
-
-  double _pumpCapacityLiters(int plantCount) {
-    return math.max(8, plantCount * 2.4).toDouble();
-  }
-
-  int _pumpTankLevelPct(int humidity, bool hasDevice) {
-    if (!hasDevice) return 0;
-    final adjustment = humidity < 45
-        ? -18
-        : humidity > 70
-        ? 8
-        : 0;
-    return (74 + adjustment).clamp(0, 100);
   }
 
   _RetentionDiagnostic _retentionDiagnostic(
@@ -356,29 +393,6 @@ class AnalysisScreen extends StatelessWidget {
     return l10n.t('excellent');
   }
 
-  String _stabilityCaption(AppLocalizations l10n, int score) {
-    if (score < 60) return l10n.t('stabilityLowCaption');
-    if (score < 78) return l10n.t('stabilityMediumCaption');
-    return l10n.t('stabilityHighCaption');
-  }
-
-  String _stressAvoidedCaption(AppLocalizations l10n, int score) {
-    if (score < 60) return l10n.t('stressAvoidedLowCaption');
-    if (score < 78) return l10n.t('stressAvoidedMediumCaption');
-    return l10n.t('stressAvoidedHighCaption');
-  }
-
-  String _pumpTankCaption(AppLocalizations l10n, int score) {
-    if (score < 35) return l10n.t('pumpTankLowCaption');
-    if (score < 65) return l10n.t('pumpTankMediumCaption');
-    return l10n.t('pumpTankHighCaption');
-  }
-
-  Color _scoreColor(int score) {
-    if (score < 60) return const Color(0xFFCB7C46);
-    if (score < 78) return const Color(0xFFC0A24A);
-    return const Color(0xFF5FA06E);
-  }
 }
 
 class _MetricCard extends StatelessWidget {
@@ -531,7 +545,6 @@ class _AnalyticsHero extends StatelessWidget {
   final int stabilityScore;
   final String stabilityLabel;
   final int waterStressAvoidedIndex;
-  final int pumpTankPct;
   final double temperature;
   final int humidity;
   final bool hasEnoughHistory;
@@ -540,7 +553,6 @@ class _AnalyticsHero extends StatelessWidget {
     required this.stabilityScore,
     required this.stabilityLabel,
     required this.waterStressAvoidedIndex,
-    required this.pumpTankPct,
     required this.temperature,
     required this.humidity,
     required this.hasEnoughHistory,
@@ -615,10 +627,6 @@ class _AnalyticsHero extends StatelessWidget {
                 icon: Icons.health_and_safety_outlined,
                 label:
                     '${l10n.t('waterStressAvoidedShort')} $waterStressAvoidedIndex%',
-              ),
-              _HeroChip(
-                icon: Icons.opacity_rounded,
-                label: '${l10n.t('pumpTankShort')} $pumpTankPct%',
               ),
               _HeroChip(
                 icon: Icons.thermostat_rounded,
@@ -787,9 +795,12 @@ class _TrendCard extends StatelessWidget {
     final min = values.reduce((a, b) => a < b ? a : b);
     final max = values.reduce((a, b) => a > b ? a : b);
     final average = values.reduce((a, b) => a + b) / values.length;
-    final labels = l10n.isEs
-        ? const ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-        : const ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    // Cada punto es un riego real (humedad del suelo al iniciarlo), del mas
+    // antiguo al mas reciente.
+    final labels = List<String>.generate(
+      values.length,
+      (i) => 'R${i + 1}',
+    );
 
     return Container(
       width: double.infinity,
@@ -1261,6 +1272,139 @@ class _RetentionCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Recomendación de riego según el clima (único uso del pronóstico).
+class _WeatherAdviceCard extends StatelessWidget {
+  final WeatherForecast? forecast;
+
+  const _WeatherAdviceCard({required this.forecast});
+
+  @override
+  Widget build(BuildContext context) {
+    final f = forecast;
+    if (f == null) return const SizedBox.shrink();
+
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    final IconData icon;
+    final Color color;
+    final String title;
+    final String body;
+
+    if (f.shouldPauseIrrigation) {
+      icon = Icons.umbrella_rounded;
+      color = const Color(0xFF5F8FA0);
+      title = 'Pausa de riego recomendada';
+      body =
+          'Hay ${f.rainProbabilityPct}% de probabilidad de lluvia en '
+          '${f.locationName}. Deja que la lluvia riegue por ti y ahorra agua.';
+    } else if (f.temperatureC >= 30 && f.humidityPct <= 40) {
+      icon = Icons.local_fire_department_rounded;
+      color = const Color(0xFFCB7C46);
+      title = 'Riego recomendado';
+      body =
+          'Hace ${f.temperatureC.toStringAsFixed(0)}°C con aire seco '
+          '(${f.humidityPct}%): tus plantas perderán agua rápido hoy.';
+    } else {
+      icon = Icons.check_circle_outline_rounded;
+      color = const Color(0xFF5FA06E);
+      title = 'Clima estable';
+      body =
+          '${f.conditionLabel} en ${f.locationName}. No se necesitan '
+          'ajustes: tu plan de riego actual es adecuado.';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: tt.titleSmall?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.75),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Placeholder del gráfico de tendencia mientras no hay suficientes riegos
+/// con datos reales de humedad.
+class _CollectingDataCard extends StatelessWidget {
+  const _CollectingDataCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.query_stats_rounded,
+            size: 44,
+            color: cs.onSurface.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l10n.t('collectingHistory'),
+            style: tt.titleSmall?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'La tendencia de humedad se construye con los datos reales de '
+            'cada riego. Riega un par de veces y vuelve por aquí.',
+            textAlign: TextAlign.center,
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.62),
+              height: 1.35,
             ),
           ),
         ],
