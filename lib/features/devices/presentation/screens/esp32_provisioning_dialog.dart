@@ -29,6 +29,9 @@ Future<ProvisioningResult?> showEsp32ProvisioningDialog(
   BuildContext context, {
   required String deviceId,
   Esp32ProvisioningDataSource? dataSource,
+  // true cuando se reconecta un dispositivo ya aprovisionado (cambio de red):
+  // las instrucciones incluyen como volverlo a modo configuracion (BOOT 3 s).
+  bool reconnect = false,
 }) {
   return showDialog<ProvisioningResult>(
     context: context,
@@ -36,6 +39,7 @@ Future<ProvisioningResult?> showEsp32ProvisioningDialog(
     builder: (_) => _ProvisioningDialog(
       deviceId: deviceId,
       dataSource: dataSource ?? Esp32ProvisioningDataSourceImpl(),
+      reconnect: reconnect,
     ),
   );
 }
@@ -43,8 +47,13 @@ Future<ProvisioningResult?> showEsp32ProvisioningDialog(
 class _ProvisioningDialog extends StatefulWidget {
   final String deviceId;
   final Esp32ProvisioningDataSource dataSource;
+  final bool reconnect;
 
-  const _ProvisioningDialog({required this.deviceId, required this.dataSource});
+  const _ProvisioningDialog({
+    required this.deviceId,
+    required this.dataSource,
+    this.reconnect = false,
+  });
 
   @override
   State<_ProvisioningDialog> createState() => _ProvisioningDialogState();
@@ -256,9 +265,14 @@ class _ProvisioningDialogState extends State<_ProvisioningDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _Step(
+        _Step(
           n: 1,
-          text: 'Enciende el dispositivo. La primera vez crea su propia red WiFi.',
+          text: widget.reconnect
+              ? 'Con el dispositivo encendido, mantén pulsado su botón BOOT '
+                    'durante 3 segundos: olvidará la red anterior y volverá a '
+                    'crear su red WiFi propia.'
+              : 'Enciende el dispositivo. La primera vez crea su propia red '
+                    'WiFi.',
         ),
         const _Step(
           n: 2,
