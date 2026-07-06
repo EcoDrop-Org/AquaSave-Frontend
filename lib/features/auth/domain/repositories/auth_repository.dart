@@ -12,5 +12,6 @@ abstract class AuthRepository {
     required String username,
     required String email,
     required String password,
+    required String profileType,
   });
 }

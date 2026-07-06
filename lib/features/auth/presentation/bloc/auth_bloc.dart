@@ -26,10 +26,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<UserUpdated>(_onUserUpdated);
   }
 
-  Future<void> _onAppStarted(
-    AppStarted event,
-    Emitter<AuthState> emit,
-  ) async {
+  Future<void> _onAppStarted(AppStarted event, Emitter<AuthState> emit) async {
     emit(const AuthCheckingSession());
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AppConstants.authTokenKey);
@@ -103,6 +100,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         username: event.username,
         email: event.email,
         password: event.password,
+        profileType: event.profileType,
       ),
     );
     result.fold(

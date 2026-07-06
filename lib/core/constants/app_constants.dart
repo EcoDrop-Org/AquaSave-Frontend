@@ -39,7 +39,6 @@ class AppConstants {
   static const String labelPassword = 'Contraseña';
   static const String labelConfirmPwd = 'Confirmar Contraseña';
   static const String labelEmail = 'EMAIL';
-  static const String labelPhone = 'TELÉFONO';
   static const String labelUserType = 'TIPO DE USUARIO';
   static const String btnLogin = 'Iniciar Sesión';
   static const String btnRegister = 'Registrarse';
