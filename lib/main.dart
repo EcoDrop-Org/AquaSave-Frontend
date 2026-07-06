@@ -35,7 +35,6 @@ import 'features/irrigation_intelligence/data/datasources/remote/weather_remote_
 import 'features/irrigation_intelligence/data/repositories/weather_repository_impl.dart';
 import 'features/irrigation_intelligence/domain/usecases/get_current_weather_for_device_usecase.dart';
 import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
-import 'features/subscription/presentation/cubit/plan_cubit.dart';
 import 'shared/widgets/app_sidebar.dart';
 
 // Controlado por AppConstants.useMockData (--dart-define=USE_MOCK=true).
@@ -95,7 +94,6 @@ class AquaSaveApp extends StatelessWidget {
         BlocProvider<IrrigationSettingsCubit>(
           create: (_) => IrrigationSettingsCubit(),
         ),
-        BlocProvider<PlanCubit>(create: (_) => PlanCubit()),
         BlocProvider<NavCubit>(create: (_) => NavCubit()),
       ],
       child: BlocBuilder<LocaleCubit, Locale>(
