@@ -8,7 +8,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/active_device_card.dart';
-import '../widgets/quick_control_card.dart';
+import '../widgets/irrigation_cards.dart';
 import '../widgets/weather_advice_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -102,24 +102,37 @@ class _HomeContent extends StatelessWidget {
                           const SizedBox(height: AppDimensions.spaceMd),
                           ActiveDeviceCard(device: device),
                           const SizedBox(height: AppDimensions.spaceMd),
-                          // Advertencias/recomendaciones de riego segun clima.
                           WeatherAdviceCard(forecast: forecast),
-                          if (forecast != null)
-                            const SizedBox(height: AppDimensions.spaceMd),
-                          QuickControlCard(
-                            deviceId: device.id,
-                            onStartIrrigation: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.t('irrigationStarted')),
-                                ),
+                          const SizedBox(height: AppDimensions.spaceMd),
+                          LayoutBuilder(
+                            builder: (context, c) {
+                              final auto = AutoIrrigationCard(
+                                deviceId: device.id,
                               );
-                            },
-                            onStopIrrigation: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.t('irrigationStopped')),
-                                ),
+                              final manual = ManualIrrigationCard(
+                                deviceId: device.id,
+                              );
+                              if (c.maxWidth >= 760) {
+                                return Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: auto),
+                                    const SizedBox(
+                                      width: AppDimensions.spaceMd,
+                                    ),
+                                    Expanded(child: manual),
+                                  ],
+                                );
+                              }
+                              return Column(
+                                children: [
+                                  auto,
+                                  const SizedBox(
+                                    height: AppDimensions.spaceMd,
+                                  ),
+                                  manual,
+                                ],
                               );
                             },
                           ),
