@@ -12,8 +12,6 @@ class WeatherAdviceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final f = forecast;
-    if (f == null) return const SizedBox.shrink();
-
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
@@ -22,7 +20,14 @@ class WeatherAdviceCard extends StatelessWidget {
     final String title;
     final String body;
 
-    if (f.shouldPauseIrrigation) {
+    if (f == null) {
+      icon = Icons.cloud_off_rounded;
+      color = const Color(0xFF8C9A86);
+      title = 'Recomendación de riego';
+      body =
+          'Obteniendo el clima de tu zona… Si esto no cambia, verifica que '
+          'el huerto tenga una ubicación válida (Editar huerto).';
+    } else if (f.shouldPauseIrrigation) {
       icon = Icons.umbrella_rounded;
       color = const Color(0xFF5F8FA0);
       title = 'Pausa de riego recomendada';

@@ -7,23 +7,17 @@ import '../../../../core/errors/exceptions.dart';
 import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 
 class IrrigationCubit extends Cubit<IrrigationState> {
-  /// Cuando es null funciona en modo local (mock); cuando esta presente,
-  /// iniciar/detener riego llama a la API del backend.
   final IrrigationRemoteDataSource? remote;
   Timer? _timer;
   Timer? _pollTimer;
 
   IrrigationCubit({this.remote}) : super(const IrrigationState.initial());
 
-  /// Observa el dispositivo activo: sincroniza ya y luego consulta el estado
-  /// del backend periodicamente. Asi, si el riego lo inicia el PROPIO
-  /// dispositivo (sensores) o la programacion automatica, la app lo refleja
-  /// sin que el usuario tenga que hacer nada.
   void watchDevice(String deviceId) {
     _pollTimer?.cancel();
     syncWithServer(deviceId);
     _pollTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(seconds: 10),
       (_) => syncWithServer(deviceId),
     );
   }
@@ -45,6 +39,10 @@ class IrrigationCubit extends Cubit<IrrigationState> {
         startedAt: DateTime.now(),
         elapsedSeconds: 0,
         triggerType: 'manual',
+        lastAutoStart: state.lastAutoStart,
+        lastAutoEnd: state.lastAutoEnd,
+        lastManualStart: state.lastManualStart,
+        lastManualEnd: state.lastManualEnd,
       ),
     );
     _startTicker();
@@ -66,38 +64,80 @@ class IrrigationCubit extends Cubit<IrrigationState> {
 
     _timer?.cancel();
     emit(state.copyWith(isIrrigating: false));
+    if (deviceId != null) syncWithServer(deviceId);
     return true;
   }
 
-  /// Consulta el estado real del riego en el backend (por ejemplo al cambiar
-  /// de dispositivo o reabrir la app) y sincroniza el temporizador.
   Future<void> syncWithServer(String deviceId) async {
     if (remote == null) return;
 
     try {
       final serverState = await remote!.getState(deviceId);
+
+      DateTime? lastAutoStart = state.lastAutoStart;
+      DateTime? lastAutoEnd = state.lastAutoEnd;
+      DateTime? lastManualStart = state.lastManualStart;
+      DateTime? lastManualEnd = state.lastManualEnd;
+
+      try {
+        final events = await remote!.getEvents(deviceId);
+        lastAutoStart = null;
+        lastAutoEnd = null;
+        lastManualStart = null;
+        lastManualEnd = null;
+        for (final event in events) {
+          if (event.endedAt == null || event.status != 'completed') continue;
+          if (event.triggerType == 'manual') {
+            if (lastManualStart == null ||
+                event.startedAt.isAfter(lastManualStart)) {
+              lastManualStart = event.startedAt.toLocal();
+              lastManualEnd = event.endedAt!.toLocal();
+            }
+          } else {
+            if (lastAutoStart == null ||
+                event.startedAt.isAfter(lastAutoStart)) {
+              lastAutoStart = event.startedAt.toLocal();
+              lastAutoEnd = event.endedAt!.toLocal();
+            }
+          }
+        }
+      } catch (_) {}
+
       if (serverState.isRunning) {
         emit(
           IrrigationState(
             deviceId: deviceId,
             isIrrigating: true,
-            startedAt: DateTime.now().subtract(
-              Duration(seconds: serverState.elapsedSeconds),
-            ),
+            startedAt:
+                serverState.runningEvent?.startedAt.toLocal() ??
+                DateTime.now().subtract(
+                  Duration(seconds: serverState.elapsedSeconds),
+                ),
             elapsedSeconds: serverState.elapsedSeconds,
-            // Quien inicio el riego: 'manual' (usuario), 'automatic'
-            // (sensores del dispositivo) o 'scheduled' (programacion).
             triggerType: serverState.runningEvent?.triggerType,
+            lastAutoStart: lastAutoStart,
+            lastAutoEnd: lastAutoEnd,
+            lastManualStart: lastManualStart,
+            lastManualEnd: lastManualEnd,
           ),
         );
         _startTicker();
-      } else if (state.isIrrigating && state.deviceId == deviceId) {
+      } else {
         _timer?.cancel();
-        emit(state.copyWith(isIrrigating: false));
+        emit(
+          IrrigationState(
+            deviceId: deviceId,
+            isIrrigating: false,
+            startedAt: null,
+            elapsedSeconds: 0,
+            lastAutoStart: lastAutoStart,
+            lastAutoEnd: lastAutoEnd,
+            lastManualStart: lastManualStart,
+            lastManualEnd: lastManualEnd,
+          ),
+        );
       }
-    } catch (_) {
-      // La sincronizacion es best-effort; no interrumpe la UI.
-    }
+    } catch (_) {}
   }
 
   void _emitError(Object error, String fallback) {
@@ -138,12 +178,11 @@ class IrrigationState extends Equatable {
   final bool isIrrigating;
   final DateTime? startedAt;
   final int elapsedSeconds;
-
-  /// Origen del riego en curso: 'manual', 'automatic' (sensores del
-  /// dispositivo) o 'scheduled' (programacion). Null si no se sabe.
   final String? triggerType;
-
-  /// Error de la ultima accion contra la API (null si no hubo error).
+  final DateTime? lastAutoStart;
+  final DateTime? lastAutoEnd;
+  final DateTime? lastManualStart;
+  final DateTime? lastManualEnd;
   final String? errorMessage;
 
   const IrrigationState({
@@ -152,6 +191,10 @@ class IrrigationState extends Equatable {
     required this.startedAt,
     required this.elapsedSeconds,
     this.triggerType,
+    this.lastAutoStart,
+    this.lastAutoEnd,
+    this.lastManualStart,
+    this.lastManualEnd,
     this.errorMessage,
   });
 
@@ -161,6 +204,10 @@ class IrrigationState extends Equatable {
       startedAt = null,
       elapsedSeconds = 0,
       triggerType = null,
+      lastAutoStart = null,
+      lastAutoEnd = null,
+      lastManualStart = null,
+      lastManualEnd = null,
       errorMessage = null;
 
   IrrigationState copyWith({
@@ -169,6 +216,10 @@ class IrrigationState extends Equatable {
     DateTime? startedAt,
     int? elapsedSeconds,
     String? triggerType,
+    DateTime? lastAutoStart,
+    DateTime? lastAutoEnd,
+    DateTime? lastManualStart,
+    DateTime? lastManualEnd,
     String? errorMessage,
   }) {
     return IrrigationState(
@@ -177,6 +228,10 @@ class IrrigationState extends Equatable {
       startedAt: startedAt ?? this.startedAt,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
       triggerType: triggerType ?? this.triggerType,
+      lastAutoStart: lastAutoStart ?? this.lastAutoStart,
+      lastAutoEnd: lastAutoEnd ?? this.lastAutoEnd,
+      lastManualStart: lastManualStart ?? this.lastManualStart,
+      lastManualEnd: lastManualEnd ?? this.lastManualEnd,
       errorMessage: errorMessage,
     );
   }
@@ -188,6 +243,10 @@ class IrrigationState extends Equatable {
     startedAt,
     elapsedSeconds,
     triggerType,
+    lastAutoStart,
+    lastAutoEnd,
+    lastManualStart,
+    lastManualEnd,
     errorMessage,
   ];
 }
