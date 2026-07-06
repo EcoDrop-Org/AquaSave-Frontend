@@ -195,7 +195,9 @@ class _BigStats extends StatelessWidget {
         final temperature = _BigStat(
           icon: Icons.thermostat_rounded,
           label: l10n.t('temperature'),
-          value: l10n.temperature(device.temperatureC),
+          value: device.temperatureC == 0
+              ? '—'
+              : l10n.temperature(device.temperatureC),
         );
         final plants = _BigStat(
           icon: Icons.eco_rounded,
