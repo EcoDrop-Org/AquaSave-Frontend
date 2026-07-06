@@ -12,6 +12,9 @@ import '../widgets/auth_link_row.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_underline_field.dart';
 
+const _urbanHorticulturistType = 'horticultor-urbano';
+const _periurbanMicroFarmerType = 'micro-agricultor-periurbano';
+
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onGoToLogin;
   final VoidCallback onRegisterSuccess;
@@ -31,6 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  String _selectedProfileType = _urbanHorticulturistType;
   String? _nameError;
   String? _emailError;
   String? _passwordError;
@@ -75,8 +79,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         username: name,
         email: email,
         password: password,
+        profileType: _selectedProfileType,
       ),
     );
+  }
+
+  void _setProfileType(String value) {
+    setState(() => _selectedProfileType = value);
   }
 
   @override
@@ -104,6 +113,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       emailCtrl: _emailCtrl,
                       passwordCtrl: _passwordCtrl,
                       confirmCtrl: _confirmCtrl,
+                      selectedProfileType: _selectedProfileType,
+                      onProfileTypeChanged: _setProfileType,
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
@@ -117,6 +128,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       emailCtrl: _emailCtrl,
                       passwordCtrl: _passwordCtrl,
                       confirmCtrl: _confirmCtrl,
+                      selectedProfileType: _selectedProfileType,
+                      onProfileTypeChanged: _setProfileType,
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
@@ -144,6 +157,8 @@ class _WideLayout extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
+  final String selectedProfileType;
+  final ValueChanged<String> onProfileTypeChanged;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
@@ -157,6 +172,8 @@ class _WideLayout extends StatelessWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
+    required this.selectedProfileType,
+    required this.onProfileTypeChanged,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
@@ -179,18 +196,24 @@ class _WideLayout extends StatelessWidget {
           child: Container(
             color: Theme.of(context).scaffoldBackgroundColor,
             padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
-            child: _FormContent(
-              nameCtrl: nameCtrl,
-              emailCtrl: emailCtrl,
-              passwordCtrl: passwordCtrl,
-              confirmCtrl: confirmCtrl,
-              isLoading: isLoading,
-              onSubmit: onSubmit,
-              onGoToLogin: onGoToLogin,
-              nameError: nameError,
-              emailError: emailError,
-              passwordError: passwordError,
-              confirmError: confirmError,
+            child: Center(
+              child: SingleChildScrollView(
+                child: _FormContent(
+                  nameCtrl: nameCtrl,
+                  emailCtrl: emailCtrl,
+                  passwordCtrl: passwordCtrl,
+                  confirmCtrl: confirmCtrl,
+                  selectedProfileType: selectedProfileType,
+                  onProfileTypeChanged: onProfileTypeChanged,
+                  isLoading: isLoading,
+                  onSubmit: onSubmit,
+                  onGoToLogin: onGoToLogin,
+                  nameError: nameError,
+                  emailError: emailError,
+                  passwordError: passwordError,
+                  confirmError: confirmError,
+                ),
+              ),
             ),
           ),
         ),
@@ -204,6 +227,8 @@ class _NarrowLayout extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
+  final String selectedProfileType;
+  final ValueChanged<String> onProfileTypeChanged;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
@@ -217,6 +242,8 @@ class _NarrowLayout extends StatelessWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
+    required this.selectedProfileType,
+    required this.onProfileTypeChanged,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
@@ -235,6 +262,8 @@ class _NarrowLayout extends StatelessWidget {
         emailCtrl: emailCtrl,
         passwordCtrl: passwordCtrl,
         confirmCtrl: confirmCtrl,
+        selectedProfileType: selectedProfileType,
+        onProfileTypeChanged: onProfileTypeChanged,
         isLoading: isLoading,
         onSubmit: onSubmit,
         onGoToLogin: onGoToLogin,
@@ -252,6 +281,8 @@ class _FormContent extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
+  final String selectedProfileType;
+  final ValueChanged<String> onProfileTypeChanged;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
@@ -265,6 +296,8 @@ class _FormContent extends StatelessWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
+    required this.selectedProfileType,
+    required this.onProfileTypeChanged,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
@@ -314,6 +347,11 @@ class _FormContent extends StatelessWidget {
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: AppDimensions.spaceMd),
+              _ProfileTypeSelector(
+                selectedValue: selectedProfileType,
+                onChanged: onProfileTypeChanged,
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
               AuthUnderlineField(
                 label: l10n.t('password'),
                 controller: passwordCtrl,
@@ -350,6 +388,160 @@ class _FormContent extends StatelessWidget {
           isLoading: isLoading,
         ),
       ],
+    );
+  }
+}
+
+class _ProfileTypeSelector extends StatelessWidget {
+  final String selectedValue;
+  final ValueChanged<String> onChanged;
+
+  const _ProfileTypeSelector({
+    required this.selectedValue,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    final options = [
+      _ProfileTypeOptionData(
+        value: _urbanHorticulturistType,
+        label: l10n.t('urbanHorticulturists'),
+        icon: Icons.apartment_rounded,
+      ),
+      _ProfileTypeOptionData(
+        value: _periurbanMicroFarmerType,
+        label: l10n.t('periurbanMicroFarmers'),
+        icon: Icons.agriculture_outlined,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.t('profileTypePrompt'),
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.68),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked = constraints.maxWidth < 430;
+            if (stacked) {
+              return Column(
+                children: [
+                  for (final option in options) ...[
+                    _ProfileTypeOption(
+                      option: option,
+                      selected: option.value == selectedValue,
+                      onTap: () => onChanged(option.value),
+                    ),
+                    if (option != options.last)
+                      const SizedBox(height: AppDimensions.spaceSm),
+                  ],
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                for (final option in options) ...[
+                  Expanded(
+                    child: _ProfileTypeOption(
+                      option: option,
+                      selected: option.value == selectedValue,
+                      onTap: () => onChanged(option.value),
+                    ),
+                  ),
+                  if (option != options.last)
+                    const SizedBox(width: AppDimensions.spaceSm),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileTypeOptionData {
+  final String value;
+  final String label;
+  final IconData icon;
+
+  const _ProfileTypeOptionData({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+}
+
+class _ProfileTypeOption extends StatelessWidget {
+  final _ProfileTypeOptionData option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ProfileTypeOption({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final fg = selected ? cs.onPrimary : cs.onSurface;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? cs.primary : cs.surface.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? cs.primary : cs.outline.withValues(alpha: 0.22),
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(option.icon, color: fg, size: 21),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  option.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.bodyMedium?.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.check_circle_rounded, color: fg, size: 18),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

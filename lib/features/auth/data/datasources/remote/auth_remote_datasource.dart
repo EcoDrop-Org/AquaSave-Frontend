@@ -20,6 +20,7 @@ abstract class AuthRemoteDataSource {
     required String username,
     required String email,
     required String password,
+    required String profileType,
   });
 }
 
@@ -41,14 +42,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
     final body = _decodeBody(response.body);
     if (response.statusCode != 200) {
-      _throwApiException(response.statusCode, body, 'No se pudo iniciar sesion');
+      _throwApiException(
+        response.statusCode,
+        body,
+        'No se pudo iniciar sesion',
+      );
     }
 
     final token = body['token'] as String;
-    await _saveSession(
-      token: token,
-      expiresAt: body['expiresAt'] as String?,
-    );
+    await _saveSession(token: token, expiresAt: body['expiresAt'] as String?);
 
     return (
       user: _userFromPublicUser(body['user'] as Map<String, dynamic>),
@@ -61,6 +63,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String username,
     required String email,
     required String password,
+    required String profileType,
   }) async {
     final effectiveEmail = email.trim().isNotEmpty ? email.trim() : username;
     final response = await _post(
@@ -69,6 +72,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'email': effectiveEmail,
         'password': password,
         'fullName': username,
+        'profileType': profileType,
       }),
     );
 
@@ -78,10 +82,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
 
     final token = body['token'] as String;
-    await _saveSession(
-      token: token,
-      expiresAt: body['expiresAt'] as String?,
-    );
+    await _saveSession(token: token, expiresAt: body['expiresAt'] as String?);
 
     return (
       user: _userFromPublicUser(body['user'] as Map<String, dynamic>),

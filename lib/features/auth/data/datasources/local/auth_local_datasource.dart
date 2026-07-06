@@ -14,6 +14,7 @@ abstract class AuthLocalDataSource {
     required String username,
     required String email,
     required String password,
+    required String profileType,
   });
 }
 
@@ -39,6 +40,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String username,
     required String email,
     required String password,
+    required String profileType,
   }) async {
     // Mock: devuelve el mismo usuario del JSON con los datos proporcionados
     try {
@@ -50,7 +52,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         name: username,
         email: email,
         avatarUrl: baseUser.avatarUrl,
-        userType: baseUser.userType,
+        userType: profileType,
       );
       final token = data['token'] as String;
       return (user: mockUser, token: token);

@@ -26,7 +26,6 @@ class ProfileDataCard extends StatefulWidget {
 class _ProfileDataCardState extends State<ProfileDataCard> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _emailCtrl;
-  late final TextEditingController _phoneCtrl;
   late final TextEditingController _userTypeCtrl;
   bool _saving = false;
 
@@ -35,7 +34,6 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.user.name);
     _emailCtrl = TextEditingController(text: widget.user.email);
-    _phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
     _userTypeCtrl = TextEditingController(
       text: _readableUserType(widget.user.userType),
     );
@@ -45,7 +43,6 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     _userTypeCtrl.dispose();
     super.dispose();
   }
@@ -88,9 +85,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
       }
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.t('errorGeneric'))),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l10n.t('errorGeneric'))));
     }
   }
 
@@ -112,8 +107,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
 
     final decoded = json.decode(response.body) as Map<String, dynamic>;
     final publicUser = decoded['user'] as Map<String, dynamic>? ?? decoded;
-    final profile =
-        publicUser['profile'] as Map<String, dynamic>? ?? const {};
+    final profile = publicUser['profile'] as Map<String, dynamic>? ?? const {};
     final email = publicUser['email'] as String;
     final rawName = profile['fullName'] as String? ?? email;
     final name = rawName.contains('@') ? rawName.split('@').first : rawName;
@@ -134,11 +128,7 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
 
     setState(() => _saving = true);
     try {
-      final phone = _phoneCtrl.text.trim();
-      final user = await _patchMe({
-        'fullName': _nameCtrl.text.trim(),
-        if (phone.isNotEmpty) 'phone': phone,
-      });
+      final user = await _patchMe({'fullName': _nameCtrl.text.trim()});
 
       if (!mounted) return;
       if (user != null) {
@@ -147,15 +137,11 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
           SnackBar(content: Text(l10n.t('profileUpdated'))),
         );
       } else {
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.t('errorGeneric'))),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(l10n.t('errorGeneric'))));
       }
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.t('errorGeneric'))),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l10n.t('errorGeneric'))));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -186,7 +172,6 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
           final fields = _ProfileFields(
             nameCtrl: _nameCtrl,
             emailCtrl: _emailCtrl,
-            phoneCtrl: _phoneCtrl,
             userTypeCtrl: _userTypeCtrl,
           );
 
@@ -272,13 +257,11 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
 class _ProfileFields extends StatelessWidget {
   final TextEditingController nameCtrl;
   final TextEditingController emailCtrl;
-  final TextEditingController phoneCtrl;
   final TextEditingController userTypeCtrl;
 
   const _ProfileFields({
     required this.nameCtrl,
     required this.emailCtrl,
-    required this.phoneCtrl,
     required this.userTypeCtrl,
   });
 
@@ -301,12 +284,6 @@ class _ProfileFields extends StatelessWidget {
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
             readOnly: true,
-          ),
-          _EditableProfileField(
-            label: l10n.t('phone'),
-            controller: phoneCtrl,
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
           ),
           _EditableProfileField(
             label: l10n.t('userType'),
@@ -337,13 +314,7 @@ class _ProfileFields extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppDimensions.spaceSm),
-            Row(
-              children: [
-                Expanded(child: fields[2]),
-                const SizedBox(width: AppDimensions.spaceMd),
-                Expanded(child: fields[3]),
-              ],
-            ),
+            fields[2],
           ],
         );
       },
