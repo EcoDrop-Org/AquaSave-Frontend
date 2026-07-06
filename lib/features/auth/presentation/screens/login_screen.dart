@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
@@ -62,6 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
+          TextInput.finishAutofillContext();
           widget.onLoginSuccess();
         } else if (state is AuthFailureState) {
           ScaffoldMessenger.of(
@@ -236,17 +238,32 @@ class _FormContent extends StatelessWidget {
           style: tt.displayLarge?.copyWith(color: cs.onSurface),
         ),
         const SizedBox(height: 40),
-        AuthUnderlineField(
-          label: l10n.t('username'),
-          controller: usernameCtrl,
-          errorText: usernameError,
-        ),
-        const SizedBox(height: AppDimensions.spaceMd),
-        AuthUnderlineField(
-          label: l10n.t('password'),
-          controller: passwordCtrl,
-          obscureText: true,
-          errorText: passwordError,
+        AutofillGroup(
+          child: Column(
+            children: [
+              AuthUnderlineField(
+                label: l10n.t('username'),
+                controller: usernameCtrl,
+                errorText: usernameError,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              AuthUnderlineField(
+                label: l10n.t('password'),
+                controller: passwordCtrl,
+                obscureText: true,
+                errorText: passwordError,
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => onSubmit(),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: AppDimensions.spaceXs),
         Align(

@@ -7,6 +7,9 @@ class AuthUnderlineField extends StatefulWidget {
   final TextInputType keyboardType;
   final String? errorText;
   final void Function(String)? onChanged;
+  final List<String>? autofillHints;
+  final TextInputAction? textInputAction;
+  final void Function(String)? onSubmitted;
 
   const AuthUnderlineField({
     super.key,
@@ -16,6 +19,9 @@ class AuthUnderlineField extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.errorText,
     this.onChanged,
+    this.autofillHints,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   @override
@@ -42,6 +48,9 @@ class _AuthUnderlineFieldState extends State<AuthUnderlineField> {
       obscureText: _obscured,
       keyboardType: widget.keyboardType,
       onChanged: widget.onChanged,
+      autofillHints: widget.autofillHints,
+      textInputAction: widget.textInputAction,
+      onSubmitted: widget.onSubmitted,
       style: tt.bodyLarge?.copyWith(
         color: cs.onSurface,
         fontWeight: FontWeight.w600,
