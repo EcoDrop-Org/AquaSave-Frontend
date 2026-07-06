@@ -361,20 +361,9 @@ class AppLocalizations {
       'disabled': 'Inactivo',
       'saveSettings': 'Guardar configuración',
       'settingsSaved': 'Configuración guardada',
-      'premiumPlan': 'Plan Premium',
-      'freePlan': 'Plan Gratis',
-      'choosePlan': 'Cambiar plan',
-      'selectedPlan': 'Seleccionado',
       'profileUpdated': 'Perfil actualizado',
       'passwordUpdated': 'Contraseña actualizada',
       'savePassword': 'Guardar contraseña',
-      'freePlanBody':
-          'Monitoreo en tiempo real, control manual y alertas básicas.',
-      'premiumPlanBody':
-          'Historial completo, reportes de consumo, alertas inteligentes y control remoto avanzado.',
-      'activePlan': 'Plan activo',
-      'planReports': 'Reportes de consumo',
-      'planDevices': 'Múltiples dispositivos',
       'insufficientData':
           'Se necesitan más datos para calcular este indicador.',
       'healthyRange': 'Rango saludable 45-72%',
@@ -576,8 +565,7 @@ class AppLocalizations {
       'adviceRainBody':
           'High chance of rain — let the rain do the watering for you.',
       'adviceSoakedTitle': 'Soil is already moist',
-      'adviceSoakedBody':
-          'Soil moisture is above the maximum you configured.',
+      'adviceSoakedBody': 'Soil moisture is above the maximum you configured.',
       'adviceHeatTitle': 'Hot day, give it a bit more water',
       'adviceHeatBody':
           'Temperature is high and moisture is dropping; watering helps.',
@@ -623,8 +611,7 @@ class AppLocalizations {
       'stressAvoidedHighCaption': 'Plants have stayed well hydrated.',
       'stressAvoidedMediumCaption':
           'Moisture has held, but keep an eye on the next waterings.',
-      'stressAvoidedLowCaption':
-          'Plants were dry longer than recommended.',
+      'stressAvoidedLowCaption': 'Plants were dry longer than recommended.',
       'soilStability': 'Soil stability',
       'stabilityResult': 'Result',
       'stabilityHighCaption': 'Moisture is steady in the healthy range.',
@@ -726,19 +713,9 @@ class AppLocalizations {
       'disabled': 'Disabled',
       'saveSettings': 'Save settings',
       'settingsSaved': 'Settings saved',
-      'premiumPlan': 'Premium plan',
-      'freePlan': 'Free plan',
-      'choosePlan': 'Change plan',
-      'selectedPlan': 'Selected',
       'profileUpdated': 'Profile updated',
       'passwordUpdated': 'Password updated',
       'savePassword': 'Save password',
-      'freePlanBody': 'Real-time monitoring, manual control and basic alerts.',
-      'premiumPlanBody':
-          'Full history, consumption reports, smart alerts and advanced remote control.',
-      'activePlan': 'Active plan',
-      'planReports': 'Consumption reports',
-      'planDevices': 'Multiple devices',
       'insufficientData': 'More data is needed to calculate this indicator.',
       'healthyRange': 'Healthy range 45-72%',
       'trendExplanation':

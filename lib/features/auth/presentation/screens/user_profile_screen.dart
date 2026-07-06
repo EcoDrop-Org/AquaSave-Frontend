@@ -11,7 +11,6 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/profile_data_card.dart';
-import '../../../subscription/presentation/cubit/plan_cubit.dart';
 
 class UserProfileScreen extends StatelessWidget {
   const UserProfileScreen({super.key});
@@ -62,8 +61,6 @@ class _ProfileContent extends StatelessWidget {
                     children: [
                       ProfileDataCard(user: user),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      const _CurrentPlanCard(),
-                      const SizedBox(height: AppDimensions.spaceMd),
                       _PasswordCard(),
                       const SizedBox(height: AppDimensions.spaceMd),
                       _NotificationsCard(),
@@ -75,98 +72,6 @@ class _ProfileContent extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _CurrentPlanCard extends StatelessWidget {
-  const _CurrentPlanCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final tt = Theme.of(context).textTheme;
-
-    return BlocBuilder<PlanCubit, String>(
-      builder: (context, plan) {
-        final isPremium = plan == PlanCubit.premium;
-        final title = isPremium ? l10n.t('premiumPlan') : l10n.t('freePlan');
-        final body = isPremium
-            ? l10n.t('premiumPlanBody')
-            : l10n.t('freePlanBody');
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: const Color(0xFF3E5249),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 18,
-                offset: const Offset(0, 9),
-              ),
-            ],
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 560;
-              final copy = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.t('activePlan'),
-                    style: tt.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.66),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    style: tt.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    body,
-                    style: tt.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.74),
-                    ),
-                  ),
-                ],
-              );
-              final badge = Chip(
-                label: Text(l10n.t('selectedPlan')),
-                avatar: const Icon(Icons.check_circle, size: 18),
-                backgroundColor: const Color(0xFFCBE7A3),
-                labelStyle: tt.bodySmall?.copyWith(
-                  color: const Color(0xFF263B2F),
-                  fontWeight: FontWeight.w800,
-                ),
-              );
-
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [copy, const SizedBox(height: 14), badge],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: copy),
-                  const SizedBox(width: 16),
-                  badge,
-                ],
-              );
-            },
-          ),
-        );
-      },
     );
   }
 }
