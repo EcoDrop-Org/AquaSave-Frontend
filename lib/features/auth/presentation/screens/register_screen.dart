@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -83,6 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
+          TextInput.finishAutofillContext();
           widget.onRegisterSuccess();
         } else if (state is AuthFailureState) {
           ScaffoldMessenger.of(
@@ -289,31 +291,48 @@ class _FormContent extends StatelessWidget {
           style: tt.displayLarge?.copyWith(color: cs.onSurface),
         ),
         const SizedBox(height: 40),
-        AuthUnderlineField(
-          label: l10n.t('fullName'),
-          controller: nameCtrl,
-          errorText: nameError,
-        ),
-        const SizedBox(height: AppDimensions.spaceMd),
-        AuthUnderlineField(
-          label: l10n.t('email'),
-          controller: emailCtrl,
-          errorText: emailError,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: AppDimensions.spaceMd),
-        AuthUnderlineField(
-          label: l10n.t('password'),
-          controller: passwordCtrl,
-          obscureText: true,
-          errorText: passwordError,
-        ),
-        const SizedBox(height: AppDimensions.spaceMd),
-        AuthUnderlineField(
-          label: l10n.t('confirmPassword'),
-          controller: confirmCtrl,
-          obscureText: true,
-          errorText: confirmError,
+        AutofillGroup(
+          child: Column(
+            children: [
+              AuthUnderlineField(
+                label: l10n.t('fullName'),
+                controller: nameCtrl,
+                errorText: nameError,
+                autofillHints: const [AutofillHints.name],
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              AuthUnderlineField(
+                label: l10n.t('email'),
+                controller: emailCtrl,
+                errorText: emailError,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              AuthUnderlineField(
+                label: l10n.t('password'),
+                controller: passwordCtrl,
+                obscureText: true,
+                errorText: passwordError,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: AppDimensions.spaceMd),
+              AuthUnderlineField(
+                label: l10n.t('confirmPassword'),
+                controller: confirmCtrl,
+                obscureText: true,
+                errorText: confirmError,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.done,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: AppDimensions.spaceXs),
         Align(
