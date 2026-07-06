@@ -199,7 +199,9 @@ class _DetailBody extends StatelessWidget {
               _MetricTile(
                 icon: Icons.thermostat_rounded,
                 label: 'Temp.',
-                value: '${device.temperatureC.toStringAsFixed(0)}°C',
+                value: device.temperatureC == 0
+                    ? '—'
+                    : '${device.temperatureC.toStringAsFixed(0)}°C',
                 caption: l10n.t('comfortRange'),
               ),
               _MetricTile(
