@@ -1,68 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/widgets/user_avatar.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../devices/data/datasources/remote/irrigation_remote_datasource.dart';
+import '../../../devices/presentation/bloc/devices_bloc.dart';
 
 /// Pantalla de Análisis — frame 62-24.
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
 
-  // ── Mock data (estructura = analytics.json) ──────────────────────────────
-  static const _stableLiters = 980;
-  static const _coveredDays = 9.8;
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
 
-  static const _dailyData = [
-    68,
-    72,
-    65,
-    88,
-    71,
-    60,
-    78,
-    70,
-    54,
-    66,
-    84,
-    72,
-    68,
-    90,
-  ];
-  static const _dailyLabels = [
-    '16',
-    '17',
-    '18',
-    '19',
-    '20',
-    '21',
-    '22',
-    '23',
-    '24',
-    '25',
-    '26',
-    '27',
-    '28',
-    '39',
-  ];
-
-  static const _cumulativeUse = [
-    10.0,
-    25.0,
-    45.0,
-    70.0,
-    100.0,
-    140.0,
-    190.0,
-    250.0,
-    320.0,
-    400.0,
-    490.0,
-    590.0,
-    700.0,
-    820.0,
-    980.0,
-  ];
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  static const _mockDailyData = [68, 72, 65, 88, 71, 60, 78, 70, 54, 66, 84, 72, 68, 90];
+  static const _mockDailyLabels = ['16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29'];
+  static const _mockCumulative = [10.0, 25.0, 45.0, 70.0, 100.0, 140.0, 190.0, 250.0, 320.0, 400.0, 490.0, 590.0, 700.0, 820.0, 980.0];
 
   static const _crops = [
     ('Tomate', 580, Color(0xFF12480E)),
@@ -72,6 +30,39 @@ class AnalyticsScreen extends StatelessWidget {
     ('Espinaca', 230, Color(0xFFA8C9B5)),
     ('Otros', 230, Color(0xFFD4C9B8)),
   ];
+
+  final IrrigationRemoteDataSourceImpl? _remote =
+      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+
+  AnalyticsModel? _data;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
+  }
+
+  Future<void> _fetch() async {
+    if (_remote == null) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final devState = context.read<DevicesBloc>().state;
+      final deviceId = (devState is DevicesLoaded && devState.devices.isNotEmpty)
+          ? devState.activeDevice.id
+          : null;
+      final data = await _remote.getAnalytics(deviceId);
+      if (mounted) setState(() => _data = data);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,47 +127,57 @@ class AnalyticsScreen extends StatelessWidget {
 
         // ── Body ─────────────────────────────────────────────────────────
         Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(
-              isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // KPI cards
-                _KpiRow(),
-                const SizedBox(height: AppDimensions.spaceMd),
-
-                // Gráfico de barras + consumo acumulado
-                LayoutBuilder(
-                  builder: (_, c) {
-                    final wide = c.maxWidth >= 700;
-                    if (wide) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 14, child: _BarChartCard()),
-                          const SizedBox(width: AppDimensions.spaceMd),
-                          Expanded(flex: 10, child: _LineChartCard()),
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        _BarChartCard(),
-                        const SizedBox(height: AppDimensions.spaceMd),
-                        _LineChartCard(),
-                      ],
-                    );
-                  },
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      const Text('No se pudieron cargar los datos'),
+                      const SizedBox(height: 12),
+                      ElevatedButton(onPressed: _fetch, child: const Text('Reintentar')),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.all(
+                    isWide ? AppDimensions.spaceLg : AppDimensions.spaceMd,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _KpiRow(data: _data),
+                      const SizedBox(height: AppDimensions.spaceMd),
+                      LayoutBuilder(
+                        builder: (_, c) {
+                          final wide = c.maxWidth >= 700;
+                          if (wide) {
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(flex: 14, child: _BarChartCard(data: _data)),
+                                const SizedBox(width: AppDimensions.spaceMd),
+                                Expanded(flex: 10, child: _LineChartCard(data: _data)),
+                              ],
+                            );
+                          }
+                          return Column(
+                            children: [
+                              _BarChartCard(data: _data),
+                              const SizedBox(height: AppDimensions.spaceMd),
+                              _LineChartCard(data: _data),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: AppDimensions.spaceMd),
+                      _CropCard(data: _data),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppDimensions.spaceMd),
-
-                // Consumo por cultivo
-                _CropCard(),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -186,52 +187,43 @@ class AnalyticsScreen extends StatelessWidget {
 // ── KPI Row ───────────────────────────────────────────────────────────────────
 
 class _KpiRow extends StatelessWidget {
-  static const _kpis = [
-    ('Consumo total', '2 130 L'),
-    ('Promedio diario', '71 L'),
-    ('Eficiencia de riego', '32%'),
-    ('Eventos de riego', '184'),
-  ];
+  final AnalyticsModel? data;
+  const _KpiRow({this.data});
 
   @override
   Widget build(BuildContext context) {
+    final d = data;
+    final kpis = d != null
+        ? [
+            ('Consumo total', '${d.kpis.totalLiters.toStringAsFixed(0)} L'),
+            ('Promedio diario', '${d.kpis.avgDailyLiters.toStringAsFixed(0)} L'),
+            ('Duración media', '${d.kpis.avgDurationMin.toStringAsFixed(0)} min'),
+            ('Eventos de riego', '${d.kpis.totalEvents}'),
+          ]
+        : const [
+            ('Consumo total', '2 130 L'),
+            ('Promedio diario', '71 L'),
+            ('Eficiencia de riego', '32%'),
+            ('Eventos de riego', '184'),
+          ];
+
     return LayoutBuilder(
       builder: (_, c) {
         final wide = c.maxWidth >= 600;
-        final cards = _kpis
-            .map((k) => _KpiCard(label: k.$1, value: k.$2))
-            .toList();
+        final cards = kpis.map((k) => _KpiCard(label: k.$1, value: k.$2)).toList();
         if (wide) {
           return Row(
-            children:
-                cards
-                    .expand(
-                      (w) => [
-                        Expanded(child: w),
-                        const SizedBox(width: AppDimensions.spaceMd),
-                      ],
-                    )
-                    .toList()
-                  ..removeLast(),
+            children: cards
+                .expand((w) => [Expanded(child: w), const SizedBox(width: AppDimensions.spaceMd)])
+                .toList()
+              ..removeLast(),
           );
         }
         return Column(
           children: [
-            Row(
-              children: [
-                Expanded(child: cards[0]),
-                const SizedBox(width: 12),
-                Expanded(child: cards[1]),
-              ],
-            ),
+            Row(children: [Expanded(child: cards[0]), const SizedBox(width: 12), Expanded(child: cards[1])]),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: cards[2]),
-                const SizedBox(width: 12),
-                Expanded(child: cards[3]),
-              ],
-            ),
+            Row(children: [Expanded(child: cards[2]), const SizedBox(width: 12), Expanded(child: cards[3])]),
           ],
         );
       },
@@ -277,14 +269,22 @@ class _KpiCard extends StatelessWidget {
 // ── Bar Chart ─────────────────────────────────────────────────────────────────
 
 class _BarChartCard extends StatelessWidget {
-  static const _data = AnalyticsScreen._dailyData;
-  static const _labels = AnalyticsScreen._dailyLabels;
+  final AnalyticsModel? data;
+  const _BarChartCard({this.data});
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final maxVal = _data.reduce((a, b) => a > b ? a : b).toDouble();
-    final currentIdx = _data.length - 1;
+    final d = data;
+    final rawData = (d != null && d.dailyValues.isNotEmpty)
+        ? d.dailyValues
+        : _AnalyticsScreenState._mockDailyData.map((e) => e.toDouble()).toList();
+    final labels = (d != null && d.dailyLabels.isNotEmpty)
+        ? d.dailyLabels
+        : _AnalyticsScreenState._mockDailyLabels;
+
+    final maxVal = rawData.reduce((a, b) => a > b ? a : b);
+    final currentIdx = rawData.length - 1;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -297,18 +297,15 @@ class _BarChartCard extends StatelessWidget {
         children: [
           Text(
             'Consumo por día',
-            style: tt.headlineMedium?.copyWith(
-              fontSize: 20,
-              color: Colors.black,
-            ),
+            style: tt.headlineMedium?.copyWith(fontSize: 20, color: Colors.black),
           ),
           const SizedBox(height: 24),
           SizedBox(
             height: 200,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(_data.length, (i) {
-                final pct = _data[i] / maxVal;
+              children: List.generate(rawData.length, (i) {
+                final pct = maxVal > 0 ? rawData[i] / maxVal : 0.0;
                 final isNow = i == currentIdx;
                 return Expanded(
                   child: Column(
@@ -318,7 +315,7 @@ class _BarChartCard extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.bottomCenter,
                           child: FractionallySizedBox(
-                            heightFactor: pct,
+                            heightFactor: pct.clamp(0.0, 1.0),
                             child: Container(
                               width: 22,
                               decoration: BoxDecoration(
@@ -335,7 +332,7 @@ class _BarChartCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _labels[i],
+                        labels.length > i ? labels[i] : '',
                         style: tt.bodySmall?.copyWith(
                           fontSize: 11,
                           color: Colors.black54,
@@ -357,11 +354,17 @@ class _BarChartCard extends StatelessWidget {
 // ── Line Chart (consumo acumulado) ────────────────────────────────────────────
 
 class _LineChartCard extends StatelessWidget {
-  static const _data = AnalyticsScreen._cumulativeUse;
+  final AnalyticsModel? data;
+  const _LineChartCard({this.data});
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final d = data;
+    final cumulative = (d != null && d.cumulative.isNotEmpty)
+        ? d.cumulative
+        : _AnalyticsScreenState._mockCumulative;
+    final totalLiters = d != null ? d.kpis.totalLiters : 980.0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -374,16 +377,13 @@ class _LineChartCard extends StatelessWidget {
         children: [
           Text(
             'Consumo acumulado',
-            style: tt.headlineMedium?.copyWith(
-              fontSize: 20,
-              color: Colors.black,
-            ),
+            style: tt.headlineMedium?.copyWith(fontSize: 20, color: Colors.black),
           ),
           const SizedBox(height: 20),
           SizedBox(
             height: 200,
             child: CustomPaint(
-              painter: _LinePainter(data: List<double>.from(_data)),
+              painter: _LinePainter(data: List<double>.from(cumulative)),
               child: const SizedBox.expand(),
             ),
           ),
@@ -395,7 +395,7 @@ class _LineChartCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              'El sistema registró ${AnalyticsScreen._stableLiters.toInt()} L este mes, equivalente a ${AnalyticsScreen._coveredDays} días de riego.',
+              'El sistema registró ${totalLiters.toStringAsFixed(0)} L este mes.',
               style: tt.bodySmall?.copyWith(
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
@@ -484,12 +484,40 @@ class _LinePainter extends CustomPainter {
 // ── Crop bars ─────────────────────────────────────────────────────────────────
 
 class _CropCard extends StatelessWidget {
-  static const _crops = AnalyticsScreen._crops;
+  final AnalyticsModel? data;
+  const _CropCard({this.data});
+
+  static const _mockCrops = _AnalyticsScreenState._crops;
+
+  static const _palette = [
+    Color(0xFF12480E),
+    Color(0xFF599974),
+    Color(0xFF7AB28E),
+    Color(0xFFE6DACA),
+    Color(0xFFA8C9B5),
+    Color(0xFFD4C9B8),
+    Color(0xFF8CB49C),
+    Color(0xFF4E7A5B),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final maxVal = _crops.map((c) => c.$2).reduce((a, b) => a > b ? a : b);
+
+    final d = data;
+    final hasReal = d != null && d.cropBreakdown.isNotEmpty;
+
+    // Build list of (name, liters, color) from real or mock data
+    final List<(String, double, Color)> crops = hasReal
+        ? d.cropBreakdown.asMap().entries.map((e) {
+            final color = _palette[e.key % _palette.length];
+            return (e.value.crop, e.value.liters, color);
+          }).toList()
+        : _mockCrops.map((c) => (c.$1, c.$2.toDouble(), c.$3)).toList();
+
+    if (crops.isEmpty) return const SizedBox.shrink();
+
+    final maxVal = crops.map((c) => c.$2).reduce((a, b) => a > b ? a : b);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,9 +534,9 @@ class _CropCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
-            children: _crops.map((c) {
+            children: crops.map((c) {
               final (name, val, color) = c;
-              final pct = val / maxVal;
+              final pct = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Column(
@@ -516,49 +544,28 @@ class _CropCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          name,
-                          style: tt.bodySmall?.copyWith(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                        Text(
-                          '${val}l',
-                          style: tt.bodySmall?.copyWith(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
+                        Text(name, style: tt.bodySmall?.copyWith(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black)),
+                        Text('${val.toStringAsFixed(1)} L', style: tt.bodySmall?.copyWith(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black)),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    LayoutBuilder(
-                      builder: (_, c) => Stack(
-                        children: [
-                          Container(
+                    Stack(
+                      children: [
+                        Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF31412F).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: pct,
+                          child: Container(
                             height: 8,
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF31412F,
-                              ).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
+                            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(999)),
                           ),
-                          FractionallySizedBox(
-                            widthFactor: pct,
-                            child: Container(
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

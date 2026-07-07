@@ -81,6 +81,18 @@ class IrrigationSettingsCubit extends Cubit<IrrigationSettings> {
   void setHotAlert(double value) => emit(state.copyWith(hotAlertC: value));
   void setColdAlert(double value) => emit(state.copyWith(coldAlertC: value));
   void setRainPause(double value) => emit(state.copyWith(rainPausePct: value));
+
+  void loadFromMap(Map<String, dynamic> map) {
+    double? d(String key) => (map[key] as num?)?.toDouble();
+    emit(state.copyWith(
+      minMoisture: d('minMoisture'),
+      optimalMoisture: d('optimalMoisture'),
+      maxMoisture: d('maxMoisture'),
+      hotAlertC: d('hotAlertC'),
+      coldAlertC: d('coldAlertC'),
+      rainPausePct: d('rainPausePct'),
+    ));
+  }
 }
 
 /// Tipo de aviso de riego que el motor de reglas devuelve a la UI.

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../bloc/devices_bloc.dart';
 import '../bloc/irrigation_cubit.dart';
 
@@ -16,6 +18,67 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final List<_IrrigationRecord> _manualEntries = [];
+
+  // En modo real los eventos vienen de GET /api/irrigation/devices/{id}/events.
+  final IrrigationRemoteDataSource? _remote =
+      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+  List<_IrrigationRecord> _serverRecords = [];
+  String? _fetchedDeviceId;
+  bool _wasIrrigating = false;
+
+  Future<void> _fetchServerEvents(String deviceId, String deviceName) async {
+    final remote = _remote;
+    if (remote == null) return;
+
+    try {
+      final events = await remote.getEvents(deviceId);
+      events.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      if (!mounted) return;
+      setState(() {
+        _serverRecords = events
+            .map((event) => _recordFromEvent(event, deviceName))
+            .toList();
+      });
+    } catch (_) {
+      // Si falla (sin red, backend dormido) se conserva lo que ya habia.
+    }
+  }
+
+  _IrrigationRecord _recordFromEvent(
+    IrrigationEventModel event,
+    String deviceName,
+  ) {
+    final start = event.startedAt.toLocal();
+    final end = event.endedAt?.toLocal();
+    final elapsed = (end ?? DateTime.now()).difference(start);
+    return _IrrigationRecord(
+      dateTime: _formatDate(start),
+      device: deviceName,
+      type: event.triggerType == 'manual'
+          ? _IrrigationType.manual
+          : _IrrigationType.auto,
+      minutes: elapsed.inMinutes < 1 ? 1 : elapsed.inMinutes,
+      liters: event.litersConsumed,
+      soilMoisture: event.soilMoisturePct?.round(),
+      temperatureC: event.temperatureC,
+    );
+  }
+
+  void _maybeRefetch(DevicesState devicesState, IrrigationState irrigation) {
+    if (_remote == null || devicesState is! DevicesLoaded) return;
+    if (devicesState.devices.isEmpty) return;
+
+    final device = devicesState.activeDevice;
+    final deviceChanged = device.id != _fetchedDeviceId;
+    final irrigationToggled = _wasIrrigating != irrigation.isIrrigating;
+    if (!deviceChanged && !irrigationToggled) return;
+
+    _fetchedDeviceId = device.id;
+    _wasIrrigating = irrigation.isIrrigating;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchServerEvents(device.id, device.name);
+    });
+  }
 
   Future<void> _openManualDialog(String activeDeviceName) async {
     final entry = await showDialog<_IrrigationRecord>(
@@ -43,14 +106,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ? devicesState.activeDevice
         : null;
     final activeDeviceName = activeDevice?.name ?? 'Mi huerto terraza';
+    _maybeRefetch(devicesState, irrigationState);
     final records = [
       ..._manualEntries,
-      ..._records(
-        l10n,
-        irrigationState,
-        activeDeviceName: activeDeviceName,
-        activeDeviceId: activeDevice?.id,
-      ),
+      if (_remote != null)
+        ..._serverRecords
+      else
+        ..._records(
+          l10n,
+          irrigationState,
+          activeDeviceName: activeDeviceName,
+          activeDeviceId: activeDevice?.id,
+        ),
     ];
     final width = MediaQuery.sizeOf(context).width;
     final horizontalPadding = width < 640
@@ -156,8 +223,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 8,
         liters: 1.4,
-        humidityBefore: 38,
-        humidityAfter: 62,
+        soilMoisture: 38,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '08 May · 19:15',
@@ -165,8 +232,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.manual,
         minutes: 6,
         liters: 1.0,
-        humidityBefore: 44,
-        humidityAfter: 61,
+        soilMoisture: 44,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '08 May · 06:30',
@@ -174,8 +241,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 8,
         liters: 1.4,
-        humidityBefore: 39,
-        humidityAfter: 63,
+        soilMoisture: 39,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '07 May · 06:30',
@@ -183,8 +250,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 10,
         liters: 1.7,
-        humidityBefore: 35,
-        humidityAfter: 64,
+        soilMoisture: 35,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '06 May · 18:00',
@@ -192,8 +259,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.manual,
         minutes: 5,
         liters: 0.9,
-        humidityBefore: 46,
-        humidityAfter: 60,
+        soilMoisture: 46,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '06 May · 06:30',
@@ -201,8 +268,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 8,
         liters: 1.4,
-        humidityBefore: 38,
-        humidityAfter: 62,
+        soilMoisture: 38,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '05 May · 06:30',
@@ -210,8 +277,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 8,
         liters: 1.4,
-        humidityBefore: 39,
-        humidityAfter: 62,
+        soilMoisture: 39,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '04 May · 18:20',
@@ -219,8 +286,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.manual,
         minutes: 4,
         liters: 0.7,
-        humidityBefore: 47,
-        humidityAfter: 58,
+        soilMoisture: 47,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '04 May · 06:30',
@@ -228,8 +295,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 8,
         liters: 1.4,
-        humidityBefore: 40,
-        humidityAfter: 63,
+        soilMoisture: 40,
+        temperatureC: 24,
       ),
       _IrrigationRecord(
         dateTime: '03 May · 06:30',
@@ -237,8 +304,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         type: _IrrigationType.auto,
         minutes: 8,
         liters: 1.4,
-        humidityBefore: 38,
-        humidityAfter: 62,
+        soilMoisture: 38,
+        temperatureC: 24,
       ),
     ];
 
@@ -253,8 +320,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           type: _IrrigationType.manual,
           minutes: elapsedMinutes < 1 ? 1 : elapsedMinutes,
           liters: irrigationState.elapsedSeconds * 0.02,
-          humidityBefore: 42,
-          humidityAfter: 42,
+          soilMoisture: 42,
+          temperatureC: 24,
         ),
         ...base,
       ];
@@ -300,8 +367,8 @@ class _HistoryTable extends StatelessWidget {
       (l10n.t('typeCol'), 140),
       (l10n.t('durationCol'), 120),
       (l10n.t('litersCol'), 120),
-      (l10n.t('humidityBefore'), 200),
-      (l10n.t('humidityAfter'), 210),
+      (l10n.t('humidity'), 170),
+      (l10n.t('temperature'), 180),
     ];
 
     return DecoratedBox(
@@ -424,11 +491,13 @@ class _HistoryRowState extends State<_HistoryRow> {
               strong: true,
             ),
             _MoistureCell(
-              value: widget.record.humidityBefore,
+              value: widget.record.soilMoisture,
               width: widget.widths[5],
             ),
             _MoistureCell(
-              value: widget.record.humidityAfter,
+              value: widget.record.temperatureC?.round(),
+              suffix: '°C',
+              icon: Icons.thermostat_rounded,
               width: widget.widths[6],
               accent: true,
               isLast: true,
@@ -452,16 +521,20 @@ BoxDecoration _cellBorder(BuildContext context, {required bool isLast}) {
 }
 
 class _MoistureCell extends StatelessWidget {
-  final int value;
+  final int? value;
   final double width;
   final bool accent;
   final bool isLast;
+  final String suffix;
+  final IconData icon;
 
   const _MoistureCell({
     required this.value,
     required this.width,
     this.accent = false,
     this.isLast = false,
+    this.suffix = '%',
+    this.icon = Icons.water_drop_outlined,
   });
 
   @override
@@ -486,11 +559,11 @@ class _MoistureCell extends StatelessWidget {
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(7),
             ),
-            child: Icon(Icons.water_drop_outlined, color: color, size: 13),
+            child: Icon(icon, color: color, size: 13),
           ),
           const SizedBox(width: 9),
           Text(
-            '$value%',
+            value == null ? '—' : '$value$suffix',
             style: tt.bodySmall?.copyWith(
               color: color,
               fontWeight: FontWeight.w800,
@@ -652,8 +725,9 @@ class _IrrigationRecord {
   final _IrrigationType type;
   final int minutes;
   final double liters;
-  final int humidityBefore;
-  final int humidityAfter;
+  // Snapshot al iniciar el riego. Null en eventos antiguos sin datos.
+  final int? soilMoisture;
+  final double? temperatureC;
 
   const _IrrigationRecord({
     required this.dateTime,
@@ -661,8 +735,8 @@ class _IrrigationRecord {
     required this.type,
     required this.minutes,
     required this.liters,
-    required this.humidityBefore,
-    required this.humidityAfter,
+    required this.soilMoisture,
+    required this.temperatureC,
   });
 }
 
@@ -757,8 +831,8 @@ class _ManualWateringDialogState extends State<_ManualWateringDialog> {
         type: _IrrigationType.manual,
         minutes: duration!,
         liters: liters!,
-        humidityBefore: 40,
-        humidityAfter: 60,
+        soilMoisture: 40,
+        temperatureC: 24,
       ),
     );
   }

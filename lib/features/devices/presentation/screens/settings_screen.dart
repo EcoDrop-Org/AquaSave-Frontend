@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
-import '../../../subscription/presentation/cubit/plan_cubit.dart';
+import '../../data/datasources/remote/irrigation_remote_datasource.dart';
+import '../bloc/devices_bloc.dart';
 import '../cubit/irrigation_settings_cubit.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,9 +18,94 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final List<_ScheduleSlot> _scheduleSlots = [
-    const _ScheduleSlot(timeText: '06:30'),
-  ];
+  List<_ScheduleSlot> _scheduleSlots = [const _ScheduleSlot(timeText: '06:30')];
+
+  final IrrigationRemoteDataSourceImpl? _remote = AppConstants.useMockData
+      ? null
+      : IrrigationRemoteDataSourceImpl();
+
+  bool _savingSettings = false;
+  String? _loadedDeviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettings());
+  }
+
+  String? _activeDeviceId() {
+    final state = context.read<DevicesBloc>().state;
+    if (state is DevicesLoaded && state.devices.isNotEmpty) {
+      return state.activeDevice.id;
+    }
+    return null;
+  }
+
+  Future<void> _loadSettings() async {
+    if (_remote == null) return;
+    final deviceId = _activeDeviceId();
+    if (deviceId == null) return;
+    _loadedDeviceId = deviceId;
+    try {
+      final settings = await _remote.getDeviceSettings(deviceId);
+      if (!mounted) return;
+      context.read<IrrigationSettingsCubit>().loadFromMap(
+        Map<String, dynamic>.from(settings),
+      );
+      final slots = settings['schedules'];
+      if (slots is List && slots.isNotEmpty) {
+        setState(() {
+          _scheduleSlots = slots
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (s) => _ScheduleSlot(
+                  timeText: (s['timeText'] ?? s['time'])?.toString() ?? '06:30',
+                  enabled: s['enabled'] as bool? ?? true,
+                ),
+              )
+              .toList();
+        });
+      }
+    } catch (_) {
+      // fallback: keeps defaults
+    }
+  }
+
+  Future<void> _saveSettings(BuildContext ctx) async {
+    if (_remote == null) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(ctx).t('settingsSaved'))),
+      );
+      return;
+    }
+    final deviceId = _loadedDeviceId ?? _activeDeviceId();
+    if (deviceId == null) return;
+
+    final messenger = ScaffoldMessenger.of(ctx);
+    final l10n = AppLocalizations.of(ctx);
+    final settings = context.read<IrrigationSettingsCubit>().state;
+
+    setState(() => _savingSettings = true);
+    try {
+      final payload = <String, dynamic>{
+        'minMoisture': settings.minMoisture,
+        'optimalMoisture': settings.optimalMoisture,
+        'maxMoisture': settings.maxMoisture,
+        'hotAlertC': settings.hotAlertC,
+        'coldAlertC': settings.coldAlertC,
+        'rainPausePct': settings.rainPausePct,
+        'schedules': _scheduleSlots
+            .map((s) => {'timeText': s.timeText, 'enabled': s.enabled})
+            .toList(),
+      };
+      await _remote.putDeviceSettings(deviceId, payload);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.t('settingsSaved'))));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _savingSettings = false);
+    }
+  }
 
   void _addScheduleSlot() {
     setState(() => _scheduleSlots.add(const _ScheduleSlot(timeText: '18:00')));
@@ -90,129 +177,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      BlocBuilder<PlanCubit, String>(
-                        builder: (context, selectedPlan) {
-                          return _PlanSelector(
-                            selectedPlan: selectedPlan,
-                            onPlanChanged: context.read<PlanCubit>().setPlan,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppDimensions.spaceMd),
-                      BlocBuilder<IrrigationSettingsCubit, IrrigationSettings>(
-                        builder: (context, settings) {
-                          final cubit = context.read<IrrigationSettingsCubit>();
-                          return _SettingsCard(
-                            title: l10n.t('moistureThresholds'),
-                            icon: Icons.water_drop_outlined,
-                            child: Column(
-                              children: [
-                                _SliderRow(
-                                  label: l10n.t('minimum'),
-                                  value: settings.minMoisture,
-                                  min: 10,
-                                  max: 60,
-                                  suffix: '%',
-                                  onChanged: cubit.setMin,
-                                ),
-                                _SliderRow(
-                                  label: l10n.t('optimal'),
-                                  value: settings.optimalMoisture,
-                                  min: 35,
-                                  max: 75,
-                                  suffix: '%',
-                                  onChanged: cubit.setOptimal,
-                                ),
-                                _SliderRow(
-                                  label: l10n.t('maximum'),
-                                  value: settings.maxMoisture,
-                                  min: 60,
-                                  max: 95,
-                                  suffix: '%',
-                                  onChanged: cubit.setMax,
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppDimensions.spaceMd),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final wide = constraints.maxWidth >= 760;
-                          final weatherCard =
-                              BlocBuilder<
-                                IrrigationSettingsCubit,
-                                IrrigationSettings
-                              >(
-                                builder: (context, settings) {
-                                  final cubit = context
-                                      .read<IrrigationSettingsCubit>();
-                                  return _SettingsCard(
-                                    title: l10n.t('weatherGarden'),
-                                    icon: Icons.cloud_outlined,
-                                    child: Column(
-                                      children: [
-                                        _SliderRow(
-                                          label: l10n.t('temperatureHot'),
-                                          value: settings.hotAlertC,
-                                          min: 22,
-                                          max: 40,
-                                          suffix: '°C',
-                                          onChanged: cubit.setHotAlert,
-                                        ),
-                                        _SliderRow(
-                                          label: l10n.t('temperatureCold'),
-                                          value: settings.coldAlertC,
-                                          min: -5,
-                                          max: 18,
-                                          suffix: '°C',
-                                          onChanged: cubit.setColdAlert,
-                                        ),
-                                        _SliderRow(
-                                          label: l10n.t('rainPauseThreshold'),
-                                          value: settings.rainPausePct,
-                                          min: 20,
-                                          max: 95,
-                                          suffix: '%',
-                                          onChanged: cubit.setRainPause,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                          final scheduleCard = _SettingsCard(
-                            title: l10n.t('automaticSchedule'),
-                            icon: Icons.schedule,
-                            child: _ScheduleList(
-                              slots: _scheduleSlots,
-                              onAdd: _addScheduleSlot,
-                              onTimeChanged: _setScheduleSlotTime,
-                              onToggle: _setScheduleSlotEnabled,
-                              onRemove: _removeScheduleSlot,
-                            ),
-                          );
-
-                          if (!wide) {
-                            return Column(
-                              children: [
-                                weatherCard,
-                                const SizedBox(height: AppDimensions.spaceMd),
-                                scheduleCard,
-                              ],
-                            );
-                          }
-
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: weatherCard),
-                              const SizedBox(width: AppDimensions.spaceMd),
-                              Expanded(child: scheduleCard),
-                            ],
-                          );
-                        },
+                      // Programacion automatica: unica configuracion de riego.
+                      // (Los umbrales de humedad y el clima del huerto se
+                      // retiraron: el dispositivo riega con sus umbrales y el
+                      // clima solo se usa para recomendaciones.)
+                      _SettingsCard(
+                        title: l10n.t('automaticSchedule'),
+                        icon: Icons.schedule,
+                        child: _ScheduleList(
+                          slots: _scheduleSlots,
+                          onAdd: _addScheduleSlot,
+                          onTimeChanged: _setScheduleSlotTime,
+                          onToggle: _setScheduleSlotEnabled,
+                          onRemove: _removeScheduleSlot,
+                        ),
                       ),
                       const SizedBox(height: AppDimensions.spaceLg),
                       LayoutBuilder(
@@ -223,14 +201,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: SizedBox(
                               width: fullWidth ? double.infinity : null,
                               child: ElevatedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l10n.t('settingsSaved')),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.save_outlined),
+                                onPressed: _savingSettings
+                                    ? null
+                                    : () => _saveSettings(context),
+                                icon: _savingSettings
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.save_outlined),
                                 label: Text(l10n.t('saveSettings')),
                               ),
                             ),
@@ -319,324 +301,6 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
-
-class _PlanSelector extends StatelessWidget {
-  final String selectedPlan;
-  final ValueChanged<String> onPlanChanged;
-
-  const _PlanSelector({
-    required this.selectedPlan,
-    required this.onPlanChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final tt = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF44594E), Color(0xFF35463D)],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.workspace_premium_outlined,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.t('choosePlan'),
-                      style: tt.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      l10n.t('activePlan'),
-                      style: tt.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.68),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stacked = constraints.maxWidth < 680;
-              final free = _PlanOptionCard(
-                title: l10n.t('freePlan'),
-                body: l10n.t('freePlanBody'),
-                features: [l10n.t('weatherGarden'), l10n.t('manualActions')],
-                selected: selectedPlan == 'free',
-                onTap: () => onPlanChanged('free'),
-              );
-              final premium = _PlanOptionCard(
-                title: l10n.t('premiumPlan'),
-                body: l10n.t('premiumPlanBody'),
-                features: [l10n.t('planReports'), l10n.t('planDevices')],
-                selected: selectedPlan == 'premium',
-                onTap: () => onPlanChanged('premium'),
-              );
-
-              if (stacked) {
-                return Column(
-                  children: [free, const SizedBox(height: 12), premium],
-                );
-              }
-
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: free),
-                    const SizedBox(width: 12),
-                    Expanded(child: premium),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlanOptionCard extends StatelessWidget {
-  final String title;
-  final String body;
-  final List<String> features;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _PlanOptionCard({
-    required this.title,
-    required this.body,
-    required this.features,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final tt = Theme.of(context).textTheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: selected
-                ? const Color(0xFFCBE7A3)
-                : Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFFCBE7A3)
-                  : Colors.white.withValues(alpha: 0.16),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: tt.titleMedium?.copyWith(
-                        color: selected
-                            ? const Color(0xFF263B2F)
-                            : Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: selected ? 1 : 0,
-                    child: const Icon(
-                      Icons.check_circle,
-                      color: Color(0xFF263B2F),
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                body,
-                style: tt.bodySmall?.copyWith(
-                  color: selected
-                      ? const Color(0xFF263B2F).withValues(alpha: 0.72)
-                      : Colors.white.withValues(alpha: 0.72),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final feature in features)
-                    _PlanFeature(label: feature, selected: selected),
-                  if (selected)
-                    _PlanFeature(
-                      label: l10n.t('selectedPlan'),
-                      selected: selected,
-                      strong: true,
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PlanFeature extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final bool strong;
-
-  const _PlanFeature({
-    required this.label,
-    required this.selected,
-    this.strong = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = selected ? const Color(0xFF263B2F) : Colors.white;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: selected
-            ? Colors.white.withValues(alpha: strong ? 0.50 : 0.28)
-            : Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: fg,
-          fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _SliderRow extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final String suffix;
-  final ValueChanged<double> onChanged;
-
-  const _SliderRow({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.suffix,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: tt.bodyMedium?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '${value.round()}$suffix',
-                style: tt.bodySmall?.copyWith(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: (max - min).round(),
-          activeColor: cs.primary,
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-// ── Schedule (automatic watering) ────────────────────────────────────────────
 
 class _ScheduleSlot {
   final String timeText;

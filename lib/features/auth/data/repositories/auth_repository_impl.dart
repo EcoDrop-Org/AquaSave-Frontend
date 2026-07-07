@@ -44,6 +44,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String username,
     required String email,
     required String password,
+    required String profileType,
   }) async {
     try {
       final result = useMock
@@ -51,11 +52,13 @@ class AuthRepositoryImpl implements AuthRepository {
               username: username,
               email: email,
               password: password,
+              profileType: profileType,
             )
           : await remoteDataSource.register(
               username: username,
               email: email,
               password: password,
+              profileType: profileType,
             );
       return Right((user: result.user, token: result.token));
     } on CacheException catch (e) {

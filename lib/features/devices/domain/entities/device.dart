@@ -21,6 +21,10 @@ class Device extends Equatable {
   // idioma activo, se cae a `location`.
   final Map<String, String>? locationByLocale;
 
+  // false cuando el usuario pausó el dispositivo remotamente (no riega hasta
+  // reactivarlo).
+  final bool isActive;
+
   const Device({
     required this.id,
     required this.name,
@@ -36,6 +40,7 @@ class Device extends Equatable {
     this.longitude,
     this.description,
     this.locationByLocale,
+    this.isActive = true,
   });
 
   /// Devuelve el nombre de ubicación adecuado para el idioma activo, con
@@ -61,6 +66,7 @@ class Device extends Equatable {
     double? longitude,
     String? description,
     Map<String, String>? locationByLocale,
+    bool? isActive,
     bool clearCoordinates = false,
     bool clearDescription = false,
     bool clearLocationByLocale = false,
@@ -82,6 +88,7 @@ class Device extends Equatable {
       locationByLocale: clearLocationByLocale
           ? null
           : locationByLocale ?? this.locationByLocale,
+      isActive: isActive ?? this.isActive,
     );
   }
 
@@ -101,5 +108,6 @@ class Device extends Equatable {
     longitude,
     description,
     locationByLocale,
+    isActive,
   ];
 }

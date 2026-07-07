@@ -9,9 +9,11 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
+import '../../domain/repositories/devices_repository.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
 import 'device_detail_dialog.dart';
+import 'esp32_provisioning_dialog.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -44,7 +46,19 @@ class _DevicesContent extends StatelessWidget {
         children: [
           AppHeader(title: l10n.t('navDevices')),
           Expanded(
-            child: BlocBuilder<DevicesBloc, DevicesState>(
+            child: BlocConsumer<DevicesBloc, DevicesState>(
+              listenWhen: (previous, current) =>
+                  current is DevicesLoaded &&
+                  current.lastError != null &&
+                  (previous is! DevicesLoaded ||
+                      previous.lastError != current.lastError),
+              listener: (context, state) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text((state as DevicesLoaded).lastError!),
+                  ),
+                );
+              },
               builder: (context, state) {
                 if (state is DevicesLoading) {
                   return const Center(child: CircularProgressIndicator());
@@ -253,14 +267,18 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
 // ── Add device onboarding ───────────────────────────────────────────────────
 
 Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
-  const totalSteps = 7;
+  const totalSteps = 6;
   var step = 1;
-  var selectedSsid = 'CASA_VERA_2.4';
+  var selectedSsid = '';
   var rememberNetwork = true;
   var crop = 'Plantas de vegetales';
-  var minHumidity = 50.0;
-  var maxHumidity = 80.0;
   _PlaceResult? selectedPlace;
+
+  // Estado de aprovisionamiento real del ESP32. Si el usuario vincula el
+  // dispositivo en el paso WiFi, aqui queda el id que genero el backend, para
+  // no volver a crear el dispositivo al finalizar el wizard.
+  String? provisionedDeviceId;
+  bool deviceLinked = false;
 
   final l10n = AppLocalizations.of(context);
   final passwordCtrl = TextEditingController(text: 'aquasave123');
@@ -275,11 +293,9 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   }
 
   bool validateCurrentStep() {
-    if (step == 2 && selectedSsid.trim().isEmpty) {
-      showMessage('Selecciona una red WiFi.');
-      return false;
-    }
-    if (step == 4) {
+    // Paso 2: datos del huerto (se validan ANTES de vincular, porque el
+    // dispositivo se crea en el backend con estos datos).
+    if (step == 2) {
       if (nameCtrl.text.trim().length < 3) {
         showMessage(l10n.t('invalidName'));
         return false;
@@ -293,6 +309,14 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         showMessage(l10n.t('invalidLocation'));
         return false;
       }
+    }
+    // Paso 3: vincular es opcional; se puede crear el huerto sin dispositivo
+    // y conectarlo despues con "Reconectar WiFi" en el detalle.
+    if (step == 3 && !deviceLinked) {
+      showMessage(
+        'Continuarás sin dispositivo vinculado. Podrás conectarlo luego '
+        'desde el detalle del huerto.',
+      );
     }
     return true;
   }
@@ -308,20 +332,125 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
       return;
     }
 
-    context.read<DevicesBloc>().add(
-      AddDeviceRequested(
-        name: nameCtrl.text.trim(),
-        location: location,
-        plantCount: plantCount,
-        latitude: place?.latitude,
-        longitude: place?.longitude,
-        description: description.isEmpty ? null : description,
-        locationByLocale: place == null || place.byLocale.isEmpty
-            ? null
-            : Map<String, String>.from(place.byLocale),
-      ),
-    );
+    final localeMap = place == null || place.byLocale.isEmpty
+        ? null
+        : Map<String, String>.from(place.byLocale);
+
+    if (provisionedDeviceId != null) {
+      // El dispositivo ya se creo en el backend al vincularlo en el paso WiFi.
+      // Aqui solo actualizamos sus datos finales (nombre, ubicacion, cultivo).
+      context.read<DevicesBloc>().add(
+        EditDeviceRequested(
+          deviceId: provisionedDeviceId!,
+          name: nameCtrl.text.trim(),
+          location: location,
+          plantCount: plantCount,
+          latitude: place?.latitude,
+          longitude: place?.longitude,
+          description: description.isEmpty ? null : description,
+          locationByLocale: localeMap,
+        ),
+      );
+    } else {
+      // Flujo sin vincular ESP32: se crea el dispositivo normalmente.
+      context.read<DevicesBloc>().add(
+        AddDeviceRequested(
+          name: nameCtrl.text.trim(),
+          location: location,
+          plantCount: plantCount,
+          latitude: place?.latitude,
+          longitude: place?.longitude,
+          description: description.isEmpty ? null : description,
+          locationByLocale: localeMap,
+        ),
+      );
+    }
     Navigator.of(dialogContext).pop();
+  }
+
+  // Borra un dispositivo huerfano con reintentos. Se usa como rollback si el
+  // aprovisionamiento no se completa, para no dejar basura en el backend.
+  Future<void> rollbackDevice(DevicesRepository repo, String deviceId) async {
+    for (var intento = 0; intento < 3; intento++) {
+      final res = await repo.deleteDevice(deviceId);
+      final ok = res.fold((_) => false, (_) => true);
+      if (ok) return;
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    // Si tras 3 intentos no se pudo borrar (sin internet aun), avisar.
+    showMessage(
+      'No se pudo revertir el dispositivo. Se borrara al recuperar conexion; '
+      'revisa tu lista de dispositivos.',
+    );
+  }
+
+  // Vincula el ESP32. Orden pensado para no dejar huerfanos:
+  //   1. (CON internet) crea el dispositivo en el backend -> obtiene su id.
+  //   2. El dialogo guia: conectarse a la red del ESP32, /scan + /connect,
+  //      y luego VOLVER a una red con internet.
+  //   3. Si algo falla o se cancela -> se borra el dispositivo (rollback).
+  // Se llama desde el paso 2 del wizard, cuando aun tienes internet.
+  Future<bool> linkDevice(
+    void Function(void Function()) setWizardState,
+  ) async {
+    if (deviceLinked) return true;
+
+    final repo = context.read<DevicesBloc>().devicesRepository;
+
+    // 1. Crear el dispositivo en el backend (necesita internet AHORA), con
+    //    los datos reales del paso anterior: asi, aunque el flujo se corte
+    //    despues de vincular, el huerto ya quedo con nombre y ubicacion.
+    final place = selectedPlace;
+    final description = descriptionCtrl.text.trim();
+    final created = await repo.addDevice(
+      name: nameCtrl.text.trim().isEmpty
+          ? 'Mi huerto AquaSave'
+          : nameCtrl.text.trim(),
+      location: place?.displayName.trim() ?? 'Sin ubicación',
+      plantCount: int.tryParse(plantCountCtrl.text.trim()) ?? 1,
+      latitude: place?.latitude,
+      longitude: place?.longitude,
+      description: description.isEmpty ? null : description,
+    );
+
+    final device = created.fold((failure) {
+      showMessage(
+        'No se pudo registrar el dispositivo. Asegurate de tener internet '
+        '(tu WiFi normal) antes de vincular. ${failure.message}',
+      );
+      return null;
+    }, (device) => device);
+    if (device == null) return false;
+
+    if (!context.mounted) return false;
+
+    // 2. Aprovisionamiento (scan + connect + volver a WiFi). El dialogo pide
+    //    conectarse a la red del ESP32 y luego regresar a una con internet.
+    final result = await showEsp32ProvisioningDialog(
+      context,
+      deviceId: device.id,
+    );
+
+    if (result == null) {
+      // Cancelado o fallo -> revertir para no dejar huerfano.
+      await rollbackDevice(repo, device.id);
+      return false;
+    }
+
+    // Incorporar el dispositivo al bloc: sin esto, la edicion final del
+    // wizard (nombre/ubicacion/cultivo) no lo encontraba y se descartaba.
+    if (context.mounted) {
+      context.read<DevicesBloc>().add(DeviceProvisioned(device));
+    }
+
+    setWizardState(() {
+      provisionedDeviceId = device.id;
+      deviceLinked = true;
+      selectedSsid = result.ssid;
+      passwordCtrl.text = result.password;
+    });
+    showMessage('Dispositivo vinculado y conectado a "${result.ssid}".');
+    return true;
   }
 
   await showDialog<void>(
@@ -352,19 +481,13 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
           }
 
           Widget content() {
+            // Orden: los datos del huerto se piden ANTES de vincular, para
+            // que el dispositivo se cree en el backend con el nombre y la
+            // ubicacion reales (y no con valores por defecto si el flujo se
+            // interrumpe despues de vincular).
             return switch (step) {
               1 => const _WizardPrepStep(),
-              2 => _WizardWifiStep(
-                ssid: selectedSsid,
-                passwordCtrl: passwordCtrl,
-                rememberNetwork: rememberNetwork,
-                onSsidChanged: (value) =>
-                    setWizardState(() => selectedSsid = value),
-                onRememberChanged: (value) =>
-                    setWizardState(() => rememberNetwork = value),
-              ),
-              3 => const _WizardVerificationStep(),
-              4 => _WizardGardenStep(
+              2 => _WizardGardenStep(
                 nameCtrl: nameCtrl,
                 plantCountCtrl: plantCountCtrl,
                 descriptionCtrl: descriptionCtrl,
@@ -374,33 +497,28 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
                 onPlaceChanged: (value) =>
                     setWizardState(() => selectedPlace = value),
               ),
-              5 => _WizardThresholdStep(
-                minHumidity: minHumidity,
-                maxHumidity: maxHumidity,
-                crop: crop,
-                onChanged: (values) {
-                  setWizardState(() {
-                    minHumidity = values.start;
-                    maxHumidity = values.end;
-                  });
-                },
-                onPreset: (min, max, label) {
-                  setWizardState(() {
-                    minHumidity = min;
-                    maxHumidity = max;
-                    crop = label;
-                  });
-                },
+              3 => _WizardWifiStep(
+                ssid: selectedSsid,
+                passwordCtrl: passwordCtrl,
+                rememberNetwork: rememberNetwork,
+                deviceLinked: deviceLinked,
+                onSsidChanged: (value) =>
+                    setWizardState(() => selectedSsid = value),
+                onRememberChanged: (value) =>
+                    setWizardState(() => rememberNetwork = value),
+                onLinkDevice: () => linkDevice(setWizardState),
               ),
-              6 => const _WizardSensorStep(),
-              7 => _WizardReadyStep(
+              4 => _WizardVerificationStep(
+                deviceLinked: deviceLinked,
+                ssid: selectedSsid,
+              ),
+              5 => const _WizardSensorStep(),
+              6 => _WizardReadyStep(
                 name: nameCtrl.text.trim().isEmpty
                     ? 'Mi huerto terraza'
                     : nameCtrl.text.trim(),
                 location: selectedPlace?.displayName ?? '',
                 crop: crop,
-                minHumidity: minHumidity,
-                maxHumidity: maxHumidity,
               ),
               _ => const SizedBox.shrink(),
             };
@@ -631,7 +749,7 @@ class _WizardPrepStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Conecta tu ESP32 a AquaSave',
+            'Conecta tu dispositivo a AquaSave',
             style: tt.headlineMedium?.copyWith(
               color: cs.onSurface,
               fontWeight: FontWeight.w900,
@@ -648,7 +766,7 @@ class _WizardPrepStep extends StatelessWidget {
           const SizedBox(height: 12),
           const _WizardCheckRow(
             icon: Icons.light_mode_outlined,
-            text: 'El ESP32 está encendido con el LED azul fijo.',
+            text: 'El dispositivo está encendido con el LED azul fijo.',
           ),
           const SizedBox(height: 9),
           const _WizardCheckRow(
@@ -666,26 +784,40 @@ class _WizardPrepStep extends StatelessWidget {
   }
 }
 
-class _WizardWifiStep extends StatelessWidget {
+class _WizardWifiStep extends StatefulWidget {
   final String ssid;
   final TextEditingController passwordCtrl;
   final bool rememberNetwork;
+  final bool deviceLinked;
   final ValueChanged<String> onSsidChanged;
   final ValueChanged<bool> onRememberChanged;
+  final Future<bool> Function() onLinkDevice;
 
   const _WizardWifiStep({
     required this.ssid,
     required this.passwordCtrl,
     required this.rememberNetwork,
+    required this.deviceLinked,
     required this.onSsidChanged,
     required this.onRememberChanged,
+    required this.onLinkDevice,
   });
 
-  static const _networks = [
-    ('CASA_VERA_5G', 4),
-    ('CASA_VERA_2.4', 4),
-    ('AQUASAVE_SETUP', 3),
-  ];
+  @override
+  State<_WizardWifiStep> createState() => _WizardWifiStepState();
+}
+
+class _WizardWifiStepState extends State<_WizardWifiStep> {
+  bool _linking = false;
+
+  Future<void> _link() async {
+    setState(() => _linking = true);
+    try {
+      await widget.onLinkDevice();
+    } finally {
+      if (mounted) setState(() => _linking = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -696,7 +828,7 @@ class _WizardWifiStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Conectar a WiFi',
+          'Conectar el dispositivo a WiFi',
           style: tt.headlineMedium?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w900,
@@ -704,90 +836,169 @@ class _WizardWifiStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Selecciona la red a la que se conectará el dispositivo. Recomendamos 2.4 GHz.',
+          'Vincula tu dispositivo para que escanee tu red WiFi y se conecte. '
+          'Recomendamos una red de 2.4 GHz.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 24),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 720;
-            final networks = _NetworkList(
-              networks: _networks,
-              selected: ssid,
-              onChanged: onSsidChanged,
-            );
-            final form = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _WizardUpperLabel('RED SELECCIONADA'),
-                const SizedBox(height: 6),
-                _SelectedNetworkField(ssid: ssid),
-                const SizedBox(height: 18),
-                _WizardUpperLabel('CONTRASEÑA'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: passwordCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.lock_outline_rounded),
-                    hintText: 'Contraseña WiFi',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  value: rememberNetwork,
-                  onChanged: (value) => onRememberChanged(value ?? false),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(
-                    'Recordar esta red',
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.72),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            );
-
-            if (compact) {
-              return Column(
-                children: [networks, const SizedBox(height: 18), form],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: networks),
-                const SizedBox(width: 28),
-                Expanded(child: form),
-              ],
-            );
-          },
-        ),
+        if (widget.deviceLinked)
+          _LinkedBanner(ssid: widget.ssid)
+        else
+          _LinkPrompt(linking: _linking, onLink: _link),
       ],
     );
   }
 }
 
-class _WizardVerificationStep extends StatelessWidget {
-  const _WizardVerificationStep();
+class _LinkPrompt extends StatelessWidget {
+  final bool linking;
+  final VoidCallback onLink;
 
-  static const _checks = [
-    'Conexión WiFi',
-    'Asignación IP',
-    'Servidor AquaSave',
-    'Sincronización inicial',
-  ];
+  const _LinkPrompt({required this.linking, required this.onLink});
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.router_outlined, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Antes de vincular:',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _WizardCheckRow(
+            icon: Icons.power_settings_new_rounded,
+            text: 'El dispositivo está encendido. La primera vez crea su red '
+                '"AquaSave-XXXX".',
+          ),
+          const SizedBox(height: 6),
+          _WizardCheckRow(
+            icon: Icons.wifi_rounded,
+            text: 'Conéctate a esa red WiFi desde tu equipo (clave: '
+                'aquasave123).',
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: linking ? null : onLink,
+              icon: linking
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.link_rounded),
+              label: Text(linking ? 'Vinculando...' : 'Vincular dispositivo'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinkedBanner extends StatelessWidget {
+  final String ssid;
+
+  const _LinkedBanner({required this.ssid});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+            child: Icon(Icons.check_rounded, color: cs.onPrimary, size: 30),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dispositivo vinculado',
+                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Conectado a la red "$ssid". Continúa para verificar y '
+                  'terminar.',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardVerificationStep extends StatelessWidget {
+  // Estado REAL de la vinculacion (nada de datos de ejemplo): si el usuario
+  // no vinculo el dispositivo, este paso lo dice claramente.
+  final bool deviceLinked;
+  final String ssid;
+
+  const _WizardVerificationStep({
+    required this.deviceLinked,
+    required this.ssid,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    final checks = deviceLinked
+        ? const [
+            'Dispositivo registrado en AquaSave',
+            'Credenciales WiFi entregadas',
+            'Conexión confirmada por el dispositivo',
+          ]
+        : const [
+            'Huerto con nombre y ubicación listos',
+            'Sin dispositivo vinculado (opcional)',
+            'Puedes conectarlo luego desde el detalle',
+          ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,7 +1012,9 @@ class _WizardVerificationStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Estamos comprobando la conexión del ESP32 con AquaSave.',
+          deviceLinked
+              ? 'Resumen de la vinculación de tu dispositivo.'
+              : 'Continuarás sin dispositivo vinculado.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
@@ -824,18 +1037,24 @@ class _WizardVerificationStep extends StatelessWidget {
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
-                      color: cs.primary,
+                      color: deviceLinked
+                          ? cs.primary
+                          : cs.outline.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.check_rounded,
+                      deviceLinked
+                          ? Icons.check_rounded
+                          : Icons.wifi_off_rounded,
                       color: cs.onPrimary,
                       size: 38,
                     ),
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'Dispositivo conectado',
+                    deviceLinked
+                        ? 'Dispositivo conectado'
+                        : 'Sin dispositivo vinculado',
                     style: tt.titleMedium?.copyWith(
                       color: cs.onSurface,
                       fontWeight: FontWeight.w900,
@@ -843,7 +1062,10 @@ class _WizardVerificationStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'AQUASAVE-D7E1 está en línea y reportando.',
+                    deviceLinked
+                        ? 'Conectado a la red "$ssid".'
+                        : 'Usa "Reconectar WiFi" en el detalle del huerto '
+                              'cuando tengas el dispositivo a mano.',
                     textAlign: TextAlign.center,
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.58),
@@ -855,7 +1077,7 @@ class _WizardVerificationStep extends StatelessWidget {
             );
             final list = Column(
               children: [
-                for (final check in _checks)
+                for (final check in checks)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _VerificationRow(label: check),
@@ -987,169 +1209,24 @@ class _WizardGardenStep extends StatelessWidget {
 
             if (compact) {
               return Column(
-                children: [fields, const SizedBox(height: 16), location],
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  fields,
+                  const SizedBox(height: 20),
+                  location,
+                ],
               );
             }
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: fields),
-                const SizedBox(width: 18),
-                Expanded(flex: 7, child: location),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _WizardThresholdStep extends StatelessWidget {
-  final double minHumidity;
-  final double maxHumidity;
-  final String crop;
-  final ValueChanged<RangeValues> onChanged;
-  final void Function(double min, double max, String label) onPreset;
-
-  const _WizardThresholdStep({
-    required this.minHumidity,
-    required this.maxHumidity,
-    required this.crop,
-    required this.onChanged,
-    required this.onPreset,
-  });
-
-  static const _presets = [
-    ('Plantas de vegetales', 50.0, 80.0),
-    ('Plantas con frutos', 35.0, 75.0),
-    ('Hierbas aromáticas', 35.0, 70.0),
-    ('Suculentas y cactus', 20.0, 50.0),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Umbrales de humedad',
-          style: tt.headlineMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Define el rango óptimo. AquaSave alertará y regará dentro de este rango.',
-          style: tt.bodySmall?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.74),
-          ),
-        ),
-        const SizedBox(height: 28),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 760;
-            final slider = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _ValuePill(label: 'Mínimo', value: minHumidity),
-                    _ValuePill(label: 'Máximo', value: maxHumidity),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                RangeSlider(
-                  min: 0,
-                  max: 100,
-                  divisions: 100,
-                  labels: RangeLabels(
-                    '${minHumidity.round()}%',
-                    '${maxHumidity.round()}%',
-                  ),
-                  values: RangeValues(minHumidity, maxHumidity),
-                  onChanged: (values) {
-                    if (values.end - values.start < 10) return;
-                    onChanged(values);
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: ['0%', '25%', '50%', '75%', '100%']
-                        .map(
-                          (value) => Text(
-                            value,
-                            style: tt.bodySmall?.copyWith(
-                              color: cs.onSurface.withValues(alpha: 0.62),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _WizardCheckRow(
-                  icon: Icons.tips_and_updates_outlined,
-                  text:
-                      'Sugerimos ${minHumidity.round()}-${maxHumidity.round()}% para $crop.',
-                ),
-              ],
-            );
-            final presets = Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cs.surface.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-              ),
-              child: Column(
+            return IntrinsicHeight(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Presets por cultivo',
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  for (final preset in _presets)
-                    _PresetTile(
-                      label: preset.$1,
-                      min: preset.$2,
-                      max: preset.$3,
-                      selected:
-                          crop == preset.$1 &&
-                          minHumidity == preset.$2 &&
-                          maxHumidity == preset.$3,
-                      onTap: () => onPreset(preset.$2, preset.$3, preset.$1),
-                    ),
+                  Expanded(flex: 5, child: fields),
+                  const SizedBox(width: 18),
+                  Expanded(flex: 7, child: location),
                 ],
               ),
-            );
-
-            if (compact) {
-              return Column(
-                children: [slider, const SizedBox(height: 18), presets],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 7, child: slider),
-                const SizedBox(width: 28),
-                Expanded(flex: 4, child: presets),
-              ],
             );
           },
         ),
@@ -1205,7 +1282,7 @@ class _WizardSensorStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Vamos a leer los sensores conectados al ESP32 para verificar que funcionan.',
+          'Vamos a leer los sensores conectados al dispositivo para verificar que funcionan.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
             fontStyle: FontStyle.italic,
@@ -1239,15 +1316,11 @@ class _WizardReadyStep extends StatelessWidget {
   final String name;
   final String location;
   final String crop;
-  final double minHumidity;
-  final double maxHumidity;
 
   const _WizardReadyStep({
     required this.name,
     required this.location,
     required this.crop,
-    required this.minHumidity,
-    required this.maxHumidity,
   });
 
   @override
@@ -1256,11 +1329,8 @@ class _WizardReadyStep extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final rows = [
       ('Nombre', name),
-      ('Código', 'AQUASAVE-D7E1-2026'),
       ('Ubicación', location.isEmpty ? 'Pendiente' : location),
-      ('Tipo de espacio', 'Balcón'),
       ('Cultivo', crop),
-      ('Umbrales', '${minHumidity.round()}% - ${maxHumidity.round()}%'),
     ];
 
     return Column(
@@ -1484,133 +1554,6 @@ class _WizardCheckRow extends StatelessWidget {
   }
 }
 
-class _NetworkList extends StatelessWidget {
-  final List<(String, int)> networks;
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  const _NetworkList({
-    required this.networks,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Column(
-        children: [
-          for (final network in networks)
-            Material(
-              color: selected == network.$1
-                  ? cs.primary.withValues(alpha: 0.18)
-                  : cs.surface.withValues(alpha: 0.94),
-              child: InkWell(
-                onTap: () => onChanged(network.$1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 15,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.signal_wifi_4_bar_rounded, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          network.$1,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: cs.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      _SignalBars(value: network.$2),
-                      if (selected == network.$1) ...[
-                        const SizedBox(width: 12),
-                        Icon(Icons.check_rounded, color: cs.primary),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SelectedNetworkField extends StatelessWidget {
-  final String ssid;
-
-  const _SelectedNetworkField({required this.ssid});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.wifi_rounded, size: 18, color: cs.onSurface),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              ssid,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SignalBars extends StatelessWidget {
-  final int value;
-
-  const _SignalBars({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        for (var i = 1; i <= 4; i++)
-          Container(
-            width: 4,
-            height: 5.0 + i * 3,
-            margin: const EdgeInsets.only(left: 2),
-            decoration: BoxDecoration(
-              color: i <= value
-                  ? color
-                  : Theme.of(
-                      context,
-                    ).colorScheme.outline.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _VerificationRow extends StatelessWidget {
   final String label;
 
@@ -1669,99 +1612,6 @@ class _WizardUpperLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
         fontWeight: FontWeight.w900,
-      ),
-    );
-  }
-}
-
-class _ValuePill extends StatelessWidget {
-  final String label;
-  final double value;
-
-  const _ValuePill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        '$label: ${value.round()}%',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: cs.onSurface,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _PresetTile extends StatelessWidget {
-  final String label;
-  final double min;
-  final double max;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _PresetTile({
-    required this.label,
-    required this.min,
-    required this.max,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? cs.primary.withValues(alpha: 0.12)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: selected
-                    ? cs.primary.withValues(alpha: 0.48)
-                    : Colors.transparent,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  '${min.round()} - ${max.round()}%',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.62),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

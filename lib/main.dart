@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 
+import 'core/constants/app_constants.dart';
 import 'core/l10n/app_localizations.dart';
 import 'core/l10n/locale_cubit.dart';
 import 'core/navigation/nav_cubit.dart';
@@ -19,6 +20,7 @@ import 'features/auth/presentation/screens/register_screen.dart';
 import 'features/auth/presentation/screens/user_profile_screen.dart';
 import 'features/devices/data/datasources/local/devices_local_datasource.dart';
 import 'features/devices/data/datasources/remote/devices_remote_datasource.dart';
+import 'features/devices/data/datasources/remote/irrigation_remote_datasource.dart';
 import 'features/devices/data/repositories/devices_repository_impl.dart';
 import 'features/devices/domain/usecases/get_devices_usecase.dart';
 import 'features/devices/presentation/bloc/devices_bloc.dart';
@@ -33,10 +35,11 @@ import 'features/irrigation_intelligence/data/datasources/remote/weather_remote_
 import 'features/irrigation_intelligence/data/repositories/weather_repository_impl.dart';
 import 'features/irrigation_intelligence/domain/usecases/get_current_weather_for_device_usecase.dart';
 import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
-import 'features/subscription/presentation/cubit/plan_cubit.dart';
 import 'shared/widgets/app_sidebar.dart';
 
-const bool useMock = true;
+// Controlado por AppConstants.useMockData (--dart-define=USE_MOCK=true).
+// Por defecto la app consume la API real del backend.
+const bool useMock = AppConstants.useMockData;
 
 void main() {
   runApp(const AquaSaveApp());
@@ -69,11 +72,13 @@ class AquaSaveApp extends StatelessWidget {
           create: (_) => AuthBloc(
             loginUseCase: LoginUseCase(authRepo),
             registerUseCase: RegisterUseCase(authRepo),
-          ),
+          )..add(const AppStarted()),
         ),
         BlocProvider<DevicesBloc>(
-          create: (_) =>
-              DevicesBloc(getDevicesUseCase: GetDevicesUseCase(devicesRepo)),
+          create: (_) => DevicesBloc(
+            getDevicesUseCase: GetDevicesUseCase(devicesRepo),
+            devicesRepository: devicesRepo,
+          ),
         ),
         BlocProvider<WeatherBloc>(
           create: (_) => WeatherBloc(
@@ -81,11 +86,14 @@ class AquaSaveApp extends StatelessWidget {
                 GetCurrentWeatherForDeviceUseCase(weatherRepo),
           ),
         ),
-        BlocProvider<IrrigationCubit>(create: (_) => IrrigationCubit()),
+        BlocProvider<IrrigationCubit>(
+          create: (_) => IrrigationCubit(
+            remote: useMock ? null : IrrigationRemoteDataSourceImpl(),
+          ),
+        ),
         BlocProvider<IrrigationSettingsCubit>(
           create: (_) => IrrigationSettingsCubit(),
         ),
-        BlocProvider<PlanCubit>(create: (_) => PlanCubit()),
         BlocProvider<NavCubit>(create: (_) => NavCubit()),
       ],
       child: BlocBuilder<LocaleCubit, Locale>(
@@ -183,6 +191,9 @@ class _AppRouterState extends State<_AppRouter> {
 
     _lastWeatherDeviceKey = deviceKey;
     context.read<WeatherBloc>().add(LoadWeatherForDevice(device));
+    // Observa el riego del dispositivo activo (polling): si el riego lo
+    // inicia el propio dispositivo o la programacion, la app lo refleja.
+    context.read<IrrigationCubit>().watchDevice(device.id);
   }
 
   @override
@@ -193,11 +204,20 @@ class _AppRouterState extends State<_AppRouter> {
           setState(() => _appScreen = _AppScreen.home);
         }
         if (state is AuthInitial) {
+          // Al cerrar sesion se limpian los dispositivos de la cuenta anterior
+          // para que el proximo login los cargue de la API de nuevo.
+          context.read<DevicesBloc>().add(const ResetDevices());
+          _lastWeatherDeviceKey = null;
           setState(() => _authScreen = _AuthScreen.login);
         }
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
+          if (authState is AuthCheckingSession) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
           if (authState is! AuthAuthenticated) {
             return switch (_authScreen) {
               _AuthScreen.login => LoginScreen(

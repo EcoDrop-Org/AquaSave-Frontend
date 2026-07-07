@@ -131,16 +131,8 @@ class NotificationButton extends StatelessWidget {
         );
       }
 
-      if (device.batteryPct <= 25) {
-        alerts.add(
-          _AlertItem(
-            icon: Icons.battery_alert_outlined,
-            title: l10n.t('batteryNotice'),
-            body: '${device.name}: ${l10n.t('batteryBody')}',
-            color: const Color(0xFFB8642B),
-          ),
-        );
-      }
+      // Nota: el dispositivo AquaSave se alimenta por fuente externa, no
+      // tiene bateria, por eso no hay alerta de bateria baja.
     }
 
     return alerts;

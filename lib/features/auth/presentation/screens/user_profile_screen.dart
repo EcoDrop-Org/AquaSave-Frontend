@@ -1,12 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/profile_data_card.dart';
-import '../../../subscription/presentation/cubit/plan_cubit.dart';
 
 class UserProfileScreen extends StatelessWidget {
   const UserProfileScreen({super.key});
@@ -57,8 +61,6 @@ class _ProfileContent extends StatelessWidget {
                     children: [
                       ProfileDataCard(user: user),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      const _CurrentPlanCard(),
-                      const SizedBox(height: AppDimensions.spaceMd),
                       _PasswordCard(),
                       const SizedBox(height: AppDimensions.spaceMd),
                       _NotificationsCard(),
@@ -74,98 +76,6 @@ class _ProfileContent extends StatelessWidget {
   }
 }
 
-class _CurrentPlanCard extends StatelessWidget {
-  const _CurrentPlanCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final tt = Theme.of(context).textTheme;
-
-    return BlocBuilder<PlanCubit, String>(
-      builder: (context, plan) {
-        final isPremium = plan == PlanCubit.premium;
-        final title = isPremium ? l10n.t('premiumPlan') : l10n.t('freePlan');
-        final body = isPremium
-            ? l10n.t('premiumPlanBody')
-            : l10n.t('freePlanBody');
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: const Color(0xFF3E5249),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 18,
-                offset: const Offset(0, 9),
-              ),
-            ],
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 560;
-              final copy = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.t('activePlan'),
-                    style: tt.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.66),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    style: tt.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    body,
-                    style: tt.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.74),
-                    ),
-                  ),
-                ],
-              );
-              final badge = Chip(
-                label: Text(l10n.t('selectedPlan')),
-                avatar: const Icon(Icons.check_circle, size: 18),
-                backgroundColor: const Color(0xFFCBE7A3),
-                labelStyle: tt.bodySmall?.copyWith(
-                  color: const Color(0xFF263B2F),
-                  fontWeight: FontWeight.w800,
-                ),
-              );
-
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [copy, const SizedBox(height: 14), badge],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: copy),
-                  const SizedBox(width: 16),
-                  badge,
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _PasswordCard extends StatefulWidget {
   @override
   State<_PasswordCard> createState() => _PasswordCardState();
@@ -175,6 +85,7 @@ class _PasswordCardState extends State<_PasswordCard> {
   final _currentCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  bool _savingPassword = false;
 
   @override
   void initState() {
@@ -193,20 +104,98 @@ class _PasswordCardState extends State<_PasswordCard> {
     super.dispose();
   }
 
-  void _savePassword(AppLocalizations l10n) {
-    if (_newCtrl.text.isEmpty || _newCtrl.text != _confirmCtrl.text) {
+  Future<void> _savePassword(AppLocalizations l10n) async {
+    if (_savingPassword) return;
+
+    final currentPassword = _currentCtrl.text;
+    final newPassword = _newCtrl.text;
+    final confirmPassword = _confirmCtrl.text;
+
+    if (currentPassword.isEmpty || newPassword.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('fieldRequired'))));
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('newPasswordHelp'))));
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.t('passwordMismatch'))));
       return;
     }
 
-    _currentCtrl.clear();
-    _newCtrl.clear();
-    _confirmCtrl.clear();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.t('passwordUpdated'))));
+    setState(() => _savingPassword = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(AppConstants.authTokenKey);
+      if (token == null || token.isEmpty) {
+        throw const _PasswordChangeException('No hay una sesion activa');
+      }
+
+      final response = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/change-password'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 204) {
+        _currentCtrl.clear();
+        _newCtrl.clear();
+        _confirmCtrl.clear();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.t('passwordUpdated'))));
+        return;
+      }
+
+      final message = _passwordChangeError(response) ?? l10n.t('errorGeneric');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } on _PasswordChangeException catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(err.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.t('errorGeneric'))));
+    } finally {
+      if (mounted) setState(() => _savingPassword = false);
+    }
+  }
+
+  String? _passwordChangeError(http.Response response) {
+    if (response.bodyBytes.isEmpty) return null;
+    try {
+      final decoded = json.decode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'];
+        if (message is String && message.isNotEmpty) return message;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   @override
@@ -342,8 +331,16 @@ class _PasswordCardState extends State<_PasswordCard> {
                 child: SizedBox(
                   width: full ? double.infinity : null,
                   child: ElevatedButton.icon(
-                    onPressed: () => _savePassword(l10n),
-                    icon: const Icon(Icons.verified_user_outlined),
+                    onPressed: _savingPassword
+                        ? null
+                        : () => _savePassword(l10n),
+                    icon: _savingPassword
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.verified_user_outlined),
                     label: Text(l10n.t('savePassword')),
                   ),
                 ),
@@ -354,6 +351,12 @@ class _PasswordCardState extends State<_PasswordCard> {
       ),
     );
   }
+}
+
+class _PasswordChangeException implements Exception {
+  final String message;
+
+  const _PasswordChangeException(this.message);
 }
 
 class _PasswordField extends StatefulWidget {
@@ -639,7 +642,25 @@ class _NotificationsCard extends StatefulWidget {
 }
 
 class _NotificationsCardState extends State<_NotificationsCard> {
+  static const _prefKey = 'notifications_enabled';
   bool _enabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPref();
+  }
+
+  Future<void> _loadPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _enabled = prefs.getBool(_prefKey) ?? true);
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -709,10 +730,7 @@ class _NotificationsCardState extends State<_NotificationsCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Switch(
-                  value: _enabled,
-                  onChanged: (v) => setState(() => _enabled = v),
-                ),
+                Switch(value: _enabled, onChanged: _toggle),
               ],
             ),
           );

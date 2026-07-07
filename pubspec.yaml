@@ -31,11 +31,20 @@ dependencies:
   shared_preferences: ^2.3.2
   google_fonts: ^8.1.0
 
+  # Selección de imagen de perfil
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   mocktail: ^1.0.4
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "web/favicon.png"
 
 flutter:
   uses-material-design: true

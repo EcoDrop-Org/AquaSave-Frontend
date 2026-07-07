@@ -10,6 +10,21 @@ class AppConstants {
   // Mock asset paths
   static const String mockAuthPath = 'assets/mock/auth.json';
 
+  // Cuando es true usa los JSON locales de assets/mock en lugar de la API.
+  // Se puede forzar con: flutter run --dart-define=USE_MOCK=true
+  static const bool useMockData = bool.fromEnvironment(
+    'USE_MOCK',
+    defaultValue: false,
+  );
+
+  // API
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://aquasave-backend.onrender.com',
+  );
+  static const String authTokenKey = 'auth_token';
+  static const String authExpiresAtKey = 'auth_expires_at';
+
   // Image asset paths
   static const String imgLoginPlant = 'assets/images/login-plant.png';
   static const String imgCactusSidebar = 'assets/images/cactus-sidebar.png';
@@ -24,7 +39,6 @@ class AppConstants {
   static const String labelPassword = 'Contraseña';
   static const String labelConfirmPwd = 'Confirmar Contraseña';
   static const String labelEmail = 'EMAIL';
-  static const String labelPhone = 'TELÉFONO';
   static const String labelUserType = 'TIPO DE USUARIO';
   static const String btnLogin = 'Iniciar Sesión';
   static const String btnRegister = 'Registrarse';

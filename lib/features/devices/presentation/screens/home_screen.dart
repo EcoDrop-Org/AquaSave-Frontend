@@ -5,11 +5,11 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/active_device_card.dart';
-import '../widgets/humidity_card.dart';
-import '../widgets/quick_control_card.dart';
-import '../widgets/weather_card.dart';
+import '../widgets/irrigation_cards.dart';
+import '../widgets/weather_advice_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -64,6 +64,14 @@ class _HomeContent extends StatelessWidget {
 
                 final device = state.activeDevice;
 
+                // El pronostico solo se usa para recomendar sobre el riego.
+                final weatherState = context.watch<WeatherBloc>().state;
+                final forecast =
+                    weatherState is WeatherLoaded &&
+                        weatherState.forecast.deviceId == device.id
+                    ? weatherState.forecast
+                    : null;
+
                 return SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(
                     AppDimensions.spaceLg,
@@ -94,49 +102,37 @@ class _HomeContent extends StatelessWidget {
                           const SizedBox(height: AppDimensions.spaceMd),
                           ActiveDeviceCard(device: device),
                           const SizedBox(height: AppDimensions.spaceMd),
+                          WeatherAdviceCard(forecast: forecast),
+                          const SizedBox(height: AppDimensions.spaceMd),
                           LayoutBuilder(
                             builder: (context, c) {
-                              final wide = c.maxWidth >= 600;
-                              if (wide) {
+                              final auto = AutoIrrigationCard(
+                                deviceId: device.id,
+                              );
+                              final manual = ManualIrrigationCard(
+                                deviceId: device.id,
+                              );
+                              if (c.maxWidth >= 760) {
                                 return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: WeatherCard(device: device),
-                                    ),
+                                    Expanded(child: auto),
                                     const SizedBox(
                                       width: AppDimensions.spaceMd,
                                     ),
-                                    Expanded(
-                                      child: HumidityCard(device: device),
-                                    ),
+                                    Expanded(child: manual),
                                   ],
                                 );
                               }
                               return Column(
                                 children: [
-                                  WeatherCard(device: device),
-                                  const SizedBox(height: AppDimensions.spaceMd),
-                                  HumidityCard(device: device),
+                                  auto,
+                                  const SizedBox(
+                                    height: AppDimensions.spaceMd,
+                                  ),
+                                  manual,
                                 ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: AppDimensions.spaceMd),
-                          QuickControlCard(
-                            deviceId: device.id,
-                            onStartIrrigation: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.t('irrigationStarted')),
-                                ),
-                              );
-                            },
-                            onStopIrrigation: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.t('irrigationStopped')),
-                                ),
                               );
                             },
                           ),

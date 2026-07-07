@@ -69,6 +69,35 @@ class DeleteDeviceRequested extends DevicesEvent {
   List<Object> get props => [deviceId];
 }
 
+/// Un dispositivo fue creado fuera del bloc (wizard de aprovisionamiento,
+/// que lo registra via repositorio para obtener su id antes de configurar el
+/// ESP32). Lo incorpora a la lista para que ediciones posteriores lo
+/// encuentren.
+class DeviceProvisioned extends DevicesEvent {
+  final Device device;
+
+  const DeviceProvisioned(this.device);
+
+  @override
+  List<Object> get props => [device.id];
+}
+
+/// Pausa (paused=true) o reactiva (false) el riego del dispositivo de forma
+/// remota. La bomba se apaga y el firmware bloquea el riego hasta reactivar.
+class ToggleDevicePause extends DevicesEvent {
+  final String deviceId;
+  final bool paused;
+
+  const ToggleDevicePause({required this.deviceId, required this.paused});
+
+  @override
+  List<Object> get props => [deviceId, paused];
+}
+
+class ResetDevices extends DevicesEvent {
+  const ResetDevices();
+}
+
 class SelectActiveDevice extends DevicesEvent {
   final String deviceId;
 
