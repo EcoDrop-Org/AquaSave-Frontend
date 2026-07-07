@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
@@ -661,11 +662,12 @@ class _WizardPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(28, 22, 28, 28),
       decoration: BoxDecoration(
+        // Panel verde suave: acompaña sin competir con el contenido del paso.
         color: isDark
-            ? cs.primary.withValues(alpha: 0.16)
-            : cs.primary.withValues(alpha: 0.42),
+            ? cs.primary.withValues(alpha: 0.12)
+            : cs.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1248,25 +1250,25 @@ class _WizardSensorStep extends StatelessWidget {
         icon: Icons.water_drop_rounded,
         label: 'Humedad de suelo',
         value: '62%',
-        color: Color(0xFF52A7D8),
+        color: AppColors.aqua,
       ),
       _WizardSensorCard(
         icon: Icons.thermostat_rounded,
         label: 'Temperatura',
         value: '24.3°C',
-        color: Color(0xFFE25E4F),
+        color: AppColors.earth,
       ),
       _WizardSensorCard(
         icon: Icons.light_mode_rounded,
         label: 'Luminosidad',
         value: '48 200 lx',
-        color: Color(0xFFD7B850),
+        color: AppColors.sun,
       ),
       _WizardSensorCard(
         icon: Icons.opacity_rounded,
         label: 'Humedad ambiental',
         value: '58%',
-        color: Color(0xFF5FA06E),
+        color: AppColors.leaf,
       ),
     ];
 

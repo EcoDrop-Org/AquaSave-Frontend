@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../bloc/irrigation_cubit.dart';
 
 String _hora(DateTime t) =>
@@ -157,7 +159,7 @@ class ManualIrrigationCard extends StatelessWidget {
                               context.read<IrrigationCubit>().start(deviceId),
                     icon: const Icon(Icons.play_arrow_rounded, size: 22),
                     label: const Text('Iniciar riego'),
-                    style: _buttonStyle(const Color(0xFFCBE7A3)),
+                    style: _buttonStyle(AppColors.sprout),
                   ),
                 ),
                 if (anyRunning) ...[
@@ -188,7 +190,7 @@ class ManualIrrigationCard extends StatelessWidget {
 }
 
 ButtonStyle _buttonStyle(Color bg) {
-  const fg = Color(0xFF2D3D2C);
+  const fg = AppColors.darkTitleText;
   return ElevatedButton.styleFrom(
     backgroundColor: bg,
     disabledBackgroundColor: bg.withValues(alpha: 0.36),
@@ -235,49 +237,66 @@ class _CardShell extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF4F7A5C), Color(0xFF35513F)],
+          colors: AppColors.canopyGradient,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusHero),
         border: Border.all(
           color: active
-              ? const Color(0xFFCBE7A3)
+              ? AppColors.sprout
               : Colors.white.withValues(alpha: 0.12),
           width: active ? 1.6 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: AppColors.canopyEnd.withValues(alpha: 0.30),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: tt.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _Badge(active: active),
-            ],
+          // Gota de agua como marca de fondo: eco discreto del tema de riego.
+          Positioned(
+            right: -18,
+            bottom: -26,
+            child: Icon(
+              Icons.water_drop_rounded,
+              size: 120,
+              color: Colors.white.withValues(alpha: 0.05),
+            ),
           ),
-          const SizedBox(height: 16),
-          child,
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: tt.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    _Badge(active: active),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                child,
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -298,14 +317,14 @@ class _Badge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
         color: active
-            ? const Color(0xFFCBE7A3)
+            ? AppColors.sprout
             : Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         active ? 'REGANDO' : 'DETENIDO',
         style: tt.labelSmall?.copyWith(
-          color: active ? const Color(0xFF2D3D2C) : Colors.white,
+          color: active ? AppColors.darkTitleText : Colors.white,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.8,
         ),

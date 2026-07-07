@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../shared/widgets/app_logo.dart';
 import '../../../../shared/widgets/auth_top_bar.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
+import '../widgets/auth_panel.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_underline_field.dart';
 
 /// Frame 1 — Login.
-/// Layout: mitad izquierda = imagen de planta, mitad derecha = formulario.
-/// En móvil: columna única con fondo de color.
+/// Layout ancho: imagen botánica con marca a la izquierda + tarjeta flotante
+/// con el formulario a la derecha. En móvil: franja de imagen arriba y la
+/// tarjeta del formulario superpuesta.
 class LoginScreen extends StatefulWidget {
   final VoidCallback onGoToRegister;
   final VoidCallback onLoginSuccess;
@@ -135,25 +135,32 @@ class _WideLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Left half — plant image
+        // Lado izquierdo — imagen botánica con la marca.
+        const Expanded(flex: 11, child: AuthHeroPanel()),
+        // Lado derecho — tarjeta flotante con el formulario.
         Expanded(
-          child: SizedBox.expand(
-            child: Image.asset(AppConstants.imgLoginPlant, fit: BoxFit.cover),
-          ),
-        ),
-        // Right half — form
-        Expanded(
+          flex: 9,
           child: Container(
             color: Theme.of(context).scaffoldBackgroundColor,
-            padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
-            child: _FormContent(
-              usernameCtrl: usernameCtrl,
-              passwordCtrl: passwordCtrl,
-              isLoading: isLoading,
-              onSubmit: onSubmit,
-              onGoToRegister: onGoToRegister,
-              usernameError: usernameError,
-              passwordError: passwordError,
+            alignment: Alignment.center,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 48),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 470),
+                  child: AuthFormCard(
+                    child: _FormContent(
+                      usernameCtrl: usernameCtrl,
+                      passwordCtrl: passwordCtrl,
+                      isLoading: isLoading,
+                      onSubmit: onSubmit,
+                      onGoToRegister: onGoToRegister,
+                      usernameError: usernameError,
+                      passwordError: passwordError,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -186,15 +193,38 @@ class _NarrowLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
-      child: _FormContent(
-        usernameCtrl: usernameCtrl,
-        passwordCtrl: passwordCtrl,
-        isLoading: isLoading,
-        onSubmit: onSubmit,
-        onGoToRegister: onGoToRegister,
-        usernameError: usernameError,
-        passwordError: passwordError,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          // Franja de imagen con la marca; esquinas inferiores redondeadas.
+          const SizedBox(
+            height: 264,
+            width: double.infinity,
+            child: ClipRRect(
+              borderRadius: BorderRadius.vertical(
+                bottom: Radius.circular(AppDimensions.radiusHero + 8),
+              ),
+              child: AuthHeroPanel(compact: true),
+            ),
+          ),
+          // La tarjeta del formulario "flota" sobre la imagen.
+          Container(
+            transform: Matrix4.translationValues(0, -26, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: AuthFormCard(
+              child: _FormContent(
+                usernameCtrl: usernameCtrl,
+                passwordCtrl: passwordCtrl,
+                isLoading: isLoading,
+                onSubmit: onSubmit,
+                onGoToRegister: onGoToRegister,
+                usernameError: usernameError,
+                passwordError: passwordError,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -223,21 +253,18 @@ class _FormContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const AppLogo(height: 74),
-        const SizedBox(height: 24),
-        Text(
-          l10n.t('welcomeBack'),
-          style: tt.displayLarge?.copyWith(color: cs.onSurface),
+        AuthFormHeading(
+          title: l10n.t('welcomeBack'),
+          subtitle: l10n.t('loginSubtitle'),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 32),
         AutofillGroup(
           child: Column(
             children: [

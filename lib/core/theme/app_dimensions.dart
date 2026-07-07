@@ -12,6 +12,9 @@ class AppDimensions {
   static const double radiusSm = 6.0;
   static const double radiusMd = 8.0;
   static const double radiusLg = 10.0;
+  static const double radiusXl = 14.0;
+  static const double radiusCard = 20.0;
+  static const double radiusHero = 24.0;
   static const double radiusFull = 999.0;
 
   // Input / button height

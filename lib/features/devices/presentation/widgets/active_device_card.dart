@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
 
@@ -24,74 +26,97 @@ class ActiveDeviceCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF4F7A5C), Color(0xFF35513F)],
+          colors: AppColors.canopyGradient,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusHero),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppColors.canopyEnd.withValues(alpha: 0.32),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Icon(Icons.sensors_rounded, color: Colors.white),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
+          // Marca de agua botánica: firma visual discreta de las tarjetas hero.
+          Positioned(
+            right: -26,
+            top: -30,
+            child: Icon(
+              Icons.eco_rounded,
+              size: 168,
+              color: Colors.white.withValues(alpha: 0.05),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      l10n.t('activeDevice').toUpperCase(),
-                      style: tt.labelMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      device.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.headlineSmall?.copyWith(
+                      child: const Icon(
+                        Icons.sensors_rounded,
                         color: Colors.white,
-                        fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.t('activeDevice').toUpperCase(),
+                            style: tt.labelMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.72),
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            device.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _ConnectionBadge(status: device.status),
                   ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              _ConnectionBadge(status: device.status),
-            ],
+                const SizedBox(height: 24),
+                _BigStats(device: device),
+                const SizedBox(height: 18),
+                _FooterChips(device: device),
+                const SizedBox(height: 14),
+                _PauseControl(device: device),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          _BigStats(device: device),
-          const SizedBox(height: 18),
-          _FooterChips(device: device),
-          const SizedBox(height: 14),
-          _PauseControl(device: device),
         ],
       ),
     );
@@ -115,12 +140,12 @@ class _PauseControl extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: paused
-            ? const Color(0xFFC0A24A).withValues(alpha: 0.22)
+            ? AppColors.sun.withValues(alpha: 0.22)
             : Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: paused
-              ? const Color(0xFFE8CD7A)
+              ? AppColors.sun.withValues(alpha: 0.85)
               : Colors.white.withValues(alpha: 0.16),
         ),
       ),
@@ -146,7 +171,7 @@ class _PauseControl extends StatelessWidget {
           Switch(
             value: !paused,
             activeThumbColor: Colors.white,
-            activeTrackColor: const Color(0xFFCBE7A3).withValues(alpha: 0.6),
+            activeTrackColor: AppColors.sprout.withValues(alpha: 0.6),
             inactiveThumbColor: Colors.white70,
             inactiveTrackColor: Colors.black.withValues(alpha: 0.25),
             onChanged: (active) {
@@ -188,12 +213,14 @@ class _BigStats extends StatelessWidget {
 
         final humidity = _BigStat(
           icon: Icons.water_drop_rounded,
+          accent: AppColors.aqua,
           label: l10n.t('humidity'),
           value: '${device.humidityPct}%',
           progress: (device.humidityPct / 100).clamp(0.0, 1.0),
         );
         final temperature = _BigStat(
           icon: Icons.thermostat_rounded,
+          accent: AppColors.sun,
           label: l10n.t('temperature'),
           value: device.temperatureC == 0
               ? '—'
@@ -201,6 +228,7 @@ class _BigStats extends StatelessWidget {
         );
         final plants = _BigStat(
           icon: Icons.eco_rounded,
+          accent: AppColors.sprout,
           label: l10n.t('plantsLabel'),
           value: '${device.plantCount}',
         );
@@ -238,12 +266,14 @@ class _BigStats extends StatelessWidget {
 
 class _BigStat extends StatelessWidget {
   final IconData icon;
+  final Color accent;
   final String label;
   final String value;
   final double? progress;
 
   const _BigStat({
     required this.icon,
+    required this.accent,
     required this.label,
     required this.value,
     this.progress,
@@ -252,20 +282,22 @@ class _BigStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    // Acento aclarado para que respire sobre el verde profundo.
+    final glow = Color.lerp(accent, Colors.white, 0.42)!;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.white, size: 18),
+              Icon(icon, color: glow, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -299,8 +331,8 @@ class _BigStat extends StatelessWidget {
               child: LinearProgressIndicator(
                 minHeight: 8,
                 value: progress,
-                color: Colors.white,
-                backgroundColor: Colors.white.withValues(alpha: 0.22),
+                color: glow,
+                backgroundColor: Colors.white.withValues(alpha: 0.18),
               ),
             ),
           ],
@@ -343,23 +375,37 @@ class _ConnectionBadge extends StatelessWidget {
     final online = status == DeviceStatus.online;
     final tt = Theme.of(context).textTheme;
     final l10n = AppLocalizations.of(context);
+    // En línea = brillo verde brote; sin conexión = coral de alerta.
+    final dot = online
+        ? AppColors.sprout
+        : Color.lerp(AppColors.coral, Colors.white, 0.3)!;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: Colors.white.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            online ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-            color: Colors.white,
-            size: 15,
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: dot,
+              boxShadow: [
+                BoxShadow(
+                  color: dot.withValues(alpha: 0.55),
+                  blurRadius: 7,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           Text(
             online ? l10n.t('online') : l10n.t('offline'),
             style: tt.bodySmall?.copyWith(

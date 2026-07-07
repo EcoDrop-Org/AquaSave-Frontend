@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
@@ -176,7 +177,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   value:
                                       '${(kpis?.totalLiters ?? 0).toStringAsFixed(1)} L',
                                   caption: 'Litros estimados por caudal',
-                                  color: const Color(0xFF5F8FA0),
+                                  color: AppColors.aqua,
                                   compact: compact,
                                 ),
                                 _MetricCard(
@@ -185,7 +186,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   value:
                                       '${(kpis?.avgDailyLiters ?? 0).toStringAsFixed(1)} L',
                                   caption: 'Consumo medio por día',
-                                  color: const Color(0xFF5FA06E),
+                                  color: AppColors.leaf,
                                   compact: compact,
                                 ),
                                 _MetricCard(
@@ -193,7 +194,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   title: 'Riegos (30 días)',
                                   value: '${kpis?.totalEvents ?? 0}',
                                   caption: 'Eventos completados',
-                                  color: const Color(0xFFC0A24A),
+                                  color: AppColors.sun,
                                   compact: compact,
                                 ),
                                 _MetricCard(
@@ -202,7 +203,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   value:
                                       '${(kpis?.avgDurationMin ?? 0).toStringAsFixed(1)} min',
                                   caption: 'Por evento de riego',
-                                  color: const Color(0xFF8C7BA0),
+                                  color: AppColors.lavender,
                                   compact: compact,
                                 ),
                               ];
@@ -338,7 +339,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         body: l10n.t('retentionWaitingBody'),
         recommendation: l10n.t('retentionWaitingRecommendation'),
         score: 0.38,
-        color: const Color(0xFF8C9A86),
+        color: AppColors.sage,
       );
     }
 
@@ -359,7 +360,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         body: l10n.t('retentionPoorBody'),
         recommendation: l10n.t('retentionPoorRecommendation'),
         score: 0.34,
-        color: const Color(0xFFCB7C46),
+        color: AppColors.earth,
       );
     }
 
@@ -371,7 +372,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         body: l10n.t('retentionRegularBody'),
         recommendation: l10n.t('retentionRegularRecommendation'),
         score: 0.66,
-        color: const Color(0xFFC0A24A),
+        color: AppColors.sun,
       );
     }
 
@@ -382,7 +383,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       body: l10n.t('retentionExcellentBody'),
       recommendation: l10n.t('retentionExcellentRecommendation'),
       score: 0.92,
-      color: const Color(0xFF5FA06E),
+      color: AppColors.leaf,
     );
   }
 
@@ -485,6 +486,7 @@ class _MetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.07),
@@ -570,14 +572,14 @@ class _AnalyticsHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF44594E), Color(0xFF31443A)],
+          colors: AppColors.canopyGradient,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusHero),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppColors.canopyEnd.withValues(alpha: 0.32),
+            blurRadius: 26,
+            offset: const Offset(0, 13),
           ),
         ],
       ),
@@ -819,10 +821,10 @@ class _TrendCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF5FA06E).withValues(alpha: 0.14),
+                  color: AppColors.leaf.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.show_chart, color: Color(0xFF5FA06E)),
+                child: const Icon(Icons.show_chart, color: AppColors.leaf),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -856,19 +858,19 @@ class _TrendCard extends StatelessWidget {
             children: [
               _TrendLegendItem(
                 label: '${l10n.t('minimum')}: $min%',
-                color: const Color(0xFFCB7C46),
+                color: AppColors.earth,
               ),
               _TrendLegendItem(
                 label: '${l10n.t('averageHumidity')}: ${average.round()}%',
-                color: const Color(0xFF5FA06E),
+                color: AppColors.leaf,
               ),
               _TrendLegendItem(
                 label: '${l10n.t('maximum')}: $max%',
-                color: const Color(0xFFC0A24A),
+                color: AppColors.sun,
               ),
               _TrendLegendItem(
                 label: l10n.t('healthyRange'),
-                color: const Color(0xFFCBE7A3),
+                color: AppColors.aqua,
               ),
             ],
           ),
@@ -953,7 +955,8 @@ class _MoistureTrendChart extends StatelessWidget {
         values: values,
         labels: labels,
         lineColor: cs.primary,
-        bandColor: cs.primary,
+        // Banda saludable en aqua: es "zona de agua correcta", no la línea.
+        bandColor: AppColors.aqua,
         cardColor: cs.surfaceContainerHighest,
         gridColor: cs.outline.withValues(alpha: 0.32),
         textColor: cs.onSurface.withValues(alpha: 0.6),
