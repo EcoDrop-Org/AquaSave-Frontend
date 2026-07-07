@@ -32,4 +32,24 @@ class AppColors {
   static const Color darkTitleText = Color(0xFF2D3D2C);
   static const Color buttonText = Color(0xFFFFFFFF);
   static const Color linkColor = Color(0xFF497654);
+
+  // ── Acentos semánticos (botánico/tech) ────────────────────────────────────
+  // Un solo lugar para los colores de dato: agua/riego, clima, alertas, etc.
+  // Evita hexes sueltos por las pantallas y mantiene el contraste consistente.
+  static const Color aqua = Color(0xFF4FA8C2); // agua / humedad / riego
+  static const Color sky = Color(0xFF5F8FA0); // lluvia / info fría
+  static const Color leaf = Color(0xFF5FA06E); // saludable / éxito
+  static const Color sprout = Color(0xFFCBE7A3); // brillo sobre verde profundo
+  static const Color sun = Color(0xFFD9A93F); // sol / clima cálido
+  static const Color earth = Color(0xFFCB7C46); // suelo seco / advertencia
+  static const Color coral = Color(0xFFE4604E); // solo alertas
+  static const Color lavender = Color(0xFF8C7BA0); // métrica secundaria
+  static const Color sage = Color(0xFF8C9A86); // estados vacíos / neutro
+
+  // ── Gradiente "canopy" (tarjetas hero) ────────────────────────────────────
+  // Verde botánico profundo con deriva sutil hacia azul-agua: la firma visual
+  // de las tarjetas principales (dispositivo activo, riego, análisis).
+  static const Color canopyStart = Color(0xFF41755A);
+  static const Color canopyEnd = Color(0xFF23443C);
+  static const List<Color> canopyGradient = [canopyStart, canopyEnd];
 }

@@ -82,9 +82,11 @@ class _AuthUnderlineFieldState extends State<AuthUnderlineField> {
               )
             : null,
         filled: true,
+        // Relleno tomado de la superficie del tema: funciona dentro de la
+        // tarjeta flotante tanto en claro (verde pálido) como en oscuro.
         fillColor: hasError
             ? cs.error.withValues(alpha: 0.06)
-            : Colors.white.withValues(alpha: 0.54),
+            : cs.surface.withValues(alpha: 0.55),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

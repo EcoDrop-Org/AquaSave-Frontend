@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../core/theme/app_dimensions.dart';
 import 'app_logo.dart';
@@ -94,7 +95,26 @@ class AppSidebar extends StatelessWidget {
               onTap: onItemTap != null ? () => onItemTap!(item) : null,
             );
           }),
-          const SizedBox(height: 8),
+          // Detalle botánico al pie del sidebar: se encoge (o desaparece)
+          // cuando la ventana es baja, sin provocar overflow.
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 14),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 132),
+                  child: Opacity(
+                    opacity: 0.9,
+                    child: Image.asset(
+                      AppConstants.imgCactusSidebar,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

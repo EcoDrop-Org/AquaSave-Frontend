@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/device.dart';
 
 class DeviceListCard extends StatefulWidget {
@@ -55,8 +56,11 @@ class _DeviceListCardState extends State<DeviceListCard> {
               width: isActive ? 1.8 : 1,
             ),
             boxShadow: [
+              // El huerto activo proyecta un halo verde sutil, no solo borde.
               BoxShadow(
-                color: Colors.black.withValues(alpha: _hovered ? 0.16 : 0.08),
+                color: isActive
+                    ? cs.primary.withValues(alpha: _hovered ? 0.30 : 0.20)
+                    : Colors.black.withValues(alpha: _hovered ? 0.16 : 0.08),
                 blurRadius: _hovered ? 26 : 18,
                 offset: const Offset(0, 12),
               ),
@@ -134,6 +138,7 @@ class _DeviceListCardState extends State<DeviceListCard> {
                   Expanded(
                     child: _InlineStat(
                       icon: Icons.eco_rounded,
+                      accent: AppColors.leaf,
                       value: '${widget.device.plantCount}',
                       label: l10n.t('plantsLabel'),
                     ),
@@ -142,6 +147,7 @@ class _DeviceListCardState extends State<DeviceListCard> {
                   Expanded(
                     child: _InlineStat(
                       icon: Icons.water_drop_rounded,
+                      accent: AppColors.aqua,
                       value: '${widget.device.avgHumidityPct}%',
                       label: l10n.t('humidity'),
                     ),
@@ -150,6 +156,7 @@ class _DeviceListCardState extends State<DeviceListCard> {
                   Expanded(
                     child: _InlineStat(
                       icon: Icons.thermostat_rounded,
+                      accent: AppColors.sun,
                       value: '${widget.device.temperatureC.round()}°C',
                       label: l10n.t('temperature'),
                     ),
@@ -266,8 +273,10 @@ class _StatusPill extends StatelessWidget {
     final IconData icon;
     final String label;
     if (online) {
-      bg = cs.onSurface.withValues(alpha: 0.08);
-      fg = cs.onSurface.withValues(alpha: 0.75);
+      bg = AppColors.leaf.withValues(alpha: 0.14);
+      fg = Theme.of(context).brightness == Brightness.dark
+          ? Color.lerp(AppColors.leaf, Colors.white, 0.25)!
+          : Color.lerp(AppColors.leaf, Colors.black, 0.18)!;
       icon = Icons.wifi_rounded;
       label = l10n.t('online');
     } else {
@@ -343,11 +352,13 @@ class _IconActionButton extends StatelessWidget {
 
 class _InlineStat extends StatelessWidget {
   final IconData icon;
+  final Color accent;
   final String value;
   final String label;
 
   const _InlineStat({
     required this.icon,
+    required this.accent,
     required this.value,
     required this.label,
   });
@@ -367,7 +378,7 @@ class _InlineStat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: cs.primary, size: 19),
+          Icon(icon, color: accent, size: 19),
           const SizedBox(height: 8),
           Text(
             value,

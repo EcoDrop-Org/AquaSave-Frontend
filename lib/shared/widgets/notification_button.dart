@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/l10n/app_localizations.dart';
+import '../../core/theme/app_colors.dart';
 import '../../features/devices/presentation/bloc/devices_bloc.dart';
 import '../../features/devices/presentation/bloc/irrigation_cubit.dart';
 import '../../features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
@@ -57,7 +58,7 @@ class NotificationButton extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFE5C73),
+                        color: AppColors.coral,
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: cs.surface, width: 1.5),
                       ),
@@ -92,7 +93,7 @@ class NotificationButton extends StatelessWidget {
           icon: Icons.opacity,
           title: l10n.t('irrigationActiveNotice'),
           body: l10n.t('irrigationActiveBody'),
-          color: const Color(0xFF497654),
+          color: AppColors.aqua,
         ),
       );
     }
@@ -104,7 +105,7 @@ class NotificationButton extends StatelessWidget {
           icon: Icons.umbrella_outlined,
           title: l10n.t('weatherPauseNotice'),
           body: l10n.t('weatherPauseBody'),
-          color: const Color(0xFFFE5C73),
+          color: AppColors.sky,
         ),
       );
     }
@@ -126,7 +127,7 @@ class NotificationButton extends StatelessWidget {
             icon: Icons.local_fire_department_outlined,
             title: l10n.t('heatWaterNotice'),
             body: l10n.t('heatWaterBody'),
-            color: const Color(0xFFB8642B),
+            color: AppColors.earth,
           ),
         );
       }

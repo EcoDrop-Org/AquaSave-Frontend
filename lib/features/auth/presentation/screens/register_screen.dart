@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../shared/widgets/app_logo.dart';
 import '../../../../shared/widgets/auth_top_bar.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/auth_link_row.dart';
+import '../widgets/auth_panel.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_underline_field.dart';
 
@@ -187,31 +186,34 @@ class _WideLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        const Expanded(flex: 10, child: AuthHeroPanel()),
         Expanded(
-          child: SizedBox.expand(
-            child: Image.asset(AppConstants.imgLoginPlant, fit: BoxFit.cover),
-          ),
-        ),
-        Expanded(
+          flex: 10,
           child: Container(
             color: Theme.of(context).scaffoldBackgroundColor,
-            padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
-            child: Center(
-              child: SingleChildScrollView(
-                child: _FormContent(
-                  nameCtrl: nameCtrl,
-                  emailCtrl: emailCtrl,
-                  passwordCtrl: passwordCtrl,
-                  confirmCtrl: confirmCtrl,
-                  selectedProfileType: selectedProfileType,
-                  onProfileTypeChanged: onProfileTypeChanged,
-                  isLoading: isLoading,
-                  onSubmit: onSubmit,
-                  onGoToLogin: onGoToLogin,
-                  nameError: nameError,
-                  emailError: emailError,
-                  passwordError: passwordError,
-                  confirmError: confirmError,
+            alignment: Alignment.center,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 40),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: AuthFormCard(
+                    child: _FormContent(
+                      nameCtrl: nameCtrl,
+                      emailCtrl: emailCtrl,
+                      passwordCtrl: passwordCtrl,
+                      confirmCtrl: confirmCtrl,
+                      selectedProfileType: selectedProfileType,
+                      onProfileTypeChanged: onProfileTypeChanged,
+                      isLoading: isLoading,
+                      onSubmit: onSubmit,
+                      onGoToLogin: onGoToLogin,
+                      nameError: nameError,
+                      emailError: emailError,
+                      passwordError: passwordError,
+                      confirmError: confirmError,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -256,21 +258,42 @@ class _NarrowLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
-      child: _FormContent(
-        nameCtrl: nameCtrl,
-        emailCtrl: emailCtrl,
-        passwordCtrl: passwordCtrl,
-        confirmCtrl: confirmCtrl,
-        selectedProfileType: selectedProfileType,
-        onProfileTypeChanged: onProfileTypeChanged,
-        isLoading: isLoading,
-        onSubmit: onSubmit,
-        onGoToLogin: onGoToLogin,
-        nameError: nameError,
-        emailError: emailError,
-        passwordError: passwordError,
-        confirmError: confirmError,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          const SizedBox(
+            height: 218,
+            width: double.infinity,
+            child: ClipRRect(
+              borderRadius: BorderRadius.vertical(
+                bottom: Radius.circular(AppDimensions.radiusHero + 8),
+              ),
+              child: AuthHeroPanel(compact: true),
+            ),
+          ),
+          Container(
+            transform: Matrix4.translationValues(0, -26, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: AuthFormCard(
+              child: _FormContent(
+                nameCtrl: nameCtrl,
+                emailCtrl: emailCtrl,
+                passwordCtrl: passwordCtrl,
+                confirmCtrl: confirmCtrl,
+                selectedProfileType: selectedProfileType,
+                onProfileTypeChanged: onProfileTypeChanged,
+                isLoading: isLoading,
+                onSubmit: onSubmit,
+                onGoToLogin: onGoToLogin,
+                nameError: nameError,
+                emailError: emailError,
+                passwordError: passwordError,
+                confirmError: confirmError,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -309,21 +332,18 @@ class _FormContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const AppLogo(height: 74),
-        const SizedBox(height: 24),
-        Text(
-          l10n.t('createAccount'),
-          style: tt.displayLarge?.copyWith(color: cs.onSurface),
+        AuthFormHeading(
+          title: l10n.t('createAccount'),
+          subtitle: l10n.t('registerSubtitle'),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 28),
         AutofillGroup(
           child: Column(
             children: [

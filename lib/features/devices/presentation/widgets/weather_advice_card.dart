@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../../../irrigation_intelligence/domain/entities/weather_forecast.dart';
 
 /// Recomendación/advertencia de riego según el clima (único uso del
@@ -22,28 +24,28 @@ class WeatherAdviceCard extends StatelessWidget {
 
     if (f == null) {
       icon = Icons.cloud_off_rounded;
-      color = const Color(0xFF8C9A86);
+      color = AppColors.sage;
       title = 'Recomendación de riego';
       body =
           'Obteniendo el clima de tu zona… Si esto no cambia, verifica que '
           'el huerto tenga una ubicación válida (Editar huerto).';
     } else if (f.shouldPauseIrrigation) {
       icon = Icons.umbrella_rounded;
-      color = const Color(0xFF5F8FA0);
+      color = AppColors.sky;
       title = 'Pausa de riego recomendada';
       body =
           'Hay ${f.rainProbabilityPct}% de probabilidad de lluvia en '
           '${f.locationName}. Deja que la lluvia riegue por ti y ahorra agua.';
     } else if (f.temperatureC >= 30 && f.humidityPct <= 40) {
       icon = Icons.local_fire_department_rounded;
-      color = const Color(0xFFCB7C46);
+      color = AppColors.earth;
       title = 'Riego recomendado';
       body =
           'Hace ${f.temperatureC.toStringAsFixed(0)}°C con aire seco '
           '(${f.humidityPct}%): tus plantas perderán agua rápido hoy.';
     } else {
       icon = Icons.check_circle_outline_rounded;
-      color = const Color(0xFF5FA06E);
+      color = AppColors.leaf;
       title = 'Clima estable';
       body =
           '${f.conditionLabel} en ${f.locationName}. No se necesitan '
@@ -55,13 +57,22 @@ class WeatherAdviceCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
         border: Border.all(color: color.withValues(alpha: 0.32)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusXl),
+            ),
+            child: Icon(icon, color: color, size: 26),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
