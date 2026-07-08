@@ -62,8 +62,8 @@ class _ProfileContent extends StatelessWidget {
                       ProfileDataCard(user: user),
                       const SizedBox(height: AppDimensions.spaceMd),
                       _PasswordCard(),
-                      const SizedBox(height: AppDimensions.spaceMd),
-                      _NotificationsCard(),
+                      // Los ajustes de notificaciones viven ahora en la
+                      // pestana de Configuracion.
                     ],
                   ),
                 ),
@@ -631,124 +631,6 @@ class _PasswordFieldLegacyState extends State<_PasswordFieldLegacy> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: cs.primary, width: 1.5),
         ),
-      ),
-    );
-  }
-}
-
-class _NotificationsCard extends StatefulWidget {
-  @override
-  State<_NotificationsCard> createState() => _NotificationsCardState();
-}
-
-class _NotificationsCardState extends State<_NotificationsCard> {
-  static const _prefKey = 'notifications_enabled';
-  bool _enabled = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPref();
-  }
-
-  Future<void> _loadPref() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _enabled = prefs.getBool(_prefKey) ?? true);
-  }
-
-  Future<void> _toggle(bool value) async {
-    setState(() => _enabled = value);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefKey, value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final l10n = AppLocalizations.of(context);
-
-    return _SettingsCard(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 560;
-          final copy = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFE5C73).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.notifications_active_outlined,
-                  color: Color(0xFFFE5C73),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.t('notifications'),
-                      style: tt.headlineMedium?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.t('notificationsEnabled'),
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.62),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-          final control = Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: cs.surface.withValues(alpha: 0.70),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _enabled ? l10n.t('enabled') : l10n.t('disabled'),
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Switch(value: _enabled, onChanged: _toggle),
-              ],
-            ),
-          );
-
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [copy, const SizedBox(height: 16), control],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: copy),
-              control,
-            ],
-          );
-        },
       ),
     );
   }

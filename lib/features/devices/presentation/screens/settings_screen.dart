@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_localizations.dart';
@@ -8,7 +9,6 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../bloc/devices_bloc.dart';
-import '../cubit/irrigation_settings_cubit.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -49,9 +49,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final settings = await _remote.getDeviceSettings(deviceId);
       if (!mounted) return;
-      context.read<IrrigationSettingsCubit>().loadFromMap(
-        Map<String, dynamic>.from(settings),
-      );
       final slots = settings['schedules'];
       if (slots is List && slots.isNotEmpty) {
         setState(() {
@@ -83,17 +80,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final messenger = ScaffoldMessenger.of(ctx);
     final l10n = AppLocalizations.of(ctx);
-    final settings = context.read<IrrigationSettingsCubit>().state;
 
     setState(() => _savingSettings = true);
     try {
+      // Solo se persisten los horarios: los umbrales de riego viven en el
+      // firmware del dispositivo y ya no se configuran desde la app.
       final payload = <String, dynamic>{
-        'minMoisture': settings.minMoisture,
-        'optimalMoisture': settings.optimalMoisture,
-        'maxMoisture': settings.maxMoisture,
-        'hotAlertC': settings.hotAlertC,
-        'coldAlertC': settings.coldAlertC,
-        'rainPausePct': settings.rainPausePct,
         'schedules': _scheduleSlots
             .map((s) => {'timeText': s.timeText, 'enabled': s.enabled})
             .toList(),
@@ -177,10 +169,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: AppDimensions.spaceMd),
-                      // Programacion automatica: unica configuracion de riego.
+                      // Preferencias de la app (notificaciones, antes en
+                      // Perfil) + programacion automatica del riego.
                       // (Los umbrales de humedad y el clima del huerto se
                       // retiraron: el dispositivo riega con sus umbrales y el
                       // clima solo se usa para recomendaciones.)
+                      _SettingsCard(
+                        title: l10n.t('notifications'),
+                        icon: Icons.notifications_active_outlined,
+                        child: const _NotificationsToggle(),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceMd),
                       _SettingsCard(
                         title: l10n.t('automaticSchedule'),
                         icon: Icons.schedule,
@@ -298,6 +297,81 @@ class _SettingsCard extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+/// Interruptor de notificaciones de la app (antes en Perfil). Usa la misma
+/// clave de SharedPreferences que lee el centro de notificaciones.
+class _NotificationsToggle extends StatefulWidget {
+  const _NotificationsToggle();
+
+  @override
+  State<_NotificationsToggle> createState() => _NotificationsToggleState();
+}
+
+class _NotificationsToggleState extends State<_NotificationsToggle> {
+  static const _prefKey = 'notifications_enabled';
+  bool _enabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPref();
+  }
+
+  Future<void> _loadPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _enabled = prefs.getBool(_prefKey) ?? true);
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            l10n.t('notificationsEnabled'),
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.62),
+              height: 1.35,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: 0.70),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _enabled ? l10n.t('enabled') : l10n.t('disabled'),
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Switch(value: _enabled, onChanged: _toggle),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

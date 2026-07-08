@@ -19,7 +19,6 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     : super(const DevicesInitial()) {
     on<LoadDevices>(_onLoadDevices);
     on<AddDeviceRequested>(_onAddDeviceRequested);
-    on<DeviceProvisioned>(_onDeviceProvisioned);
     on<EditDeviceRequested>(_onEditDeviceRequested);
     on<DeleteDeviceRequested>(_onDeleteDeviceRequested);
     on<ToggleDevicePause>(_onToggleDevicePause);
@@ -45,21 +44,6 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
       _devices[index] = _devices[index].copyWith(isActive: device.isActive);
       _emitLoaded(emit);
     });
-  }
-
-  /// Incorpora un dispositivo creado fuera del bloc (aprovisionamiento del
-  /// wizard). Sin esto, el EditDeviceRequested final del wizard no encontraba
-  /// el dispositivo en la lista local y descartaba nombre/ubicacion/cultivo.
-  void _onDeviceProvisioned(
-    DeviceProvisioned event,
-    Emitter<DevicesState> emit,
-  ) {
-    if (_devices.every((device) => device.id != event.device.id)) {
-      _devices.add(event.device);
-    }
-    _activeDeviceId = event.device.id;
-    _loaded = true;
-    _emitLoaded(emit);
   }
 
   void _emitLoaded(Emitter<DevicesState> emit, {String? error}) {

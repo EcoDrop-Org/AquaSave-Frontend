@@ -17,8 +17,6 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  final List<_IrrigationRecord> _manualEntries = [];
-
   // En modo real los eventos vienen de GET /api/irrigation/devices/{id}/events.
   final IrrigationRemoteDataSource? _remote =
       AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
@@ -80,20 +78,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
-  Future<void> _openManualDialog(String activeDeviceName) async {
-    final entry = await showDialog<_IrrigationRecord>(
-      context: context,
-      builder: (_) => _ManualWateringDialog(deviceName: activeDeviceName),
-    );
-    if (entry == null) return;
-    setState(() => _manualEntries.insert(0, entry));
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.t('manualSaved'))));
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -107,8 +91,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         : null;
     final activeDeviceName = activeDevice?.name ?? 'Mi huerto terraza';
     _maybeRefetch(devicesState, irrigationState);
+    // El historial refleja unicamente riegos reales (del backend o, en modo
+    // demo, los simulados): ya no se registran riegos manuales a mano.
     final records = [
-      ..._manualEntries,
       if (_remote != null)
         ..._serverRecords
       else
@@ -143,59 +128,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final stacked = constraints.maxWidth < 540;
-                          final titleBlock = Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.t('wateringHistoryTitle'),
-                                style: tt.headlineMedium?.copyWith(
-                                  color: cs.onSurface,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                l10n.t('historySubtitle'),
-                                style: tt.bodyMedium?.copyWith(
-                                  color: cs.onSurface.withValues(alpha: 0.68),
-                                ),
-                              ),
-                            ],
-                          );
-                          final button = ElevatedButton.icon(
-                            onPressed: () =>
-                                _openManualDialog(activeDeviceName),
-                            icon: const Icon(Icons.add_rounded),
-                            label: Text(l10n.t('logManualWatering')),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.t('wateringHistoryTitle'),
+                            style: tt.headlineMedium?.copyWith(
+                              color: cs.onSurface,
+                              fontWeight: FontWeight.w900,
                             ),
-                          );
-                          if (stacked) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                titleBlock,
-                                const SizedBox(height: 14),
-                                button,
-                              ],
-                            );
-                          }
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(child: titleBlock),
-                              const SizedBox(width: 16),
-                              SizedBox(width: 240, child: button),
-                            ],
-                          );
-                        },
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.t('historySubtitle'),
+                            style: tt.bodyMedium?.copyWith(
+                              color: cs.onSurface.withValues(alpha: 0.68),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 20),
                       _HistoryTable(records: records),
@@ -738,313 +688,4 @@ class _IrrigationRecord {
     required this.soilMoisture,
     required this.temperatureC,
   });
-}
-
-class _ManualWateringDialog extends StatefulWidget {
-  final String deviceName;
-
-  const _ManualWateringDialog({required this.deviceName});
-
-  @override
-  State<_ManualWateringDialog> createState() => _ManualWateringDialogState();
-}
-
-class _ManualWateringDialogState extends State<_ManualWateringDialog> {
-  DateTime _date = DateTime.now();
-  TimeOfDay _time = TimeOfDay.now();
-  final _durationCtrl = TextEditingController(text: '5');
-  final _litersCtrl = TextEditingController(text: '1.0');
-  String? _durationError;
-  String? _litersError;
-
-  @override
-  void dispose() {
-    _durationCtrl.dispose();
-    _litersCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _date = picked);
-  }
-
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _time,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (picked != null) setState(() => _time = picked);
-  }
-
-  String _formatDateLabel() {
-    const months = [
-      'Ene',
-      'Feb',
-      'Mar',
-      'Abr',
-      'May',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dic',
-    ];
-    return '${_date.day.toString().padLeft(2, '0')} ${months[_date.month - 1]} ${_date.year}';
-  }
-
-  String _formatTimeLabel() {
-    return '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
-  }
-
-  void _save() {
-    final l10n = AppLocalizations.of(context);
-    final duration = int.tryParse(_durationCtrl.text.trim());
-    final liters = double.tryParse(_litersCtrl.text.trim().replaceAll(',', '.'));
-    setState(() {
-      _durationError = (duration == null || duration < 1 || duration > 120)
-          ? l10n.t('invalidManualDuration')
-          : null;
-      _litersError = (liters == null || liters <= 0)
-          ? l10n.t('invalidManualLiters')
-          : null;
-    });
-    if (_durationError != null || _litersError != null) return;
-
-    final dateLabel =
-        '${_formatDateLabel().substring(0, 6)} · ${_formatTimeLabel()}';
-    Navigator.of(context).pop(
-      _IrrigationRecord(
-        dateTime: dateLabel,
-        device: widget.deviceName,
-        type: _IrrigationType.manual,
-        minutes: duration!,
-        liters: liters!,
-        soilMoisture: 40,
-        temperatureC: 24,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final mq = MediaQuery.sizeOf(context);
-
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: mq.width < 600 ? 16 : 48,
-        vertical: 36,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Icon(
-                      Icons.water_drop_rounded,
-                      color: cs.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      l10n.t('manualWateringTitle'),
-                      style: tt.headlineSmall?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                l10n.t('manualWateringBody'),
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.68),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 18),
-              LayoutBuilder(
-                builder: (context, c) {
-                  final stacked = c.maxWidth < 360;
-                  final date = _PickerTile(
-                    label: l10n.t('manualDate'),
-                    value: _formatDateLabel(),
-                    icon: Icons.event_rounded,
-                    onTap: _pickDate,
-                  );
-                  final time = _PickerTile(
-                    label: l10n.t('manualTime'),
-                    value: _formatTimeLabel(),
-                    icon: Icons.schedule_rounded,
-                    onTap: _pickTime,
-                  );
-                  if (stacked) {
-                    return Column(
-                      children: [
-                        date,
-                        const SizedBox(height: 10),
-                        time,
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: date),
-                      const SizedBox(width: 10),
-                      Expanded(child: time),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _durationCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: l10n.t('manualDurationMin'),
-                  prefixIcon: const Icon(Icons.timer_outlined),
-                  errorText: _durationError,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _litersCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: l10n.t('manualLitersUsed'),
-                  prefixIcon: const Icon(Icons.water_drop_outlined),
-                  suffixText: 'L',
-                  errorText: _litersError,
-                ),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.check_rounded),
-                      label: Text(l10n.t('save')),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(l10n.t('cancel')),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _PickerTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: cs.primary, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label.toUpperCase(),
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.65),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      value,
-                      style: tt.titleSmall?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.expand_more_rounded,
-                color: cs.onSurface.withValues(alpha: 0.6),
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

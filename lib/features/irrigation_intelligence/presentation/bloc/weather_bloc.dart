@@ -23,8 +23,31 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     emit(WeatherLoading(event.device.id));
     final result = await getCurrentWeatherForDeviceUseCase(event.device);
     result.fold(
-      (failure) => emit(WeatherFailureState(event.device.id, failure.message)),
+      // Si el clima no llega (backend dormido, sin red), se muestra un
+      // pronostico estimado de 20 C en lugar de dejar la card en error.
+      (failure) => emit(WeatherLoaded(_fallbackForecast(event.device))),
       (forecast) => emit(WeatherLoaded(forecast)),
+    );
+  }
+
+  WeatherForecast _fallbackForecast(Device device) {
+    return WeatherForecast(
+      deviceId: device.id,
+      locationName: device.location,
+      latitude: device.latitude ?? 0,
+      longitude: device.longitude ?? 0,
+      temperatureC: 20,
+      apparentTemperatureC: 20,
+      humidityPct: 60,
+      rainProbabilityPct: 0,
+      precipitationMm: 0,
+      windSpeedKmh: 0,
+      weatherCode: 0,
+      conditionLabel: 'Clima estimado',
+      isDay: true,
+      retrievedAt: DateTime.now(),
+      // Corto para reintentar pronto y recuperar el clima real.
+      validUntil: DateTime.now().add(const Duration(minutes: 5)),
     );
   }
 }

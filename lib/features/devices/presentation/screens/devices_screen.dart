@@ -10,11 +10,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
-import '../../domain/repositories/devices_repository.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
 import 'device_detail_dialog.dart';
-import 'esp32_provisioning_dialog.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -268,21 +266,14 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
 // ── Add device onboarding ───────────────────────────────────────────────────
 
 Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
-  const totalSteps = 6;
+  // El ESP32 llega con el WiFi ya configurado en su firmware y se conecta
+  // solo: el wizard ya no pide red ni contraseña, solo los datos del huerto.
+  const totalSteps = 5;
   var step = 1;
-  var selectedSsid = '';
-  var rememberNetwork = true;
   var crop = 'Plantas de vegetales';
   _PlaceResult? selectedPlace;
 
-  // Estado de aprovisionamiento real del ESP32. Si el usuario vincula el
-  // dispositivo en el paso WiFi, aqui queda el id que genero el backend, para
-  // no volver a crear el dispositivo al finalizar el wizard.
-  String? provisionedDeviceId;
-  bool deviceLinked = false;
-
   final l10n = AppLocalizations.of(context);
-  final passwordCtrl = TextEditingController(text: 'aquasave123');
   final nameCtrl = TextEditingController(text: 'Mi huerto terraza');
   final plantCountCtrl = TextEditingController(text: '5');
   final descriptionCtrl = TextEditingController();
@@ -294,8 +285,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   }
 
   bool validateCurrentStep() {
-    // Paso 2: datos del huerto (se validan ANTES de vincular, porque el
-    // dispositivo se crea en el backend con estos datos).
+    // Paso 2: datos del huerto.
     if (step == 2) {
       if (nameCtrl.text.trim().length < 3) {
         showMessage(l10n.t('invalidName'));
@@ -310,14 +300,6 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         showMessage(l10n.t('invalidLocation'));
         return false;
       }
-    }
-    // Paso 3: vincular es opcional; se puede crear el huerto sin dispositivo
-    // y conectarlo despues con "Reconectar WiFi" en el detalle.
-    if (step == 3 && !deviceLinked) {
-      showMessage(
-        'Continuarás sin dispositivo vinculado. Podrás conectarlo luego '
-        'desde el detalle del huerto.',
-      );
     }
     return true;
   }
@@ -337,123 +319,22 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         ? null
         : Map<String, String>.from(place.byLocale);
 
-    if (provisionedDeviceId != null) {
-      // El dispositivo ya se creo en el backend al vincularlo en el paso WiFi.
-      // Aqui solo actualizamos sus datos finales (nombre, ubicacion, cultivo).
-      context.read<DevicesBloc>().add(
-        EditDeviceRequested(
-          deviceId: provisionedDeviceId!,
-          name: nameCtrl.text.trim(),
-          location: location,
-          plantCount: plantCount,
-          latitude: place?.latitude,
-          longitude: place?.longitude,
-          description: description.isEmpty ? null : description,
-          locationByLocale: localeMap,
-        ),
-      );
-    } else {
-      // Flujo sin vincular ESP32: se crea el dispositivo normalmente.
-      context.read<DevicesBloc>().add(
-        AddDeviceRequested(
-          name: nameCtrl.text.trim(),
-          location: location,
-          plantCount: plantCount,
-          latitude: place?.latitude,
-          longitude: place?.longitude,
-          description: description.isEmpty ? null : description,
-          locationByLocale: localeMap,
-        ),
-      );
-    }
+    context.read<DevicesBloc>().add(
+      AddDeviceRequested(
+        name: nameCtrl.text.trim(),
+        location: location,
+        plantCount: plantCount,
+        latitude: place?.latitude,
+        longitude: place?.longitude,
+        description: description.isEmpty ? null : description,
+        locationByLocale: localeMap,
+      ),
+    );
     Navigator.of(dialogContext).pop();
   }
 
   // Borra un dispositivo huerfano con reintentos. Se usa como rollback si el
   // aprovisionamiento no se completa, para no dejar basura en el backend.
-  Future<void> rollbackDevice(DevicesRepository repo, String deviceId) async {
-    for (var intento = 0; intento < 3; intento++) {
-      final res = await repo.deleteDevice(deviceId);
-      final ok = res.fold((_) => false, (_) => true);
-      if (ok) return;
-      await Future<void>.delayed(const Duration(seconds: 2));
-    }
-    // Si tras 3 intentos no se pudo borrar (sin internet aun), avisar.
-    showMessage(
-      'No se pudo revertir el dispositivo. Se borrara al recuperar conexion; '
-      'revisa tu lista de dispositivos.',
-    );
-  }
-
-  // Vincula el ESP32. Orden pensado para no dejar huerfanos:
-  //   1. (CON internet) crea el dispositivo en el backend -> obtiene su id.
-  //   2. El dialogo guia: conectarse a la red del ESP32, /scan + /connect,
-  //      y luego VOLVER a una red con internet.
-  //   3. Si algo falla o se cancela -> se borra el dispositivo (rollback).
-  // Se llama desde el paso 2 del wizard, cuando aun tienes internet.
-  Future<bool> linkDevice(
-    void Function(void Function()) setWizardState,
-  ) async {
-    if (deviceLinked) return true;
-
-    final repo = context.read<DevicesBloc>().devicesRepository;
-
-    // 1. Crear el dispositivo en el backend (necesita internet AHORA), con
-    //    los datos reales del paso anterior: asi, aunque el flujo se corte
-    //    despues de vincular, el huerto ya quedo con nombre y ubicacion.
-    final place = selectedPlace;
-    final description = descriptionCtrl.text.trim();
-    final created = await repo.addDevice(
-      name: nameCtrl.text.trim().isEmpty
-          ? 'Mi huerto AquaSave'
-          : nameCtrl.text.trim(),
-      location: place?.displayName.trim() ?? 'Sin ubicación',
-      plantCount: int.tryParse(plantCountCtrl.text.trim()) ?? 1,
-      latitude: place?.latitude,
-      longitude: place?.longitude,
-      description: description.isEmpty ? null : description,
-    );
-
-    final device = created.fold((failure) {
-      showMessage(
-        'No se pudo registrar el dispositivo. Asegurate de tener internet '
-        '(tu WiFi normal) antes de vincular. ${failure.message}',
-      );
-      return null;
-    }, (device) => device);
-    if (device == null) return false;
-
-    if (!context.mounted) return false;
-
-    // 2. Aprovisionamiento (scan + connect + volver a WiFi). El dialogo pide
-    //    conectarse a la red del ESP32 y luego regresar a una con internet.
-    final result = await showEsp32ProvisioningDialog(
-      context,
-      deviceId: device.id,
-    );
-
-    if (result == null) {
-      // Cancelado o fallo -> revertir para no dejar huerfano.
-      await rollbackDevice(repo, device.id);
-      return false;
-    }
-
-    // Incorporar el dispositivo al bloc: sin esto, la edicion final del
-    // wizard (nombre/ubicacion/cultivo) no lo encontraba y se descartaba.
-    if (context.mounted) {
-      context.read<DevicesBloc>().add(DeviceProvisioned(device));
-    }
-
-    setWizardState(() {
-      provisionedDeviceId = device.id;
-      deviceLinked = true;
-      selectedSsid = result.ssid;
-      passwordCtrl.text = result.password;
-    });
-    showMessage('Dispositivo vinculado y conectado a "${result.ssid}".');
-    return true;
-  }
-
   await showDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -482,10 +363,6 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
           }
 
           Widget content() {
-            // Orden: los datos del huerto se piden ANTES de vincular, para
-            // que el dispositivo se cree en el backend con el nombre y la
-            // ubicacion reales (y no con valores por defecto si el flujo se
-            // interrumpe despues de vincular).
             return switch (step) {
               1 => const _WizardPrepStep(),
               2 => _WizardGardenStep(
@@ -498,23 +375,9 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
                 onPlaceChanged: (value) =>
                     setWizardState(() => selectedPlace = value),
               ),
-              3 => _WizardWifiStep(
-                ssid: selectedSsid,
-                passwordCtrl: passwordCtrl,
-                rememberNetwork: rememberNetwork,
-                deviceLinked: deviceLinked,
-                onSsidChanged: (value) =>
-                    setWizardState(() => selectedSsid = value),
-                onRememberChanged: (value) =>
-                    setWizardState(() => rememberNetwork = value),
-                onLinkDevice: () => linkDevice(setWizardState),
-              ),
-              4 => _WizardVerificationStep(
-                deviceLinked: deviceLinked,
-                ssid: selectedSsid,
-              ),
-              5 => const _WizardSensorStep(),
-              6 => _WizardReadyStep(
+              3 => const _WizardVerificationStep(),
+              4 => const _WizardSensorStep(),
+              5 => _WizardReadyStep(
                 name: nameCtrl.text.trim().isEmpty
                     ? 'Mi huerto terraza'
                     : nameCtrl.text.trim(),
@@ -594,7 +457,6 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
     },
   );
 
-  passwordCtrl.dispose();
   nameCtrl.dispose();
   plantCountCtrl.dispose();
   descriptionCtrl.dispose();
@@ -773,200 +635,13 @@ class _WizardPrepStep extends StatelessWidget {
           const SizedBox(height: 9),
           const _WizardCheckRow(
             icon: Icons.wifi_rounded,
-            text: 'Estás cerca del router WiFi.',
+            text: 'El dispositivo está dentro del alcance de su red WiFi '
+                'configurada (se conecta solo).',
           ),
           const SizedBox(height: 9),
           const _WizardCheckRow(
-            icon: Icons.settings_input_antenna_rounded,
-            text: 'Tu computadora está conectada a la misma red.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardWifiStep extends StatefulWidget {
-  final String ssid;
-  final TextEditingController passwordCtrl;
-  final bool rememberNetwork;
-  final bool deviceLinked;
-  final ValueChanged<String> onSsidChanged;
-  final ValueChanged<bool> onRememberChanged;
-  final Future<bool> Function() onLinkDevice;
-
-  const _WizardWifiStep({
-    required this.ssid,
-    required this.passwordCtrl,
-    required this.rememberNetwork,
-    required this.deviceLinked,
-    required this.onSsidChanged,
-    required this.onRememberChanged,
-    required this.onLinkDevice,
-  });
-
-  @override
-  State<_WizardWifiStep> createState() => _WizardWifiStepState();
-}
-
-class _WizardWifiStepState extends State<_WizardWifiStep> {
-  bool _linking = false;
-
-  Future<void> _link() async {
-    setState(() => _linking = true);
-    try {
-      await widget.onLinkDevice();
-    } finally {
-      if (mounted) setState(() => _linking = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Conectar el dispositivo a WiFi',
-          style: tt.headlineMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Vincula tu dispositivo para que escanee tu red WiFi y se conecte. '
-          'Recomendamos una red de 2.4 GHz.',
-          style: tt.bodySmall?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.74),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 24),
-        if (widget.deviceLinked)
-          _LinkedBanner(ssid: widget.ssid)
-        else
-          _LinkPrompt(linking: _linking, onLink: _link),
-      ],
-    );
-  }
-}
-
-class _LinkPrompt extends StatelessWidget {
-  final bool linking;
-  final VoidCallback onLink;
-
-  const _LinkPrompt({required this.linking, required this.onLink});
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.router_outlined, color: cs.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Antes de vincular:',
-                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _WizardCheckRow(
-            icon: Icons.power_settings_new_rounded,
-            text: 'El dispositivo está encendido. La primera vez crea su red '
-                '"AquaSave-XXXX".',
-          ),
-          const SizedBox(height: 6),
-          _WizardCheckRow(
-            icon: Icons.wifi_rounded,
-            text: 'Conéctate a esa red WiFi desde tu equipo (clave: '
-                'aquasave123).',
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: linking ? null : onLink,
-              icon: linking
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.link_rounded),
-              label: Text(linking ? 'Vinculando...' : 'Vincular dispositivo'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LinkedBanner extends StatelessWidget {
-  final String ssid;
-
-  const _LinkedBanner({required this.ssid});
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
-            child: Icon(Icons.check_rounded, color: cs.onPrimary, size: 30),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dispositivo vinculado',
-                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Conectado a la red "$ssid". Continúa para verificar y '
-                  'terminar.',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
+            icon: Icons.cloud_done_outlined,
+            text: 'Tienes conexión a internet para registrar el huerto.',
           ),
         ],
       ),
@@ -975,32 +650,20 @@ class _LinkedBanner extends StatelessWidget {
 }
 
 class _WizardVerificationStep extends StatelessWidget {
-  // Estado REAL de la vinculacion (nada de datos de ejemplo): si el usuario
-  // no vinculo el dispositivo, este paso lo dice claramente.
-  final bool deviceLinked;
-  final String ssid;
-
-  const _WizardVerificationStep({
-    required this.deviceLinked,
-    required this.ssid,
-  });
+  // El ESP32 llega con el WiFi configurado en su firmware: se conecta solo
+  // y se vincula al huerto con su ID (detalle del huerto -> copiar ID).
+  const _WizardVerificationStep();
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
-    final checks = deviceLinked
-        ? const [
-            'Dispositivo registrado en AquaSave',
-            'Credenciales WiFi entregadas',
-            'Conexión confirmada por el dispositivo',
-          ]
-        : const [
-            'Huerto con nombre y ubicación listos',
-            'Sin dispositivo vinculado (opcional)',
-            'Puedes conectarlo luego desde el detalle',
-          ];
+    const checks = [
+      'Huerto con nombre y ubicación listos',
+      'El dispositivo se conecta solo a su WiFi configurado',
+      'Vincúlalo con el ID del huerto (detalle → copiar ID)',
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1014,9 +677,8 @@ class _WizardVerificationStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          deviceLinked
-              ? 'Resumen de la vinculación de tu dispositivo.'
-              : 'Continuarás sin dispositivo vinculado.',
+          'El dispositivo ya tiene el WiFi configurado y se conectará '
+          'automáticamente al encenderlo.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
@@ -1039,24 +701,18 @@ class _WizardVerificationStep extends StatelessWidget {
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
-                      color: deviceLinked
-                          ? cs.primary
-                          : cs.outline.withValues(alpha: 0.5),
+                      color: cs.primary,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      deviceLinked
-                          ? Icons.check_rounded
-                          : Icons.wifi_off_rounded,
+                      Icons.wifi_rounded,
                       color: cs.onPrimary,
                       size: 38,
                     ),
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    deviceLinked
-                        ? 'Dispositivo conectado'
-                        : 'Sin dispositivo vinculado',
+                    'Conexión automática',
                     style: tt.titleMedium?.copyWith(
                       color: cs.onSurface,
                       fontWeight: FontWeight.w900,
@@ -1064,10 +720,8 @@ class _WizardVerificationStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    deviceLinked
-                        ? 'Conectado a la red "$ssid".'
-                        : 'Usa "Reconectar WiFi" en el detalle del huerto '
-                              'cuando tengas el dispositivo a mano.',
+                    'Enciende el dispositivo: en unos segundos aparecerá '
+                    '"En línea" en la app.',
                     textAlign: TextAlign.center,
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.58),
@@ -1410,6 +1064,14 @@ class _WizardReadyStep extends StatelessWidget {
               ],
             );
           },
+        ),
+        const SizedBox(height: 16),
+        // Recordatorio de vinculacion fisica: el ESP32 usa el ID del huerto.
+        const _WizardCheckRow(
+          icon: Icons.memory_rounded,
+          text: 'Para vincular el ESP32: abre "Ver detalles" del huerto, '
+              'copia el ID del dispositivo y pégalo en el firmware '
+              '(DEVICE_ID) antes de flashear.',
         ),
       ],
     );
