@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/l10n/app_localizations.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
@@ -268,7 +267,7 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
 Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   // El ESP32 llega con el WiFi ya configurado en su firmware y se conecta
   // solo: el wizard ya no pide red ni contraseña, solo los datos del huerto.
-  const totalSteps = 5;
+  const totalSteps = 4;
   var step = 1;
   var crop = 'Plantas de vegetales';
   _PlaceResult? selectedPlace;
@@ -376,8 +375,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
                     setWizardState(() => selectedPlace = value),
               ),
               3 => const _WizardVerificationStep(),
-              4 => const _WizardSensorStep(),
-              5 => _WizardReadyStep(
+              4 => _WizardReadyStep(
                 name: nameCtrl.text.trim().isEmpty
                     ? 'Mi huerto terraza'
                     : nameCtrl.text.trim(),
@@ -891,83 +889,6 @@ class _WizardGardenStep extends StatelessWidget {
   }
 }
 
-class _WizardSensorStep extends StatelessWidget {
-  const _WizardSensorStep();
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    final cards = const [
-      _WizardSensorCard(
-        icon: Icons.water_drop_rounded,
-        label: 'Humedad de suelo',
-        value: '62%',
-        color: AppColors.aqua,
-      ),
-      _WizardSensorCard(
-        icon: Icons.thermostat_rounded,
-        label: 'Temperatura',
-        value: '24.3°C',
-        color: AppColors.earth,
-      ),
-      _WizardSensorCard(
-        icon: Icons.light_mode_rounded,
-        label: 'Luminosidad',
-        value: '48 200 lx',
-        color: AppColors.sun,
-      ),
-      _WizardSensorCard(
-        icon: Icons.opacity_rounded,
-        label: 'Humedad ambiental',
-        value: '58%',
-        color: AppColors.leaf,
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Prueba de sensores',
-          style: tt.headlineMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Vamos a leer los sensores conectados al dispositivo para verificar que funcionan.',
-          style: tt.bodySmall?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.74),
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-        const SizedBox(height: 24),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth < 620 ? 1 : 2;
-            return Wrap(
-              spacing: 14,
-              runSpacing: 14,
-              children: [
-                for (final card in cards)
-                  SizedBox(
-                    width: columns == 1
-                        ? constraints.maxWidth
-                        : (constraints.maxWidth - 14) / 2,
-                    child: card,
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
 class _WizardReadyStep extends StatelessWidget {
   final String name;
   final String location;
@@ -1276,71 +1197,6 @@ class _WizardUpperLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
         fontWeight: FontWeight.w900,
-      ),
-    );
-  }
-}
-
-class _WizardSensorCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _WizardSensorCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: color, size: 30),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: tt.bodyMedium?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: tt.titleLarge?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
