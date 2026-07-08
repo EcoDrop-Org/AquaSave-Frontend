@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -234,6 +235,10 @@ class _DetailBody extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 14),
+        // ID del dispositivo: se copia en el firmware del ESP32 (DEVICE_ID)
+        // para vincular el hardware con este huerto.
+        _DeviceIdCard(deviceId: device.id),
         const SizedBox(height: 18),
         Text(
           l10n.t('currentMoisture'),
@@ -288,6 +293,80 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
+/// Tarjeta con el ID del dispositivo y boton copiar. Este ID es el que se
+/// pega en el firmware del ESP32 (`const char* DEVICE_ID = "...";`) para
+/// vincular el hardware con este huerto.
+class _DeviceIdCard extends StatelessWidget {
+  final String deviceId;
+
+  const _DeviceIdCard({required this.deviceId});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.memory_rounded, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.t('deviceIdLabel'),
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.t('deviceIdLabel'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: deviceId));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.t('deviceIdCopied'))),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            deviceId,
+            style: tt.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              color: cs.onSurface.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.t('deviceIdHint'),
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailActions extends StatelessWidget {
   final Device device;
 
@@ -298,14 +377,8 @@ class _DetailActions extends StatelessWidget {
     final compact = MediaQuery.sizeOf(context).width < 620;
     final l10n = AppLocalizations.of(context);
 
-    final edit = ElevatedButton.icon(
-      onPressed: () => showDialog<void>(
-        context: context,
-        builder: (_) => _EditGardenDialog(device: device),
-      ),
-      icon: const Icon(Icons.edit_outlined),
-      label: Text(l10n.t('editGarden')),
-    );
+    // La edicion del huerto se hace desde el lapiz de la tarjeta en la lista
+    // de dispositivos; este dialogo solo muestra el detalle.
     final delete = OutlinedButton.icon(
       onPressed: () => _confirmDelete(context, device),
       icon: const Icon(Icons.delete_outline_rounded),
@@ -322,8 +395,6 @@ class _DetailActions extends StatelessWidget {
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                edit,
-                const SizedBox(height: 10),
                 delete,
                 const SizedBox(height: 10),
                 close,
@@ -331,8 +402,6 @@ class _DetailActions extends StatelessWidget {
             )
           : Row(
               children: [
-                Expanded(flex: 4, child: edit),
-                const SizedBox(width: 10),
                 Expanded(flex: 3, child: delete),
                 const SizedBox(width: 10),
                 Expanded(flex: 2, child: close),
@@ -645,168 +714,6 @@ class _MiniHistoryTableState extends State<_MiniHistoryTable> {
   }
 }
 
-class _EditGardenDialog extends StatefulWidget {
-  final Device device;
-
-  const _EditGardenDialog({required this.device});
-
-  @override
-  State<_EditGardenDialog> createState() => _EditGardenDialogState();
-}
-
-class _EditGardenDialogState extends State<_EditGardenDialog> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _descriptionCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameCtrl = TextEditingController(text: widget.device.name);
-    _descriptionCtrl = TextEditingController(
-      text: widget.device.description ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _descriptionCtrl.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final name = _nameCtrl.text.trim();
-    final desc = _descriptionCtrl.text.trim();
-    if (name.length < 3) return;
-    context.read<DevicesBloc>().add(
-      EditDeviceRequested(
-        deviceId: widget.device.id,
-        name: name,
-        location: widget.device.location,
-        plantCount: widget.device.plantCount,
-        description: desc.isEmpty ? null : desc,
-        clearDescription: desc.isEmpty,
-      ),
-    );
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final mq = MediaQuery.sizeOf(context);
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final l10n = AppLocalizations.of(context);
-
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: mq.width < 640 ? 16 : 48,
-        vertical: 36,
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 560, maxHeight: mq.height * 0.88),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Icon(Icons.edit_rounded, color: cs.primary),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      l10n.t('editGarden'),
-                      style: tt.headlineSmall?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  _CloseButton(onPressed: () => Navigator.of(context).pop()),
-                ],
-              ),
-              const SizedBox(height: 22),
-              _FormLabel(l10n.t('gardenName').toUpperCase()),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _nameCtrl,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.sensors_rounded),
-                  hintText: l10n.t('gardenName'),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  _FormLabel(l10n.t('gardenDescription').toUpperCase()),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.outline.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      l10n.t('optionalLabel'),
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurface.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _descriptionCtrl,
-                minLines: 2,
-                maxLines: 4,
-                maxLength: 160,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.notes_rounded),
-                  hintText: l10n.t('gardenDescriptionHint'),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(l10n.t('saveChanges')),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(l10n.t('cancel')),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CloseButton extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -933,20 +840,3 @@ class _MiniBadge extends StatelessWidget {
   }
 }
 
-class _FormLabel extends StatelessWidget {
-  final String label;
-
-  const _FormLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.1,
-      ),
-    );
-  }
-}

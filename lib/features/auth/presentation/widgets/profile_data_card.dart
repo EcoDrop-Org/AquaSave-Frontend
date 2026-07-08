@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -55,39 +54,8 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     };
   }
 
-  Future<void> _pickAndUploadPhoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    final l10n = AppLocalizations.of(context);
-    final authBloc = context.read<AuthBloc>();
-
-    try {
-      final bytes = await picked.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      final ext = picked.path.split('.').last.toLowerCase();
-      final dataUrl = 'data:image/$ext;base64,$base64Image';
-
-      final user = await _patchMe({'avatarUrl': dataUrl});
-      if (!mounted) return;
-      if (user != null) {
-        authBloc.add(UserUpdated(user));
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.t('profileUpdated'))),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(l10n.t('errorGeneric'))));
-    }
-  }
+  // La foto de perfil no se cambia desde la app: no hay seleccion ni subida
+  // de imagenes (el avatar muestra la foto existente o las iniciales).
 
   Future<User?> _patchMe(Map<String, dynamic> body) async {
     final prefs = await SharedPreferences.getInstance();
@@ -189,8 +157,6 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
                     name: widget.user.name,
                     avatarUrl: widget.user.avatarUrl,
                     radius: AppDimensions.avatarSize / 2,
-                    showEditBadge: true,
-                    onEditTap: _pickAndUploadPhoto,
                   ),
                 ),
                 const SizedBox(height: AppDimensions.spaceLg),
@@ -203,8 +169,6 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
                       name: widget.user.name,
                       avatarUrl: widget.user.avatarUrl,
                       radius: AppDimensions.avatarSize / 2,
-                      showEditBadge: true,
-                      onEditTap: _pickAndUploadPhoto,
                     ),
                     const SizedBox(width: AppDimensions.spaceLg),
                     Expanded(child: fields),

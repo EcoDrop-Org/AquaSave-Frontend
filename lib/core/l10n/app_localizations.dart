@@ -91,7 +91,8 @@ class AppLocalizations {
           'Temperatura alta y humedad baja: revisa el riego del huerto.',
       'batteryNotice': 'Batería baja',
       'batteryBody': 'Revisa el dispositivo cuando puedas.',
-      'notificationsEnabled': 'Alertas de humedad crítica y eventos de riego.',
+      'notificationsEnabled':
+          'Configura las notificaciones y programa el riego automático.',
       'homeSubtitle':
           'Cómo está tu huerto en este momento y qué conviene hacer con el riego.',
       'noDevices': 'Sin dispositivos',
@@ -333,7 +334,7 @@ class AppLocalizations {
       'duration': 'Duración',
       'settingsTitle': 'Configuración',
       'settingsSubtitle':
-          'Ajusta los niveles de humedad, la pausa por lluvia y los horarios de riego automático.',
+          'Preferencias de notificaciones y horarios de riego automático.',
       'moistureThresholds': 'Umbrales de humedad',
       'minimum': 'Mínima',
       'optimal': 'Óptima',
@@ -453,7 +454,8 @@ class AppLocalizations {
           'High temperature and low moisture: check garden irrigation.',
       'batteryNotice': 'Low battery',
       'batteryBody': 'Check the device when you can.',
-      'notificationsEnabled': 'Critical humidity and irrigation event alerts.',
+      'notificationsEnabled':
+          'Configure notifications and schedule automatic watering.',
       'homeSubtitle':
           'How your garden is doing right now and what to do about watering.',
       'noDevices': 'No devices',
@@ -690,7 +692,7 @@ class AppLocalizations {
       'duration': 'Duration',
       'settingsTitle': 'Settings',
       'settingsSubtitle':
-          'Adjust moisture levels, the rain pause and automatic watering schedules.',
+          'Notification preferences and automatic watering schedules.',
       'moistureThresholds': 'Moisture thresholds',
       'minimum': 'Minimum',
       'optimal': 'Optimal',
