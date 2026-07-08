@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/repositories/devices_repository.dart';
@@ -14,6 +15,19 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
   final List<Device> _devices = [];
   String? _activeDeviceId;
   bool _loaded = false;
+
+  /// La ultima seleccion de huerto del usuario se guarda en el dispositivo
+  /// para que sobreviva a refrescos de pagina y reinicios de la app.
+  static const _activeDevicePrefKey = 'active_device_id';
+
+  Future<void> _persistActiveDevice(String? deviceId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (deviceId == null) {
+      await prefs.remove(_activeDevicePrefKey);
+    } else {
+      await prefs.setString(_activeDevicePrefKey, deviceId);
+    }
+  }
 
   DevicesBloc({required this.getDevicesUseCase, required this.devicesRepository})
     : super(const DevicesInitial()) {
@@ -67,13 +81,23 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
 
     emit(const DevicesLoading());
     final result = await getDevicesUseCase(const NoParams());
+
+    // Restaurar la ultima seleccion del usuario (si ese huerto aun existe);
+    // sin esto, al refrescar la pagina siempre quedaba activo otro huerto.
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString(_activeDevicePrefKey);
+
     result.fold((failure) => emit(DevicesFailureState(failure.message)), (
       devices,
     ) {
       _devices
         ..clear()
         ..addAll(devices);
-      _activeDeviceId = devices.isNotEmpty ? devices.first.id : null;
+      final savedExists =
+          savedId != null && devices.any((device) => device.id == savedId);
+      _activeDeviceId = savedExists
+          ? savedId
+          : (devices.isNotEmpty ? devices.first.id : null);
       _loaded = true;
       _emitLoaded(emit);
     });
@@ -102,17 +126,19 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
       _activeDeviceId = stored.id;
       _loaded = true;
       _emitLoaded(emit);
+      _persistActiveDevice(stored.id);
     });
   }
 
-  void _onSelectActiveDevice(
+  Future<void> _onSelectActiveDevice(
     SelectActiveDevice event,
     Emitter<DevicesState> emit,
-  ) {
+  ) async {
     if (_devices.every((device) => device.id != event.deviceId)) return;
 
     _activeDeviceId = event.deviceId;
     _emitLoaded(emit);
+    await _persistActiveDevice(event.deviceId);
   }
 
   Future<void> _onEditDeviceRequested(
@@ -173,6 +199,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
       _devices.removeAt(index);
       if (_activeDeviceId == event.deviceId) {
         _activeDeviceId = _devices.isNotEmpty ? _devices.first.id : null;
+        _persistActiveDevice(_activeDeviceId);
       }
       _emitLoaded(emit);
     });
