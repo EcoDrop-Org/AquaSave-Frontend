@@ -7,7 +7,6 @@ import '../../../../core/navigation/nav_cubit.dart';
 import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../../domain/entities/device.dart';
 import '../bloc/devices_bloc.dart';
-import 'esp32_provisioning_dialog.dart';
 
 void showDeviceDetailDialog(BuildContext context, Device device) {
   final devicesBloc = context.read<DevicesBloc>();
@@ -307,30 +306,6 @@ class _DetailActions extends StatelessWidget {
       icon: const Icon(Icons.edit_outlined),
       label: Text(l10n.t('editGarden')),
     );
-    // Re-aprovisionar el MISMO dispositivo (cambio de red WiFi, mudanza,
-    // dispositivo desconectado): reutiliza el flujo de scan/connect con el
-    // deviceId existente, sin crear un huerto nuevo.
-    final reconnect = OutlinedButton.icon(
-      onPressed: () async {
-        final messenger = ScaffoldMessenger.of(context);
-        final result = await showEsp32ProvisioningDialog(
-          context,
-          deviceId: device.id,
-          reconnect: true,
-        );
-        if (result == null) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Dispositivo reconectado a "${result.ssid}". En unos segundos '
-              'volverá a reportar.',
-            ),
-          ),
-        );
-      },
-      icon: const Icon(Icons.wifi_find_rounded),
-      label: const Text('Reconectar WiFi'),
-    );
     final delete = OutlinedButton.icon(
       onPressed: () => _confirmDelete(context, device),
       icon: const Icon(Icons.delete_outline_rounded),
@@ -349,8 +324,6 @@ class _DetailActions extends StatelessWidget {
               children: [
                 edit,
                 const SizedBox(height: 10),
-                reconnect,
-                const SizedBox(height: 10),
                 delete,
                 const SizedBox(height: 10),
                 close,
@@ -359,8 +332,6 @@ class _DetailActions extends StatelessWidget {
           : Row(
               children: [
                 Expanded(flex: 4, child: edit),
-                const SizedBox(width: 10),
-                Expanded(flex: 4, child: reconnect),
                 const SizedBox(width: 10),
                 Expanded(flex: 3, child: delete),
                 const SizedBox(width: 10),
