@@ -9,8 +9,6 @@ class UserAvatar extends StatelessWidget {
   final String? avatarUrl;
   final double radius;
   final double fontSize;
-  final bool showEditBadge;
-  final VoidCallback? onEditTap;
 
   const UserAvatar({
     super.key,
@@ -18,8 +16,6 @@ class UserAvatar extends StatelessWidget {
     this.avatarUrl,
     this.radius = 50,
     this.fontSize = 28,
-    this.showEditBadge = false,
-    this.onEditTap,
   });
 
   static Color _colorFromName(String name) {
@@ -101,34 +97,10 @@ class UserAvatar extends StatelessWidget {
             fontSize: fontSize,
           );
 
-    final circle = ClipOval(
+    // La foto de perfil no es editable: el avatar es solo la imagen o las
+    // iniciales, sin insignia de edicion.
+    return ClipOval(
       child: SizedBox(width: diameter, height: diameter, child: content),
-    );
-
-    if (!showEditBadge) return circle;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        circle,
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: GestureDetector(
-            onTap: onEditTap,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: const Color(0xFF84D57E),
-                shape: BoxShape.circle,
-                border: Border.all(color: bg, width: 1.5),
-              ),
-              child: const Icon(Icons.edit, size: 14, color: Colors.white),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
