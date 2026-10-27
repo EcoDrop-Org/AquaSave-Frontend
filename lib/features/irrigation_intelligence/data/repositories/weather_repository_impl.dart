@@ -32,7 +32,7 @@ class WeatherRepositoryImpl implements WeatherRepository {
     } on http.ClientException {
       return const Left(NetworkFailure('No se pudo conectar con el clima'));
     } catch (_) {
-      return const Left(ServerFailure('No se pudo cargar el clima del huerto'));
+      return const Left(ServerFailure('No se pudo cargar el clima de tu zona'));
     }
   }
 }
