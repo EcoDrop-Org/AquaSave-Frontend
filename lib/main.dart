@@ -39,8 +39,12 @@ import 'features/irrigation_intelligence/domain/usecases/get_current_weather_for
 import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import 'features/irrigation_intelligence/presentation/cubit/recommendation_cubit.dart';
 import 'features/assistant/data/datasources/remote/assistant_remote_datasource.dart';
+import 'features/devices/data/datasources/remote/species_info_datasource.dart';
+import 'features/devices/presentation/cubit/species_info_cubit.dart';
 import 'features/assistant/presentation/cubit/assistant_cubit.dart';
 import 'features/assistant/presentation/screens/assistant_screen.dart';
+import 'features/assistant/presentation/widgets/assistant_bubble.dart';
+import 'features/assistant/presentation/widgets/kawaii_cactus.dart';
 import 'shared/widgets/app_sidebar.dart';
 
 // Controlado por AppConstants.useMockData (--dart-define=USE_MOCK=true).
@@ -95,6 +99,11 @@ class AquaSaveApp extends StatelessWidget {
           create: (_) => WeatherBloc(
             getCurrentWeatherForDeviceUseCase:
                 GetCurrentWeatherForDeviceUseCase(weatherRepo),
+          ),
+        ),
+        BlocProvider<SpeciesInfoCubit>(
+          create: (_) => SpeciesInfoCubit(
+            remote: HttpSpeciesInfoDataSource(client: http.Client()),
           ),
         ),
         BlocProvider<AssistantCubit>(
@@ -209,6 +218,12 @@ class _AppRouterState extends State<_AppRouter> {
   void _loadWeatherForActiveDevice(BuildContext context, DevicesState state) {
     if (state is! DevicesLoaded || state.devices.isEmpty) return;
 
+    // Fichas de especies: antes del early return, porque al agregar una
+    // planta nueva cambia la lista aunque siga activa la misma.
+    context.read<SpeciesInfoCubit>().ensureLoaded(
+      state.devices.map((d) => d.speciesId).whereType<String>(),
+    );
+
     final device = state.activeDevice;
     final deviceKey = '${device.id}:${device.location}';
     if (_lastWeatherDeviceKey == deviceKey) return;
@@ -273,6 +288,9 @@ class _AppRouterState extends State<_AppRouter> {
                 final l10n = AppLocalizations.of(context);
                 final isWide = constraints.maxWidth >= 800;
 
+                // La burbuja sobra en la propia pantalla del asistente.
+                final showBubble = _appScreen != _AppScreen.assistant;
+
                 if (isWide) {
                   return Scaffold(
                     body: Row(
@@ -284,11 +302,17 @@ class _AppRouterState extends State<_AppRouter> {
                         Expanded(child: _currentScreen),
                       ],
                     ),
+                    floatingActionButton: showBubble
+                        ? const AssistantBubble()
+                        : null,
                   );
                 }
 
                 return Scaffold(
                   body: _currentScreen,
+                  floatingActionButton: showBubble
+                      ? const AssistantBubble()
+                      : null,
                   bottomNavigationBar: NavigationBar(
                     selectedIndex: _appScreen.index,
                     labelBehavior:
@@ -300,8 +324,12 @@ class _AppRouterState extends State<_AppRouter> {
                         label: l10n.t('navHome'),
                       ),
                       NavigationDestination(
-                        icon: const Icon(Icons.devices_outlined),
+                        icon: const Icon(Icons.local_florist_outlined),
                         label: l10n.t('navDevices'),
+                      ),
+                      NavigationDestination(
+                        icon: const KawaiiCactus(size: 24),
+                        label: l10n.t('navAssistant'),
                       ),
                       NavigationDestination(
                         icon: const Icon(Icons.bar_chart_outlined),

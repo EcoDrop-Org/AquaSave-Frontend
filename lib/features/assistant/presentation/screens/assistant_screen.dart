@@ -10,7 +10,11 @@ import '../widgets/kawaii_cactus.dart';
 
 /// Chat con el asistente de plantas.
 class AssistantScreen extends StatefulWidget {
-  const AssistantScreen({super.key});
+  /// true cuando se abre desde la burbuja flotante: lleva su propia cabecera
+  /// con boton de cerrar en lugar de la cabecera de la app.
+  final bool embedded;
+
+  const AssistantScreen({super.key, this.embedded = false});
 
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
@@ -60,7 +64,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
     return Column(
       children: [
-        AppHeader(title: l10n.t('chatTitle')),
+        if (widget.embedded)
+          _PanelHeader(title: l10n.t('chatTitle'))
+        else
+          AppHeader(title: l10n.t('chatTitle')),
         Expanded(
           child: BlocConsumer<AssistantCubit, AssistantState>(
             listener: (context, state) => _scrollToEnd(),
@@ -117,6 +124,49 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Cabecera del chat cuando se abre como panel flotante.
+class _PanelHeader extends StatelessWidget {
+  final String title;
+
+  const _PanelHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        border: Border(
+          bottom: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Row(
+        children: [
+          const KawaiiCactus(size: 32),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: tt.titleMedium?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ],
+      ),
     );
   }
 }

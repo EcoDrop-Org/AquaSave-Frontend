@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/plant_species.dart';
+import '../cubit/species_info_cubit.dart';
+import 'plant_photo.dart';
 
 class DeviceListCard extends StatefulWidget {
   final Device device;
@@ -74,19 +77,14 @@ class _DeviceListCardState extends State<DeviceListCard> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Icon(
-                      Icons.sensors_rounded,
-                      color: cs.primary,
-                      size: 22,
-                    ),
+                  // Foto de la especie; si no hay, el widget pone su icono.
+                  PlantPhoto(
+                    imageUrl: context
+                        .watch<SpeciesInfoCubit>()
+                        .infoFor(widget.device.speciesId)
+                        ?.imageUrl,
+                    size: 52,
+                    radius: 13,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -100,6 +98,20 @@ class _DeviceListCardState extends State<DeviceListCard> {
                           style: tt.titleMedium?.copyWith(
                             color: cs.onSurface,
                             fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // La especie va junto al nombre: como "stat" quedaba
+                        // cortada ("Violeta a...").
+                        Text(
+                          PlantSpeciesCatalog.byId(
+                            widget.device.speciesId,
+                          ).commonName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -179,10 +191,11 @@ class _DeviceListCardState extends State<DeviceListCard> {
                     child: _InlineStat(
                       icon: Icons.eco_rounded,
                       accent: AppColors.leaf,
-                      value: PlantSpeciesCatalog.byId(
-                        widget.device.speciesId,
-                      ).commonName,
-                      label: l10n.t('speciesLabel'),
+                      value:
+                          '${PlantSpeciesCatalog.byId(widget.device.speciesId).soilMinPct}'
+                          '-'
+                          '${PlantSpeciesCatalog.byId(widget.device.speciesId).soilMaxPct}%',
+                      label: l10n.t('idealMoisture'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -190,7 +203,9 @@ class _DeviceListCardState extends State<DeviceListCard> {
                     child: _InlineStat(
                       icon: Icons.water_drop_rounded,
                       accent: AppColors.aqua,
-                      value: '${widget.device.avgHumidityPct}%',
+                      value: widget.device.hasIrrigationDevice
+                          ? '${widget.device.avgHumidityPct}%'
+                          : '—',
                       label: l10n.t('humidity'),
                     ),
                   ),
@@ -199,7 +214,9 @@ class _DeviceListCardState extends State<DeviceListCard> {
                     child: _InlineStat(
                       icon: Icons.thermostat_rounded,
                       accent: AppColors.sun,
-                      value: '${widget.device.temperatureC.round()}°C',
+                      value: widget.device.hasIrrigationDevice
+                          ? '${widget.device.temperatureC.round()}°C'
+                          : '—',
                       label: l10n.t('temperature'),
                     ),
                   ),

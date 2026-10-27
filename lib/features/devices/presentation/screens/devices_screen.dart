@@ -10,6 +10,8 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
 import '../../domain/entities/plant_species.dart';
+import '../cubit/species_info_cubit.dart';
+import '../widgets/plant_photo.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
 import 'device_detail_dialog.dart';
@@ -280,6 +282,8 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
   final nameCtrl = TextEditingController();
   final descriptionCtrl = TextEditingController();
+  // Nombre que escribe el usuario cuando elige "Otra planta".
+  final otherNameCtrl = TextEditingController();
 
   void showMessage(String message) {
     ScaffoldMessenger.of(
@@ -289,9 +293,17 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
 
   bool validateCurrentStep() {
     // Paso 1: elegir la especie.
-    if (step == 1 && selectedSpecies == null) {
-      showMessage('Elige qué planta vas a cuidar');
-      return false;
+    if (step == 1) {
+      if (selectedSpecies == null) {
+        showMessage('Elige qué planta vas a cuidar');
+        return false;
+      }
+      // Sin nombre no hay con que buscar su foto ni sus cuidados.
+      if (selectedSpecies!.isGeneric &&
+          otherNameCtrl.text.trim().length < 3) {
+        showMessage('Escribe el nombre de tu planta');
+        return false;
+      }
     }
     // Paso 2: datos de la planta.
     if (step == 2) {
@@ -329,7 +341,9 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
         plantCount: 1,
         latitude: place?.latitude,
         longitude: place?.longitude,
-        description: description.isEmpty ? null : description,
+        // Con "Otra planta" el nombre escrito va como nota: el backend lo
+        // usa para buscar su foto y ficha.
+        description: _noteFor(selectedSpecies, otherNameCtrl, description),
         speciesId: selectedSpecies?.id,
         locationByLocale: localeMap,
       ),
@@ -370,6 +384,7 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
             return switch (step) {
               1 => _WizardSpeciesStep(
                 selected: selectedSpecies,
+                otherNameCtrl: otherNameCtrl,
                 onChanged: (value) =>
                     setWizardState(() => selectedSpecies = value),
               ),
@@ -464,6 +479,22 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
 
   nameCtrl.dispose();
   descriptionCtrl.dispose();
+  otherNameCtrl.dispose();
+}
+
+/// Nota que se guarda en el dispositivo. Con "Otra planta" se antepone el
+/// nombre que escribio el usuario, porque es con lo que el backend busca su
+/// ficha en Wikipedia.
+String? _noteFor(
+  PlantSpecies? species,
+  TextEditingController otherNameCtrl,
+  String description,
+) {
+  final other = otherNameCtrl.text.trim();
+  if (species?.isGeneric == true && other.isNotEmpty) {
+    return description.isEmpty ? other : '$other. $description';
+  }
+  return description.isEmpty ? null : description;
 }
 
 class _WizardStepper extends StatelessWidget {
@@ -603,16 +634,62 @@ class _WizardFooter extends StatelessWidget {
   }
 }
 
-class _WizardSpeciesStep extends StatelessWidget {
+class _WizardSpeciesStep extends StatefulWidget {
   final PlantSpecies? selected;
+  final TextEditingController otherNameCtrl;
   final ValueChanged<PlantSpecies> onChanged;
 
-  const _WizardSpeciesStep({required this.selected, required this.onChanged});
+  const _WizardSpeciesStep({
+    required this.selected,
+    required this.otherNameCtrl,
+    required this.onChanged,
+  });
+
+  @override
+  State<_WizardSpeciesStep> createState() => _WizardSpeciesStepState();
+}
+
+class _WizardSpeciesStepState extends State<_WizardSpeciesStep> {
+  final _searchCtrl = TextEditingController();
+  PlantCategory? _category;
+
+  @override
+  void initState() {
+    super.initState();
+    // Las fotos salen del backend; se piden para todo el catalogo visible.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<SpeciesInfoCubit>().ensureLoaded(
+        PlantSpeciesCatalog.selectable.map((s) => s.id),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final query = _searchCtrl.text;
+
+    // Buscar ignora la categoria: el usuario espera encontrar su planta
+    // escribiendo el nombre, sin tener que acertar el grupo.
+    final results = query.trim().isNotEmpty
+        ? PlantSpeciesCatalog.search(query)
+        : (_category == null
+              ? PlantSpeciesCatalog.selectable
+              : PlantSpeciesCatalog.byCategory(_category!));
+
+    final grouped = <PlantCategory, List<PlantSpecies>>{};
+    for (final species in results) {
+      grouped.putIfAbsent(species.category, () => []).add(species);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,40 +709,134 @@ class _WizardSpeciesStep extends StatelessWidget {
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
         ),
-        const SizedBox(height: 20),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final species in PlantSpeciesCatalog.selectable)
-              _SpeciesChoice(
-                species: species,
-                selected: selected?.id == species.id,
-                onTap: () => onChanged(species),
-              ),
-            _SpeciesChoice(
-              species: PlantSpeciesCatalog.generic,
-              selected: selected?.id == PlantSpecies.genericId,
-              onTap: () => onChanged(PlantSpeciesCatalog.generic),
-            ),
-          ],
+        const SizedBox(height: 16),
+        TextField(
+          controller: _searchCtrl,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: l10n.t('searchPlant'),
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            suffixIcon: query.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() {});
+                    },
+                  ),
+            isDense: true,
+          ),
         ),
-        if (selected != null) ...[
-          const SizedBox(height: 20),
-          _SpeciesInfoPanel(species: selected!),
+        const SizedBox(height: 12),
+        // Filtro por categoria. Se oculta al buscar, porque la busqueda ya
+        // atraviesa todas.
+        if (query.trim().isEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _CategoryChip(
+                  label: l10n.t('allCategories'),
+                  selected: _category == null,
+                  onTap: () => setState(() => _category = null),
+                ),
+                for (final category in PlantCategory.values) ...[
+                  const SizedBox(width: 8),
+                  _CategoryChip(
+                    label: category.label,
+                    selected: _category == category,
+                    onTap: () => setState(() => _category = category),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        if (results.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                l10n.t('noPlantsFound'),
+                style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          )
+        else
+          for (final entry in grouped.entries) ...[
+            // El encabezado solo aporta cuando hay varias categorias juntas.
+            if (grouped.length > 1) ...[
+              Text(
+                entry.key.label,
+                style: tt.labelMedium?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final species in entry.value)
+                  _SpeciesCard(
+                    species: species,
+                    selected: widget.selected?.id == species.id,
+                    onTap: () => widget.onChanged(species),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        // "Otra planta": el usuario escribe el nombre y el backend busca su
+        // foto y ficha en Wikipedia.
+        _OtherPlantCard(
+          selected: widget.selected?.isGeneric ?? false,
+          controller: widget.otherNameCtrl,
+          onTap: () => widget.onChanged(PlantSpeciesCatalog.generic),
+        ),
+        if (widget.selected case final species?) ...[
+          const SizedBox(height: 18),
+          _SpeciesInfoPanel(species: species),
         ],
       ],
     );
   }
 }
 
-/// Opcion de especie en el paso 1.
-class _SpeciesChoice extends StatelessWidget {
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+/// Opcion de especie con su foto.
+class _SpeciesCard extends StatelessWidget {
   final PlantSpecies species;
   final bool selected;
   final VoidCallback onTap;
 
-  const _SpeciesChoice({
+  const _SpeciesCard({
     required this.species,
     required this.selected,
     required this.onTap,
@@ -675,45 +846,161 @@ class _SpeciesChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final fg = selected ? cs.onPrimary : cs.onSurface;
+    final info = context.watch<SpeciesInfoCubit>().infoFor(species.id);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          width: 116,
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: selected ? cs.primary : cs.surface.withValues(alpha: 0.86),
-            borderRadius: BorderRadius.circular(14),
+            color: selected
+                ? cs.primary.withValues(alpha: 0.12)
+                : cs.surface.withValues(alpha: 0.86),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? cs.primary : cs.outline.withValues(alpha: 0.24),
-              width: selected ? 1.6 : 1,
+              color: selected ? cs.primary : cs.outline.withValues(alpha: 0.22),
+              width: selected ? 1.8 : 1,
             ),
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                species.isGeneric
-                    ? Icons.add_circle_outline_rounded
-                    : Icons.eco_rounded,
-                size: 18,
-                color: fg,
+              Stack(
+                children: [
+                  PlantPhoto(imageUrl: info?.imageUrl, size: 100, radius: 11),
+                  if (selected)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 13,
+                          color: cs.onPrimary,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 7),
               Text(
                 species.commonName,
-                style: tt.bodyMedium?.copyWith(
-                  color: fg,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface,
                   fontWeight: FontWeight.w800,
                 ),
               ),
+              Text(
+                '${species.soilMinPct}-${species.soilMaxPct}%',
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Otra planta": el usuario escribe el nombre de su especie.
+class _OtherPlantCard extends StatelessWidget {
+  final bool selected;
+  final TextEditingController controller;
+  final VoidCallback onTap;
+
+  const _OtherPlantCard({
+    required this.selected,
+    required this.controller,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.10)
+                : cs.surface.withValues(alpha: 0.86),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? cs.primary : cs.outline.withValues(alpha: 0.22),
+              width: selected ? 1.8 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 19,
+                    color: selected ? cs.primary : cs.onSurface,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      '¿No está en la lista?',
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: cs.primary,
+                    ),
+                ],
+              ),
               if (selected) ...[
-                const SizedBox(width: 7),
-                Icon(Icons.check_circle_rounded, size: 16, color: fg),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: l10n.t('otherPlantName'),
+                    hintText: l10n.t('otherPlantHint'),
+                    prefixIcon: const Icon(Icons.local_florist_outlined),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Buscaremos su foto y sus cuidados. Usaremos valores de '
+                  'humedad generales hasta conocerla mejor.',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    height: 1.3,
+                  ),
+                ),
               ],
             ],
           ),
@@ -733,6 +1020,7 @@ class _SpeciesInfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final info = context.watch<SpeciesInfoCubit>().infoFor(species.id);
 
     return Container(
       width: double.infinity,
@@ -745,27 +1033,60 @@ class _SpeciesInfoPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            species.isGeneric
-                ? 'Cuidados generales'
-                : 'Cuidados de la ${species.commonName.toLowerCase()}',
-            style: tt.titleSmall?.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w900,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!species.isGeneric)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: PlantPhoto(
+                    imageUrl: info?.imageUrl,
+                    size: 64,
+                    radius: 12,
+                  ),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      species.isGeneric
+                          ? 'Cuidados generales'
+                          : 'Cuidados de la '
+                                '${species.commonName.toLowerCase()}',
+                      style: tt.titleSmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _SpeciesInfoRow(
+                      icon: Icons.water_drop_outlined,
+                      label: 'Humedad ideal',
+                      value: '${species.soilMinPct}% a ${species.soilMaxPct}%',
+                    ),
+                    const SizedBox(height: 6),
+                    _SpeciesInfoRow(
+                      icon: Icons.wb_sunny_outlined,
+                      label: 'Luz',
+                      value: species.sunlight,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // Descripcion de Wikipedia, cuando el backend la trae.
+          if (info?.description case final description?) ...[
+            const SizedBox(height: 12),
+            Text(
+              description,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.75),
+                height: 1.35,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          _SpeciesInfoRow(
-            icon: Icons.water_drop_outlined,
-            label: 'Humedad ideal',
-            value: '${species.soilMinPct}% a ${species.soilMaxPct}%',
-          ),
-          const SizedBox(height: 7),
-          _SpeciesInfoRow(
-            icon: Icons.wb_sunny_outlined,
-            label: 'Luz',
-            value: species.sunlight,
-          ),
+          ],
           if (species.careTip.isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(

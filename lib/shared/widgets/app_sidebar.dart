@@ -26,8 +26,8 @@ class AppSidebar extends StatelessWidget {
     (SidebarItem.home, Icons.home_rounded, Icons.home_outlined, 'navHome'),
     (
       SidebarItem.devices,
-      Icons.devices_rounded,
-      Icons.devices_outlined,
+      Icons.local_florist_rounded,
+      Icons.local_florist_outlined,
       'navDevices',
     ),
     (
