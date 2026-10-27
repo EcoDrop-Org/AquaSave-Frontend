@@ -218,11 +218,11 @@ class _AppRouterState extends State<_AppRouter> {
   void _loadWeatherForActiveDevice(BuildContext context, DevicesState state) {
     if (state is! DevicesLoaded || state.devices.isEmpty) return;
 
-    // Fichas de especies: antes del early return, porque al agregar una
-    // planta nueva cambia la lista aunque siga activa la misma.
-    context.read<SpeciesInfoCubit>().ensureLoaded(
-      state.devices.map((d) => d.speciesId).whereType<String>(),
-    );
+    // Fichas por dispositivo: antes del early return, porque al agregar una
+    // planta nueva cambia la lista aunque siga activa la misma. Va por
+    // dispositivo y no por especie para que cada "Otra planta" traiga la
+    // foto del nombre que escribio el usuario.
+    context.read<SpeciesInfoCubit>().loadForPlants();
 
     final device = state.activeDevice;
     final deviceKey = '${device.id}:${device.location}';

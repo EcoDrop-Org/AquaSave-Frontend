@@ -7,7 +7,10 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/navigation/nav_cubit.dart';
 import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../../domain/entities/device.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/plant_species.dart';
+import '../cubit/species_info_cubit.dart';
+import '../widgets/plant_photo.dart';
 import '../../../irrigation_intelligence/domain/entities/plant_recommendation.dart';
 import '../../../irrigation_intelligence/presentation/cubit/recommendation_cubit.dart';
 import '../bloc/devices_bloc.dart';
@@ -99,96 +102,130 @@ class _DetailBody extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        // Hero card — just the garden name + optional description.
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF4F7A5C), Color(0xFF35513F)],
-            ),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Icon(
-                      Icons.eco_rounded,
-                      color: Colors.white,
+        // Hero con foto grande: la planta se reconoce por su imagen.
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            width: double.infinity,
+            height: 220,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                PlantPhoto(
+                  imageUrl: context
+                      .watch<SpeciesInfoCubit>()
+                      .infoForDevice(device.id, device.speciesId)
+                      ?.imageUrl,
+                  size: double.infinity,
+                  radius: 0,
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.25),
+                        Colors.black.withValues(alpha: 0.80),
+                      ],
+                      stops: const [0.3, 0.55, 1],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          device.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
+                ),
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        device.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          shadows: const [
+                            Shadow(blurRadius: 10, color: Colors.black54),
+                          ],
                         ),
-                        if (device.location.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.place_outlined,
-                                size: 14,
-                                color: Colors.white70,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              species.commonName,
+                              style: tt.labelSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  device.localizedLocation(
-                                    l10n.locale.languageCode,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.82),
-                                  ),
+                            ),
+                          ),
+                          if (device.location.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.place_outlined,
+                              size: 13,
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                device.localizedLocation(
+                                  l10n.locale.languageCode,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.labelSmall?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.85),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Nota del usuario, si la escribio.
+        if (hasDescription) ...[
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.notes_rounded,
+                size: 15,
+                color: cs.onSurface.withValues(alpha: 0.5),
               ),
-              const SizedBox(height: 14),
-              Text(
-                hasDescription ? description : l10n.t('noDescription'),
-                style: tt.bodyMedium?.copyWith(
-                  color: hasDescription
-                      ? Colors.white.withValues(alpha: 0.92)
-                      : Colors.white.withValues(alpha: 0.55),
-                  fontStyle: hasDescription
-                      ? FontStyle.normal
-                      : FontStyle.italic,
-                  height: 1.4,
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  description,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.75),
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+        ],
         const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -212,7 +249,8 @@ class _DetailBody extends StatelessWidget {
                 icon: Icons.eco_rounded,
                 label: l10n.t('speciesLabel'),
                 value: species.commonName,
-                caption: '${l10n.t('idealMoisture')} '
+                caption:
+                    '${l10n.t('idealMoisture')} '
                     '${species.soilMinPct}-${species.soilMaxPct}%',
               ),
             ];
@@ -239,9 +277,31 @@ class _DetailBody extends StatelessWidget {
           },
         ),
         const SizedBox(height: 14),
-        // Codigo de la planta: es lo que la vincula con su dispositivo de
-        // riego. Se muestra en lenguaje de usuario, sin mencionar firmware.
-        _DeviceIdCard(deviceId: device.id),
+        // Datos clave de la especie + descripcion de Wikipedia.
+        _SpeciesFactsCard(species: species, device: device),
+        const SizedBox(height: 14),
+        // Dato curioso de la especie, generado por la IA. Cambia en cada
+        // visita, asi la ficha aporta algo nuevo cada vez.
+        _FunFactCard(deviceId: device.id),
+        const SizedBox(height: 14),
+        // El codigo solo hace falta al vincular el dispositivo: plegado para
+        // que no compita con la informacion de la planta.
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            leading: Icon(Icons.qr_code_2_rounded, size: 20, color: cs.primary),
+            title: Text(
+              l10n.t('deviceIdLabel'),
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            children: [_DeviceIdCard(deviceId: device.id)],
+          ),
+        ),
         const SizedBox(height: 18),
         Text(
           l10n.t('currentMoisture'),
@@ -398,11 +458,7 @@ class _DetailActions extends StatelessWidget {
       child: compact
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                delete,
-                const SizedBox(height: 10),
-                close,
-              ],
+              children: [delete, const SizedBox(height: 10), close],
             )
           : Row(
               children: [
@@ -436,9 +492,9 @@ Future<void> _confirmDelete(BuildContext context, Device device) async {
           ),
           ElevatedButton(
             onPressed: () {
-              pageContext
-                  .read<DevicesBloc>()
-                  .add(DeleteDeviceRequested(device.id));
+              pageContext.read<DevicesBloc>().add(
+                DeleteDeviceRequested(device.id),
+              );
               Navigator.of(dialogContext).pop();
               Navigator.of(pageContext).maybePop();
             },
@@ -697,6 +753,247 @@ class _CareTipCard extends StatelessWidget {
   }
 }
 
+/// Datos clave de la especie: que es, cuanta luz y cuanta agua necesita.
+class _SpeciesFactsCard extends StatelessWidget {
+  final PlantSpecies species;
+  final Device device;
+
+  const _SpeciesFactsCard({required this.species, required this.device});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final info = context.watch<SpeciesInfoCubit>().infoForDevice(
+      device.id,
+      device.speciesId,
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, c) {
+              final facts = [
+                (
+                  Icons.water_drop_outlined,
+                  'Humedad ideal',
+                  '${species.soilMinPct}-${species.soilMaxPct}%',
+                ),
+                (Icons.wb_sunny_outlined, 'Luz', species.sunlight),
+                (Icons.category_outlined, 'Tipo', species.category.label),
+              ];
+
+              // En ancho van en fila; apilados si no entran.
+              if (c.maxWidth >= 460) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final f in facts) ...[
+                      Expanded(
+                        child: _FactTile(icon: f.$1, label: f.$2, value: f.$3),
+                      ),
+                      if (f != facts.last) const SizedBox(width: 10),
+                    ],
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  for (final f in facts) ...[
+                    _FactTile(icon: f.$1, label: f.$2, value: f.$3),
+                    if (f != facts.last) const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            },
+          ),
+          // Que es la planta, segun Wikipedia (o la IA si no la tiene).
+          if (info?.description case final description?) ...[
+            const SizedBox(height: 14),
+            Text(
+              description,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.78),
+                height: 1.45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FactTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _FactTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: cs.primary),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dato curioso de la especie, generado por la IA.
+///
+/// Se pide al abrir la ficha y el backend va rotando los que ya genero, asi
+/// cada visita muestra uno distinto. Si falla no se muestra nada: es un
+/// extra, no debe romper la pantalla.
+class _FunFactCard extends StatefulWidget {
+  final String deviceId;
+
+  const _FunFactCard({required this.deviceId});
+
+  @override
+  State<_FunFactCard> createState() => _FunFactCardState();
+}
+
+class _FunFactCardState extends State<_FunFactCard> {
+  String? _fact;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final fact = await context.read<SpeciesInfoCubit>().remote.fetchFact(
+      widget.deviceId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _fact = fact;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    if (_loading) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.sun.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 15,
+              height: 15,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.sun.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              l10n.t('funFactLoading'),
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final fact = _fact;
+    if (fact == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.sun.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.sun.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.auto_awesome_rounded, size: 18, color: AppColors.sun),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.t('funFactTitle'),
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  fact,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.85),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MiniHistoryTable extends StatefulWidget {
   final String deviceId;
   final String deviceName;
@@ -708,8 +1005,9 @@ class _MiniHistoryTable extends StatefulWidget {
 }
 
 class _MiniHistoryTableState extends State<_MiniHistoryTable> {
-  final IrrigationRemoteDataSourceImpl? _remote =
-      AppConstants.useMockData ? null : IrrigationRemoteDataSourceImpl();
+  final IrrigationRemoteDataSourceImpl? _remote = AppConstants.useMockData
+      ? null
+      : IrrigationRemoteDataSourceImpl();
 
   // Solo riegos reales del backend: nada de datos de ejemplo.
   List<(String, String, String, String)> _rows = const [];
@@ -737,8 +1035,8 @@ class _MiniHistoryTableState extends State<_MiniHistoryTable> {
             '${day.minute.toString().padLeft(2, '0')}';
         final durationMin = e.endedAt != null
             ? ((e.endedAt!.difference(e.startedAt).inSeconds) / 60)
-                .round()
-                .toString()
+                  .round()
+                  .toString()
             : '—';
         final liters = '${e.litersConsumed.toStringAsFixed(1)} L';
         final type = e.triggerType == 'manual' ? 'manual' : 'auto';
@@ -756,8 +1054,18 @@ class _MiniHistoryTableState extends State<_MiniHistoryTable> {
 
   String _monthName(int month) {
     const names = [
-      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
     ];
     return names[month - 1];
   }
@@ -975,4 +1283,3 @@ class _MiniBadge extends StatelessWidget {
     );
   }
 }
-

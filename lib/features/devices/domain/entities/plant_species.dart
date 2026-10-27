@@ -286,7 +286,7 @@ abstract final class PlantSpeciesCatalog {
       careTip:
           'Riega poco y espaciado. Guarda agua en sus hojas: el exceso la '
           'pudre.',
-      scientificName: 'Planta suculenta',
+      scientificName: 'Crassulaceae',
     ),
     PlantSpecies(
       id: 'cactus',
