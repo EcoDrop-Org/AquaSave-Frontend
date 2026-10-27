@@ -30,3 +30,10 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           channelId: live
           projectId: aquasave-cae9e
+          # Fijada: firebase-tools 15.x fallaba con "No OAuth tokens found"
+          # y 403 al leer firebasehosting.googleapis.com usando el mismo
+          # service account que ya funcionaba.
+          firebaseToolsVersion: "13.29.1"
+        env:
+          # Evita que el CLI intente resolver el proyecto por otra via.
+          GOOGLE_CLOUD_PROJECT: aquasave-cae9e
