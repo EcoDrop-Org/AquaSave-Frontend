@@ -2,10 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../features/assistant/presentation/widgets/kawaii_cactus.dart';
 import '../../core/theme/app_dimensions.dart';
 import 'app_logo.dart';
 
-enum SidebarItem { home, devices, analysis, history, profile, settings }
+enum SidebarItem {
+  home,
+  devices,
+  assistant,
+  analysis,
+  history,
+  profile,
+  settings,
+}
 
 class AppSidebar extends StatelessWidget {
   final SidebarItem activeItem;
@@ -20,6 +29,12 @@ class AppSidebar extends StatelessWidget {
       Icons.devices_rounded,
       Icons.devices_outlined,
       'navDevices',
+    ),
+    (
+      SidebarItem.assistant,
+      Icons.chat_bubble_rounded,
+      Icons.chat_bubble_outline_rounded,
+      'navAssistant',
     ),
     (
       SidebarItem.analysis,
@@ -89,6 +104,9 @@ class AppSidebar extends StatelessWidget {
             return _SidebarRow(
               icon: icon,
               activeIcon: activeIcon,
+              customIcon: item == SidebarItem.assistant
+                  ? const KawaiiCactus(size: 25)
+                  : null,
               label: l10n.t(labelKey),
               isActive: item == activeItem,
               textStyle: tt.titleMedium,
@@ -124,12 +142,16 @@ class AppSidebar extends StatelessWidget {
 class _SidebarRow extends StatefulWidget {
   final IconData icon;
   final IconData activeIcon;
+
+  /// Reemplaza el icono por un widget propio (el cactus del asistente).
+  final Widget? customIcon;
   final String label;
   final bool isActive;
   final TextStyle? textStyle;
   final VoidCallback? onTap;
 
   const _SidebarRow({
+    this.customIcon,
     required this.icon,
     required this.activeIcon,
     required this.label,
@@ -193,11 +215,14 @@ class _SidebarRowState extends State<_SidebarRow> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        widget.isActive ? widget.activeIcon : widget.icon,
-                        color: highlighted ? active : inactive,
-                        size: 23,
-                      ),
+                      widget.customIcon ??
+                          Icon(
+                            widget.isActive
+                                ? widget.activeIcon
+                                : widget.icon,
+                            color: highlighted ? active : inactive,
+                            size: 23,
+                          ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
