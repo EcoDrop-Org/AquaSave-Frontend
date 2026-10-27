@@ -130,7 +130,7 @@ class AppLocalizations {
       'humidity': 'Humedad',
       'temperature': 'Temperatura',
       'battery': 'Batería',
-      'deviceIdLabel': 'ID del dispositivo',
+      'deviceIdLabel': 'Código para vincular tu dispositivo',
       'deviceIdHint':
           'Comparte este código con tu dispositivo de riego para vincularlo.',
       'deviceIdCopied': 'ID copiado al portapapeles',
@@ -517,7 +517,7 @@ class AppLocalizations {
       'humidity': 'Humidity',
       'temperature': 'Temperature',
       'battery': 'Battery',
-      'deviceIdLabel': 'Device ID',
+      'deviceIdLabel': 'Code to link your device',
       'deviceIdHint':
           'Share this code with your irrigation device to link it.',
       'deviceIdCopied': 'ID copied to clipboard',
