@@ -89,7 +89,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         devicesState is DevicesLoaded && devicesState.devices.isNotEmpty
         ? devicesState.activeDevice
         : null;
-    final activeDeviceName = activeDevice?.name ?? 'Mi huerto terraza';
+    final activeDeviceName = activeDevice?.name ?? 'Mi planta';
     _maybeRefetch(devicesState, irrigationState);
     // El historial refleja unicamente riegos reales (del backend o, en modo
     // demo, los simulados): ya no se registran riegos manuales a mano.

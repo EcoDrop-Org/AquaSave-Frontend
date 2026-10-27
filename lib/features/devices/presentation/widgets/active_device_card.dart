@@ -5,6 +5,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../domain/entities/device.dart';
+import '../../domain/entities/plant_species.dart';
 import '../bloc/devices_bloc.dart';
 
 class ActiveDeviceCard extends StatelessWidget {
@@ -196,8 +197,8 @@ class _PauseControl extends StatelessWidget {
   }
 }
 
-/// Datos principales del dispositivo en grande: humedad del suelo (con barra),
-/// temperatura y cantidad de plantas.
+/// Datos principales en grande: humedad del suelo (con barra), temperatura y
+/// el rango ideal de la especie, para que la lectura tenga con que compararse.
 class _BigStats extends StatelessWidget {
   final Device device;
 
@@ -226,11 +227,12 @@ class _BigStats extends StatelessWidget {
               ? '—'
               : l10n.temperature(device.temperatureC),
         );
+        final species = PlantSpeciesCatalog.byId(device.speciesId);
         final plants = _BigStat(
           icon: Icons.eco_rounded,
           accent: AppColors.sprout,
-          label: l10n.t('plantsLabel'),
-          value: '${device.plantCount}',
+          label: l10n.t('idealMoisture'),
+          value: '${species.soilMinPct}-${species.soilMaxPct}%',
         );
 
         if (wide) {
@@ -342,7 +344,7 @@ class _BigStat extends StatelessWidget {
   }
 }
 
-/// Ubicación del huerto como chip secundario bajo los datos grandes.
+/// Ubicación de la planta como chip secundario bajo los datos grandes.
 class _FooterChips extends StatelessWidget {
   final Device device;
 

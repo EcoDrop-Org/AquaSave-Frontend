@@ -2,15 +2,33 @@
   "devices": [
     {
       "id": "d001",
-      "name": "Mi huerto terraza",
+      "name": "Mi albahaca de la terraza",
       "location": "Balcon, Lima",
       "status": "online",
       "temperature_c": 24,
       "humidity_pct": 64,
       "battery_pct": 67,
-      "plant_count": 5,
+      "plant_count": 1,
+      "species_id": "albahaca",
+      "has_irrigation_device": true,
       "weather": "Despejado",
       "avg_humidity_pct": 65,
+      "latitude": -12.0464,
+      "longitude": -77.0428
+    },
+    {
+      "id": "d002",
+      "name": "Menta de la cocina",
+      "location": "Cocina, Lima",
+      "status": "offline",
+      "temperature_c": 0,
+      "humidity_pct": 0,
+      "battery_pct": 0,
+      "plant_count": 1,
+      "species_id": "menta",
+      "has_irrigation_device": false,
+      "weather": "Sin datos",
+      "avg_humidity_pct": 0,
       "latitude": -12.0464,
       "longitude": -77.0428
     }

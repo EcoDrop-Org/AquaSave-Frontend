@@ -16,7 +16,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
   String? _activeDeviceId;
   bool _loaded = false;
 
-  /// La ultima seleccion de huerto del usuario se guarda en el dispositivo
+  /// La ultima planta seleccionada por el usuario se guarda en el dispositivo
   /// para que sobreviva a refrescos de pagina y reinicios de la app.
   static const _activeDevicePrefKey = 'active_device_id';
 
@@ -82,8 +82,8 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     emit(const DevicesLoading());
     final result = await getDevicesUseCase(const NoParams());
 
-    // Restaurar la ultima seleccion del usuario (si ese huerto aun existe);
-    // sin esto, al refrescar la pagina siempre quedaba activo otro huerto.
+    // Restaurar la ultima seleccion del usuario (si esa planta aun existe);
+    // sin esto, al refrescar la pagina siempre quedaba activa otra planta.
     final prefs = await SharedPreferences.getInstance();
     final savedId = prefs.getString(_activeDevicePrefKey);
 
@@ -114,6 +114,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
       latitude: event.latitude,
       longitude: event.longitude,
       description: event.description,
+      speciesId: event.speciesId,
     );
 
     result.fold((failure) => _emitLoaded(emit, error: failure.message), (
@@ -154,6 +155,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
     final keepCurrentCoords = !hasNewCoords && !locationChanged;
     final description =
         event.clearDescription ? null : event.description ?? current.description;
+    final speciesId = event.speciesId ?? current.speciesId;
 
     final result = await devicesRepository.updateDevice(
       deviceId: event.deviceId,
@@ -167,6 +169,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
           ? event.longitude
           : (keepCurrentCoords ? current.longitude : null),
       description: description,
+      speciesId: speciesId,
     );
 
     result.fold((failure) => _emitLoaded(emit, error: failure.message), (_) {
@@ -178,6 +181,7 @@ class DevicesBloc extends Bloc<DevicesEvent, DevicesState> {
         longitude: hasNewCoords ? event.longitude : null,
         clearCoordinates: !hasNewCoords && locationChanged,
         description: event.description,
+        speciesId: speciesId,
         clearDescription: event.clearDescription,
         locationByLocale: event.locationByLocale,
         clearLocationByLocale: event.locationByLocale == null && locationChanged,

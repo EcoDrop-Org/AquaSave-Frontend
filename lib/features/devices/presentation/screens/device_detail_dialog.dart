@@ -7,6 +7,9 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/navigation/nav_cubit.dart';
 import '../../data/datasources/remote/irrigation_remote_datasource.dart';
 import '../../domain/entities/device.dart';
+import '../../domain/entities/plant_species.dart';
+import '../../../irrigation_intelligence/domain/entities/plant_recommendation.dart';
+import '../../../irrigation_intelligence/presentation/cubit/recommendation_cubit.dart';
 import '../bloc/devices_bloc.dart';
 
 void showDeviceDetailDialog(BuildContext context, Device device) {
@@ -76,6 +79,7 @@ class _DetailBody extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final description = device.description?.trim();
     final hasDescription = description != null && description.isNotEmpty;
+    final species = PlantSpeciesCatalog.byId(device.speciesId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,11 +210,10 @@ class _DetailBody extends StatelessWidget {
               ),
               _MetricTile(
                 icon: Icons.eco_rounded,
-                label: l10n.t('plantsLabel'),
-                value: '${device.plantCount}',
-                caption: device.status == DeviceStatus.online
-                    ? l10n.t('online')
-                    : l10n.t('offline'),
+                label: l10n.t('speciesLabel'),
+                value: species.commonName,
+                caption: '${l10n.t('idealMoisture')} '
+                    '${species.soilMinPct}-${species.soilMaxPct}%',
               ),
             ];
 
@@ -236,8 +239,8 @@ class _DetailBody extends StatelessWidget {
           },
         ),
         const SizedBox(height: 14),
-        // ID del dispositivo: se copia en el firmware del ESP32 (DEVICE_ID)
-        // para vincular el hardware con este huerto.
+        // Codigo de la planta: es lo que la vincula con su dispositivo de
+        // riego. Se muestra en lenguaje de usuario, sin mencionar firmware.
         _DeviceIdCard(deviceId: device.id),
         const SizedBox(height: 18),
         Text(
@@ -286,6 +289,8 @@ class _DetailBody extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        _CareTipCard(species: species),
         const SizedBox(height: 12),
         _MiniHistoryTable(deviceId: device.id, deviceName: device.name),
       ],
@@ -293,9 +298,8 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-/// Tarjeta con el ID del dispositivo y boton copiar. Este ID es el que se
-/// pega en el firmware del ESP32 (`const char* DEVICE_ID = "...";`) para
-/// vincular el hardware con este huerto.
+/// Tarjeta con el codigo de la planta y boton copiar. Es el codigo que
+/// identifica a su dispositivo de riego al vincularlo.
 class _DeviceIdCard extends StatelessWidget {
   final String deviceId;
 
@@ -320,7 +324,7 @@ class _DeviceIdCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.memory_rounded, size: 18, color: cs.primary),
+              Icon(Icons.qr_code_2_rounded, size: 18, color: cs.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -377,7 +381,7 @@ class _DetailActions extends StatelessWidget {
     final compact = MediaQuery.sizeOf(context).width < 620;
     final l10n = AppLocalizations.of(context);
 
-    // La edicion del huerto se hace desde el lapiz de la tarjeta en la lista
+    // La edicion de la planta se hace desde el lapiz de la tarjeta en la lista
     // de dispositivos; este dialogo solo muestra el detalle.
     final delete = OutlinedButton.icon(
       onPressed: () => _confirmDelete(context, device),
@@ -558,6 +562,138 @@ class _HumidityRangeBar extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Consejos de cuidado de la especie. Sirve igual cuando la planta todavia no
+/// tiene dispositivo de riego: no depende del sensor.
+///
+/// Prefiere los consejos del backend (que la IA puede haber ampliado) y cae al
+/// catalogo local si no llegaron.
+class _CareTipCard extends StatelessWidget {
+  final PlantSpecies species;
+
+  const _CareTipCard({required this.species});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+
+    return BlocBuilder<RecommendationCubit, RecommendationState>(
+      builder: (context, state) {
+        final remote = state is RecommendationLoaded
+            ? state.recommendation
+            : null;
+        final tips = remote != null && remote.careTips.isNotEmpty
+            ? remote.careTips
+            : _localTips();
+        final fromAi =
+            remote != null &&
+            remote.careTips.isNotEmpty &&
+            remote.careSource == AdviceSource.ai;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.local_florist_rounded,
+                    size: 18,
+                    color: cs.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.t('careTipsTitle'),
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  if (fromAi)
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 13,
+                      color: cs.primary.withValues(alpha: 0.7),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              for (final tip in tips) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _iconFor(tip.icon),
+                      size: 15,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.8),
+                            height: 1.35,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '${tip.title}: ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            TextSpan(text: tip.body),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (tip != tips.last) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Consejos del catalogo local, para cuando el backend no responde.
+  List<CareTip> _localTips() {
+    return [
+      CareTip(icon: 'sun', title: 'Luz', body: species.sunlight),
+      CareTip(
+        icon: 'water',
+        title: 'Riego',
+        body:
+            'Mantén la humedad entre ${species.soilMinPct}% y '
+            '${species.soilMaxPct}%.',
+      ),
+      if (species.careTip.isNotEmpty)
+        CareTip(icon: 'leaf', title: 'Consejo', body: species.careTip),
+    ];
+  }
+
+  IconData _iconFor(String icon) {
+    return switch (icon) {
+      'sun' => Icons.wb_sunny_outlined,
+      'water' => Icons.water_drop_outlined,
+      'bug' => Icons.bug_report_outlined,
+      _ => Icons.eco_outlined,
+    };
   }
 }
 

@@ -9,6 +9,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../domain/entities/device.dart';
+import '../../domain/entities/plant_species.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/device_list_card.dart';
 import 'device_detail_dialog.dart';
@@ -265,16 +266,19 @@ class _AddDeviceCardState extends State<_AddDeviceCard> {
 // ── Add device onboarding ───────────────────────────────────────────────────
 
 Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
-  // El ESP32 llega con el WiFi ya configurado en su firmware y se conecta
-  // solo: el wizard ya no pide red ni contraseña, solo los datos del huerto.
+  // Flujo: primero se registra la PLANTA (especie y datos), y el dispositivo
+  // de riego se vincula despues. Una planta = un dispositivo; la planta puede
+  // existir sin dispositivo y la app igual muestra su ficha y cuidados.
+  //
+  // El dispositivo llega con el WiFi en su firmware y se conecta solo, por eso
+  // el wizard no pide red ni contraseña.
   const totalSteps = 4;
   var step = 1;
-  var crop = 'Plantas de vegetales';
+  PlantSpecies? selectedSpecies;
   _PlaceResult? selectedPlace;
 
   final l10n = AppLocalizations.of(context);
-  final nameCtrl = TextEditingController(text: 'Mi huerto terraza');
-  final plantCountCtrl = TextEditingController(text: '5');
+  final nameCtrl = TextEditingController();
   final descriptionCtrl = TextEditingController();
 
   void showMessage(String message) {
@@ -284,15 +288,15 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   }
 
   bool validateCurrentStep() {
-    // Paso 2: datos del huerto.
+    // Paso 1: elegir la especie.
+    if (step == 1 && selectedSpecies == null) {
+      showMessage('Elige qué planta vas a cuidar');
+      return false;
+    }
+    // Paso 2: datos de la planta.
     if (step == 2) {
       if (nameCtrl.text.trim().length < 3) {
         showMessage(l10n.t('invalidName'));
-        return false;
-      }
-      final plants = int.tryParse(plantCountCtrl.text.trim());
-      if (plants == null || plants < 1) {
-        showMessage(l10n.t('invalidPlantCount'));
         return false;
       }
       if (selectedPlace == null) {
@@ -306,7 +310,6 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   void addDevice(BuildContext dialogContext) {
     final place = selectedPlace;
     final location = place?.displayName.trim() ?? '';
-    final plantCount = int.tryParse(plantCountCtrl.text.trim()) ?? 1;
     final description = descriptionCtrl.text.trim();
 
     if (location.isEmpty) {
@@ -322,10 +325,12 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
       AddDeviceRequested(
         name: nameCtrl.text.trim(),
         location: location,
-        plantCount: plantCount,
+        // Una planta por dispositivo de riego.
+        plantCount: 1,
         latitude: place?.latitude,
         longitude: place?.longitude,
         description: description.isEmpty ? null : description,
+        speciesId: selectedSpecies?.id,
         locationByLocale: localeMap,
       ),
     );
@@ -363,24 +368,26 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
 
           Widget content() {
             return switch (step) {
-              1 => const _WizardPrepStep(),
-              2 => _WizardGardenStep(
+              1 => _WizardSpeciesStep(
+                selected: selectedSpecies,
+                onChanged: (value) =>
+                    setWizardState(() => selectedSpecies = value),
+              ),
+              2 => _WizardPlantStep(
                 nameCtrl: nameCtrl,
-                plantCountCtrl: plantCountCtrl,
                 descriptionCtrl: descriptionCtrl,
-                crop: crop,
+                species: selectedSpecies,
                 selectedPlace: selectedPlace,
-                onCropChanged: (value) => setWizardState(() => crop = value),
                 onPlaceChanged: (value) =>
                     setWizardState(() => selectedPlace = value),
               ),
-              3 => const _WizardVerificationStep(),
+              3 => const _WizardConnectStep(),
               4 => _WizardReadyStep(
                 name: nameCtrl.text.trim().isEmpty
-                    ? 'Mi huerto terraza'
+                    ? (selectedSpecies?.commonName ?? 'Mi planta')
                     : nameCtrl.text.trim(),
                 location: selectedPlace?.displayName ?? '',
-                crop: crop,
+                species: selectedSpecies,
               ),
               _ => const SizedBox.shrink(),
             };
@@ -456,7 +463,6 @@ Future<void> _showDeviceOnboardingDialog(BuildContext context) async {
   );
 
   nameCtrl.dispose();
-  plantCountCtrl.dispose();
   descriptionCtrl.dispose();
 }
 
@@ -597,77 +603,22 @@ class _WizardFooter extends StatelessWidget {
   }
 }
 
-class _WizardPrepStep extends StatelessWidget {
-  const _WizardPrepStep();
+class _WizardSpeciesStep extends StatelessWidget {
+  final PlantSpecies? selected;
+  final ValueChanged<PlantSpecies> onChanged;
+
+  const _WizardSpeciesStep({required this.selected, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-
-    return _WizardResponsiveRow(
-      left: _Esp32Illustration(color: cs.onSurface),
-      right: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Conecta tu dispositivo a AquaSave',
-            style: tt.headlineMedium?.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 22),
-          Text(
-            'Antes de continuar:',
-            style: tt.titleMedium?.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const _WizardCheckRow(
-            icon: Icons.light_mode_outlined,
-            text: 'El dispositivo está encendido con el LED azul fijo.',
-          ),
-          const SizedBox(height: 9),
-          const _WizardCheckRow(
-            icon: Icons.wifi_rounded,
-            text: 'El dispositivo está dentro del alcance de su red WiFi '
-                'configurada (se conecta solo).',
-          ),
-          const SizedBox(height: 9),
-          const _WizardCheckRow(
-            icon: Icons.cloud_done_outlined,
-            text: 'Tienes conexión a internet para registrar el huerto.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardVerificationStep extends StatelessWidget {
-  // El ESP32 llega con el WiFi configurado en su firmware: se conecta solo
-  // y se vincula al huerto con su ID (detalle del huerto -> copiar ID).
-  const _WizardVerificationStep();
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    const checks = [
-      'Huerto con nombre y ubicación listos',
-      'El dispositivo se conecta solo a su WiFi configurado',
-      'Vincúlalo con el ID del huerto (detalle → copiar ID)',
-    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Verificación',
+          '¿Qué planta vas a cuidar?',
           style: tt.headlineMedium?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w900,
@@ -675,106 +626,184 @@ class _WizardVerificationStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'El dispositivo ya tiene el WiFi configurado y se conectará '
-          'automáticamente al encenderlo.',
+          'Cada planta necesita un nivel de humedad distinto. Al elegir la '
+          'especie, AquaSave sabe cuándo regarla.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
         ),
-        const SizedBox(height: 24),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 680;
-            final success = Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 38),
-              decoration: BoxDecoration(
-                color: cs.surface.withValues(alpha: 0.94),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final species in PlantSpeciesCatalog.selectable)
+              _SpeciesChoice(
+                species: species,
+                selected: selected?.id == species.id,
+                onTap: () => onChanged(species),
               ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: cs.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.wifi_rounded,
-                      color: cs.onPrimary,
-                      size: 38,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Conexión automática',
-                    style: tt.titleMedium?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Enciende el dispositivo: en unos segundos aparecerá '
-                    '"En línea" en la app.',
-                    textAlign: TextAlign.center,
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.58),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            );
-            final list = Column(
-              children: [
-                for (final check in checks)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _VerificationRow(label: check),
-                  ),
-              ],
-            );
-
-            if (compact) {
-              return Column(
-                children: [success, const SizedBox(height: 16), list],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: success),
-                const SizedBox(width: 24),
-                Expanded(child: list),
-              ],
-            );
-          },
+            _SpeciesChoice(
+              species: PlantSpeciesCatalog.generic,
+              selected: selected?.id == PlantSpecies.genericId,
+              onTap: () => onChanged(PlantSpeciesCatalog.generic),
+            ),
+          ],
         ),
+        if (selected != null) ...[
+          const SizedBox(height: 20),
+          _SpeciesInfoPanel(species: selected!),
+        ],
       ],
     );
   }
 }
 
-class _WizardGardenStep extends StatelessWidget {
-  final TextEditingController nameCtrl;
-  final TextEditingController plantCountCtrl;
-  final TextEditingController descriptionCtrl;
-  final String crop;
-  final _PlaceResult? selectedPlace;
-  final ValueChanged<String> onCropChanged;
-  final ValueChanged<_PlaceResult?> onPlaceChanged;
+/// Opcion de especie en el paso 1.
+class _SpeciesChoice extends StatelessWidget {
+  final PlantSpecies species;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _WizardGardenStep({
-    required this.nameCtrl,
-    required this.plantCountCtrl,
-    required this.descriptionCtrl,
-    required this.crop,
-    required this.selectedPlace,
-    required this.onCropChanged,
-    required this.onPlaceChanged,
+  const _SpeciesChoice({
+    required this.species,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final fg = selected ? cs.onPrimary : cs.onSurface;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: selected ? cs.primary : cs.surface.withValues(alpha: 0.86),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? cs.primary : cs.outline.withValues(alpha: 0.24),
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                species.isGeneric
+                    ? Icons.add_circle_outline_rounded
+                    : Icons.eco_rounded,
+                size: 18,
+                color: fg,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                species.commonName,
+                style: tt.bodyMedium?.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 7),
+                Icon(Icons.check_circle_rounded, size: 16, color: fg),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ficha de la especie elegida: humedad ideal, luz y un consejo de cuidado.
+class _SpeciesInfoPanel extends StatelessWidget {
+  final PlantSpecies species;
+
+  const _SpeciesInfoPanel({required this.species});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.26)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            species.isGeneric
+                ? 'Cuidados generales'
+                : 'Cuidados de la ${species.commonName.toLowerCase()}',
+            style: tt.titleSmall?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _SpeciesInfoRow(
+            icon: Icons.water_drop_outlined,
+            label: 'Humedad ideal',
+            value: '${species.soilMinPct}% a ${species.soilMaxPct}%',
+          ),
+          const SizedBox(height: 7),
+          _SpeciesInfoRow(
+            icon: Icons.wb_sunny_outlined,
+            label: 'Luz',
+            value: species.sunlight,
+          ),
+          if (species.careTip.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  size: 16,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    species.careTip,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.78),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeciesInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _SpeciesInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
   });
 
   @override
@@ -782,11 +811,140 @@ class _WizardGardenStep extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: cs.primary),
+        const SizedBox(width: 7),
+        Text(
+          '$label: ',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardConnectStep extends StatelessWidget {
+  // El dispositivo de riego trae el WiFi configurado de fabrica: se conecta
+  // solo al encenderlo. Aqui no se menciona hardware ni firmware: el usuario
+  // solo necesita saber que debe encenderlo y que puede hacerlo despues.
+  const _WizardConnectStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return _WizardResponsiveRow(
+      left: const _IrrigationDeviceIllustration(),
+      right: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Conecta tu dispositivo de riego',
+            style: tt.headlineMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Es el aparato que mide la humedad de la tierra y riega tu planta '
+            'automáticamente.',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.74),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const _WizardCheckRow(
+            icon: Icons.power_rounded,
+            text: 'Enciéndelo y espera a que la luz quede fija.',
+          ),
+          const SizedBox(height: 9),
+          const _WizardCheckRow(
+            icon: Icons.wifi_rounded,
+            text: 'Déjalo cerca de tu router: se conecta solo a tu WiFi.',
+          ),
+          const SizedBox(height: 9),
+          const _WizardCheckRow(
+            icon: Icons.link_rounded,
+            text: 'Al terminar, abre "Ver detalles" de tu planta para '
+                'vincularlo con su código.',
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 17,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'Todavía no tienes el dispositivo? No hay problema: '
+                    'registra tu planta igual y conéctalo cuando lo tengas. '
+                    'Mientras tanto verás sus cuidados y recomendaciones.',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.72),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardPlantStep extends StatelessWidget {
+  final TextEditingController nameCtrl;
+  final TextEditingController descriptionCtrl;
+  final PlantSpecies? species;
+  final _PlaceResult? selectedPlace;
+  final ValueChanged<_PlaceResult?> onPlaceChanged;
+
+  const _WizardPlantStep({
+    required this.nameCtrl,
+    required this.descriptionCtrl,
+    required this.species,
+    required this.selectedPlace,
+    required this.onPlaceChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final speciesName = species?.commonName ?? 'planta';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Datos del huerto',
+          'Datos de tu $speciesName',
           style: tt.headlineMedium?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w900,
@@ -794,7 +952,8 @@ class _WizardGardenStep extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'La ubicación se guardará con coordenadas exactas para consultar el clima del huerto.',
+          'Guardamos la ubicación para consultar el clima de tu zona y '
+          'ajustar el riego.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
           ),
@@ -808,18 +967,10 @@ class _WizardGardenStep extends StatelessWidget {
               children: [
                 TextFormField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre del huerto',
-                    prefixIcon: Icon(Icons.sensors_rounded),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: plantCountCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Cantidad de plantas',
-                    prefixIcon: Icon(Icons.eco_rounded),
+                  decoration: InputDecoration(
+                    labelText: 'Nombre de tu planta',
+                    hintText: 'Mi $speciesName de la terraza',
+                    prefixIcon: const Icon(Icons.eco_rounded),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -829,30 +980,10 @@ class _WizardGardenStep extends StatelessWidget {
                   maxLines: 3,
                   maxLength: 160,
                   decoration: const InputDecoration(
-                    labelText: 'Descripción (opcional)',
-                    hintText: 'Una nota corta sobre este huerto',
+                    labelText: 'Nota (opcional)',
+                    hintText: 'Dónde está, en qué maceta, algo que recordar…',
                     prefixIcon: Icon(Icons.notes_rounded),
                   ),
-                ),
-                const SizedBox(height: 6),
-                _WizardUpperLabel('TIPO DE PLANTAS'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final item in const [
-                      'Plantas de vegetales',
-                      'Plantas con frutos',
-                      'Hierbas aromáticas',
-                      'Suculentas y cactus',
-                    ])
-                      ChoiceChip(
-                        label: Text(item),
-                        selected: crop == item,
-                        onSelected: (_) => onCropChanged(item),
-                      ),
-                  ],
                 ),
               ],
             );
@@ -892,22 +1023,27 @@ class _WizardGardenStep extends StatelessWidget {
 class _WizardReadyStep extends StatelessWidget {
   final String name;
   final String location;
-  final String crop;
+  final PlantSpecies? species;
 
   const _WizardReadyStep({
     required this.name,
     required this.location,
-    required this.crop,
+    required this.species,
   });
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final plantSpecies = species ?? PlantSpeciesCatalog.generic;
     final rows = [
       ('Nombre', name),
       ('Ubicación', location.isEmpty ? 'Pendiente' : location),
-      ('Cultivo', crop),
+      ('Planta', plantSpecies.commonName),
+      (
+        'Humedad ideal',
+        '${plantSpecies.soilMinPct}% a ${plantSpecies.soilMaxPct}%',
+      ),
     ];
 
     return Column(
@@ -922,7 +1058,7 @@ class _WizardReadyStep extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Tu dispositivo ya forma parte de tu huerto AquaSave.',
+          'Tu planta ya está registrada en AquaSave.',
           style: tt.bodySmall?.copyWith(
             color: cs.onSurface.withValues(alpha: 0.74),
             fontStyle: FontStyle.italic,
@@ -987,12 +1123,12 @@ class _WizardReadyStep extends StatelessWidget {
           },
         ),
         const SizedBox(height: 16),
-        // Recordatorio de vinculacion fisica: el ESP32 usa el ID del huerto.
+        // Recordatorio de vinculacion, en lenguaje del usuario: el codigo de
+        // la planta es lo que identifica a su dispositivo de riego.
         const _WizardCheckRow(
-          icon: Icons.memory_rounded,
-          text: 'Para vincular el ESP32: abre "Ver detalles" del huerto, '
-              'copia el ID del dispositivo y pégalo en el firmware '
-              '(DEVICE_ID) antes de flashear.',
+          icon: Icons.link_rounded,
+          text: 'Para vincular tu dispositivo de riego: abre "Ver detalles" '
+              'de la planta y copia su código.',
         ),
       ],
     );
@@ -1028,10 +1164,11 @@ class _WizardResponsiveRow extends StatelessWidget {
   }
 }
 
-class _Esp32Illustration extends StatelessWidget {
-  final Color color;
-
-  const _Esp32Illustration({required this.color});
+/// Ilustracion del dispositivo de riego. A proposito NO dibuja una placa
+/// electronica: el usuario no deberia pensar en hardware, sino en el aparato
+/// que cuida su planta.
+class _IrrigationDeviceIllustration extends StatelessWidget {
+  const _IrrigationDeviceIllustration();
 
   @override
   Widget build(BuildContext context) {
@@ -1044,30 +1181,38 @@ class _Esp32Illustration extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Center(
-        child: Container(
-          width: 170,
-          height: 86,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1D1C),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.24),
-                blurRadius: 24,
-                offset: const Offset(0, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _LedDot(on: true, color: cs.primary),
-              const SizedBox(width: 7),
-              const _LedDot(on: false, color: Colors.white),
-              const SizedBox(width: 7),
-              const _LedDot(on: false, color: Colors.white),
-            ],
-          ),
+              child: Icon(
+                Icons.water_drop_rounded,
+                color: cs.primary,
+                size: 48,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _LedDot(on: true, color: cs.primary),
+                const SizedBox(width: 7),
+                Text(
+                  'Encendido',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -1139,69 +1284,6 @@ class _WizardCheckRow extends StatelessWidget {
   }
 }
 
-class _VerificationRow extends StatelessWidget {
-  final String label;
-
-  const _VerificationRow({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.surface.withValues(alpha: 0.72)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: cs.surface.withValues(alpha: 0.34),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              'OK',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardUpperLabel extends StatelessWidget {
-  final String text;
-
-  const _WizardUpperLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
-        fontWeight: FontWeight.w900,
-      ),
-    );
-  }
-}
-
 class _SummaryTable extends StatelessWidget {
   final List<(String, String)> rows;
 
@@ -1266,9 +1348,8 @@ class _SummaryTable extends StatelessWidget {
 Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
   final editing = device != null;
   final nameCtrl = TextEditingController(text: device?.name ?? '');
-  final plantCountCtrl = TextEditingController(
-    text: (device?.plantCount ?? 1).toString(),
-  );
+  // Una planta por dispositivo: ya no se pide cantidad, se pide la especie.
+  var selectedSpecies = PlantSpeciesCatalog.byId(device?.speciesId);
   final formKey = GlobalKey<FormState>();
   final l10n = AppLocalizations.of(context);
 
@@ -1365,19 +1446,27 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                                 return null;
                               },
                             );
-                            final plantField = _DeviceDialogField(
-                              controller: plantCountCtrl,
-                              label: l10n.t('plantCount'),
-                              icon: Icons.eco_outlined,
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                final parsed = int.tryParse(value ?? '');
-                                if (parsed == null || parsed < 1) {
-                                  return l10n.t('invalidPlantCount');
-                                }
-                                return null;
-                              },
-                            );
+                            final plantField =
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedSpecies.id,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: l10n.t('speciesLabel'),
+                                    prefixIcon: const Icon(Icons.eco_outlined),
+                                  ),
+                                  items: [
+                                    for (final species
+                                        in PlantSpeciesCatalog.all)
+                                      DropdownMenuItem(
+                                        value: species.id,
+                                        child: Text(species.commonName),
+                                      ),
+                                  ],
+                                  onChanged: (value) => setDialogState(
+                                    () => selectedSpecies =
+                                        PlantSpeciesCatalog.byId(value),
+                                  ),
+                                );
 
                             if (stacked) {
                               return Column(
@@ -1434,7 +1523,7 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
                     formKey,
                     nameCtrl,
                     location,
-                    plantCountCtrl,
+                    selectedSpecies,
                     device,
                     l10n,
                     latitude: selectedPlace?.latitude,
@@ -1451,7 +1540,6 @@ Future<void> _showDeviceDialog(BuildContext context, {Device? device}) async {
   );
 
   nameCtrl.dispose();
-  plantCountCtrl.dispose();
 }
 
 void _submitDeviceDialog(
@@ -1460,7 +1548,7 @@ void _submitDeviceDialog(
   GlobalKey<FormState> formKey,
   TextEditingController nameCtrl,
   String location,
-  TextEditingController plantCountCtrl,
+  PlantSpecies species,
   Device? device,
   AppLocalizations l10n, {
   double? latitude,
@@ -1476,14 +1564,14 @@ void _submitDeviceDialog(
   }
 
   final name = nameCtrl.text.trim();
-  final plantCount = int.parse(plantCountCtrl.text.trim());
 
   if (device == null) {
     pageContext.read<DevicesBloc>().add(
       AddDeviceRequested(
         name: name,
         location: location,
-        plantCount: plantCount,
+        plantCount: 1,
+        speciesId: species.id,
         latitude: latitude,
         longitude: longitude,
         locationByLocale: locationByLocale,
@@ -1495,7 +1583,8 @@ void _submitDeviceDialog(
         deviceId: device.id,
         name: name,
         location: location,
-        plantCount: plantCount,
+        plantCount: 1,
+        speciesId: species.id,
         latitude: latitude,
         longitude: longitude,
         locationByLocale: locationByLocale,
@@ -2078,14 +2167,12 @@ class _DeviceDialogField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final IconData icon;
-  final TextInputType? keyboardType;
   final String? Function(String?)? validator;
 
   const _DeviceDialogField({
     required this.controller,
     required this.label,
     required this.icon,
-    this.keyboardType,
     this.validator,
   });
 
@@ -2095,7 +2182,6 @@ class _DeviceDialogField extends StatelessWidget {
 
     return TextFormField(
       controller: controller,
-      keyboardType: keyboardType,
       validator: validator,
       decoration: InputDecoration(
         labelText: label,

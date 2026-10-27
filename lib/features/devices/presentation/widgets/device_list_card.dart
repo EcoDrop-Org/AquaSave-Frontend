@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/device.dart';
+import '../../domain/entities/plant_species.dart';
 
 class DeviceListCard extends StatefulWidget {
   final Device device;
@@ -56,7 +57,7 @@ class _DeviceListCardState extends State<DeviceListCard> {
               width: isActive ? 1.8 : 1,
             ),
             boxShadow: [
-              // El huerto activo proyecta un halo verde sutil, no solo borde.
+              // La planta activa proyecta un halo verde sutil, no solo borde.
               BoxShadow(
                 color: isActive
                     ? cs.primary.withValues(alpha: _hovered ? 0.30 : 0.20)
@@ -132,6 +133,45 @@ class _DeviceListCardState extends State<DeviceListCard> {
                 ],
               ),
               const SizedBox(height: 18),
+              // Una planta puede no tener dispositivo de riego todavia: en ese
+              // caso sus lecturas estarian en 0 y confundirian, asi que se
+              // dice explicitamente en lugar de mostrar datos vacios.
+              if (!widget.device.hasIrrigationDevice) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: cs.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.sensors_off_rounded,
+                        size: 16,
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.t('noDeviceLinked'),
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               // Three inline stats
               Row(
                 children: [
@@ -139,8 +179,10 @@ class _DeviceListCardState extends State<DeviceListCard> {
                     child: _InlineStat(
                       icon: Icons.eco_rounded,
                       accent: AppColors.leaf,
-                      value: '${widget.device.plantCount}',
-                      label: l10n.t('plantsLabel'),
+                      value: PlantSpeciesCatalog.byId(
+                        widget.device.speciesId,
+                      ).commonName,
+                      label: l10n.t('speciesLabel'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -164,7 +206,7 @@ class _DeviceListCardState extends State<DeviceListCard> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Main action: "Activar" / "Huerto activo" + edit
+              // Accion principal: ver esta planta + editar
               Row(
                 children: [
                   Expanded(child: _ActivateButton(isActive: isActive, onPressed: widget.onSetActive)),

@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../irrigation_intelligence/presentation/bloc/weather_bloc.dart';
+import '../../../irrigation_intelligence/presentation/widgets/plant_recommendation_card.dart';
 import '../bloc/devices_bloc.dart';
 import '../widgets/active_device_card.dart';
 import '../widgets/irrigation_cards.dart';
@@ -101,6 +102,8 @@ class _HomeContent extends StatelessWidget {
                           ),
                           const SizedBox(height: AppDimensions.spaceMd),
                           ActiveDeviceCard(device: device),
+                          const SizedBox(height: AppDimensions.spaceMd),
+                          const PlantRecommendationCard(),
                           const SizedBox(height: AppDimensions.spaceMd),
                           WeatherAdviceCard(forecast: forecast),
                           const SizedBox(height: AppDimensions.spaceMd),

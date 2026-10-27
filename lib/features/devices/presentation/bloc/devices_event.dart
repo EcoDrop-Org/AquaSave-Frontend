@@ -17,6 +17,7 @@ class AddDeviceRequested extends DevicesEvent {
   final double? latitude;
   final double? longitude;
   final String? description;
+  final String? speciesId;
   final Map<String, String>? locationByLocale;
 
   const AddDeviceRequested({
@@ -26,6 +27,7 @@ class AddDeviceRequested extends DevicesEvent {
     this.latitude,
     this.longitude,
     this.description,
+    this.speciesId,
     this.locationByLocale,
   });
 
@@ -41,6 +43,7 @@ class EditDeviceRequested extends DevicesEvent {
   final double? latitude;
   final double? longitude;
   final String? description;
+  final String? speciesId;
   final bool clearDescription;
   final Map<String, String>? locationByLocale;
 
@@ -52,6 +55,7 @@ class EditDeviceRequested extends DevicesEvent {
     this.latitude,
     this.longitude,
     this.description,
+    this.speciesId,
     this.clearDescription = false,
     this.locationByLocale,
   });

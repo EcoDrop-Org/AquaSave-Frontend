@@ -15,6 +15,8 @@ class DeviceModel extends Device {
     super.latitude,
     super.longitude,
     super.description,
+    super.speciesId,
+    super.hasIrrigationDevice,
     super.locationByLocale,
     super.isActive,
   });
@@ -42,6 +44,8 @@ class DeviceModel extends Device {
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       description: json['description'] as String?,
+      speciesId: json['species_id'] as String?,
+      hasIrrigationDevice: json['has_irrigation_device'] as bool? ?? false,
       locationByLocale: byLocale,
     );
   }
@@ -60,6 +64,8 @@ class DeviceModel extends Device {
     'latitude': latitude,
     'longitude': longitude,
     'description': description,
+    'species_id': speciesId,
+    'has_irrigation_device': hasIrrigationDevice,
     'location_by_locale': locationByLocale,
   };
 }
