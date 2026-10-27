@@ -7,14 +7,18 @@ import 'package:flutter/material.dart';
 /// icono en lugar de un hueco roto.
 class PlantPhoto extends StatelessWidget {
   final String? imageUrl;
+
+  /// double.infinity ocupa todo el espacio disponible (foto a sangre).
   final double size;
   final double radius;
+  final BoxFit fit;
 
   const PlantPhoto({
     super.key,
     required this.imageUrl,
     this.size = 56,
     this.radius = 14,
+    this.fit = BoxFit.cover,
   });
 
   @override
@@ -28,19 +32,20 @@ class PlantPhoto extends StatelessWidget {
         width: size,
         height: size,
         child: url == null || url.isEmpty
-            ? _Placeholder(size: size)
+            ? _Placeholder(size: size.isFinite ? size : 120)
             : Image.network(
                 url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _Placeholder(size: size),
+                fit: fit,
+                errorBuilder: (_, _, _) =>
+                    _Placeholder(size: size.isFinite ? size : 120),
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
                   return Container(
                     color: cs.surfaceContainerHighest,
                     alignment: Alignment.center,
                     child: SizedBox(
-                      width: size * 0.3,
-                      height: size * 0.3,
+                      width: size.isFinite ? size * 0.3 : 28,
+                      height: size.isFinite ? size * 0.3 : 28,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: cs.primary.withValues(alpha: 0.5),

@@ -49,7 +49,7 @@ class _DeviceListCardState extends State<DeviceListCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(24),
@@ -73,183 +73,286 @@ class _DeviceListCardState extends State<DeviceListCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: icon + name/location + status
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Foto de la especie; si no hay, el widget pone su icono.
-                  PlantPhoto(
-                    imageUrl: context
-                        .watch<SpeciesInfoCubit>()
-                        .infoFor(widget.device.speciesId)
-                        ?.imageUrl,
-                    size: 52,
-                    radius: 13,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.device.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.titleMedium?.copyWith(
-                            color: cs.onSurface,
-                            fontWeight: FontWeight.w900,
+              // Foto grande: es lo que identifica la planta de un vistazo.
+              _HeroPhoto(
+                device: widget.device,
+                online: online,
+                isActive: isActive,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Una planta puede no tener dispositivo de riego todavia: en ese
+                    // caso sus lecturas estarian en 0 y confundirian, asi que se
+                    // dice explicitamente en lugar de mostrar datos vacios.
+                    if (!widget.device.hasIrrigationDevice) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: cs.outline.withValues(alpha: 0.2),
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        // La especie va junto al nombre: como "stat" quedaba
-                        // cortada ("Violeta a...").
-                        Text(
-                          PlantSpeciesCatalog.byId(
-                            widget.device.speciesId,
-                          ).commonName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.primary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
+                        child: Row(
                           children: [
                             Icon(
-                              Icons.place_outlined,
-                              size: 13,
-                              color: cs.onSurface.withValues(alpha: 0.5),
+                              Icons.sensors_off_rounded,
+                              size: 16,
+                              color: cs.onSurface.withValues(alpha: 0.55),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                widget.device.localizedLocation(
-                                  l10n.locale.languageCode,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                l10n.t('noDeviceLinked'),
                                 style: tt.bodySmall?.copyWith(
-                                  color: cs.onSurface.withValues(alpha: 0.6),
+                                  color: cs.onSurface.withValues(alpha: 0.7),
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _StatusPill(online: online, isActive: isActive),
-                ],
-              ),
-              const SizedBox(height: 18),
-              // Una planta puede no tener dispositivo de riego todavia: en ese
-              // caso sus lecturas estarian en 0 y confundirian, asi que se
-              // dice explicitamente en lugar de mostrar datos vacios.
-              if (!widget.device.hasIrrigationDevice) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: cs.outline.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.sensors_off_rounded,
-                        size: 16,
-                        color: cs.onSurface.withValues(alpha: 0.55),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          l10n.t('noDeviceLinked'),
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurface.withValues(alpha: 0.7),
-                            fontWeight: FontWeight.w700,
+                      const SizedBox(height: 14),
+                    ],
+                    // Three inline stats
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _InlineStat(
+                            icon: Icons.eco_rounded,
+                            accent: AppColors.leaf,
+                            value:
+                                '${PlantSpeciesCatalog.byId(widget.device.speciesId).soilMinPct}'
+                                '-'
+                                '${PlantSpeciesCatalog.byId(widget.device.speciesId).soilMaxPct}%',
+                            label: l10n.t('idealMoisture'),
                           ),
                         ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _InlineStat(
+                            icon: Icons.water_drop_rounded,
+                            accent: AppColors.aqua,
+                            value: widget.device.hasIrrigationDevice
+                                ? '${widget.device.avgHumidityPct}%'
+                                : '—',
+                            label: l10n.t('humidity'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _InlineStat(
+                            icon: Icons.thermostat_rounded,
+                            accent: AppColors.sun,
+                            value: widget.device.hasIrrigationDevice
+                                ? '${widget.device.temperatureC.round()}°C'
+                                : '—',
+                            label: l10n.t('temperature'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // Accion principal: ver esta planta + editar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ActivateButton(
+                            isActive: isActive,
+                            onPressed: widget.onSetActive,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _IconActionButton(
+                          icon: Icons.edit_outlined,
+                          tooltip: l10n.t('editDevice'),
+                          onPressed: widget.onEdit,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Secondary: open detail dialog
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: widget.onViewDetails,
+                        icon: const Icon(Icons.visibility_outlined, size: 16),
+                        label: Text(l10n.t('viewDetails')),
+                        style: TextButton.styleFrom(
+                          foregroundColor: cs.onSurface.withValues(alpha: 0.75),
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-              // Three inline stats
-              Row(
-                children: [
-                  Expanded(
-                    child: _InlineStat(
-                      icon: Icons.eco_rounded,
-                      accent: AppColors.leaf,
-                      value:
-                          '${PlantSpeciesCatalog.byId(widget.device.speciesId).soilMinPct}'
-                          '-'
-                          '${PlantSpeciesCatalog.byId(widget.device.speciesId).soilMaxPct}%',
-                      label: l10n.t('idealMoisture'),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _InlineStat(
-                      icon: Icons.water_drop_rounded,
-                      accent: AppColors.aqua,
-                      value: widget.device.hasIrrigationDevice
-                          ? '${widget.device.avgHumidityPct}%'
-                          : '—',
-                      label: l10n.t('humidity'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _InlineStat(
-                      icon: Icons.thermostat_rounded,
-                      accent: AppColors.sun,
-                      value: widget.device.hasIrrigationDevice
-                          ? '${widget.device.temperatureC.round()}°C'
-                          : '—',
-                      label: l10n.t('temperature'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Accion principal: ver esta planta + editar
-              Row(
-                children: [
-                  Expanded(child: _ActivateButton(isActive: isActive, onPressed: widget.onSetActive)),
-                  const SizedBox(width: 10),
-                  _IconActionButton(
-                    icon: Icons.edit_outlined,
-                    tooltip: l10n.t('editDevice'),
-                    onPressed: widget.onEdit,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Secondary: open detail dialog
-              Center(
-                child: TextButton.icon(
-                  onPressed: widget.onViewDetails,
-                  icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: Text(l10n.t('viewDetails')),
-                  style: TextButton.styleFrom(
-                    foregroundColor: cs.onSurface.withValues(alpha: 0.75),
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Foto grande con el nombre y el estado encima.
+///
+/// La imagen ocupa el ancho de la tarjeta porque es lo que permite reconocer
+/// la planta de un vistazo; el nombre va sobre un degradado para que se lea
+/// sobre cualquier foto.
+class _HeroPhoto extends StatelessWidget {
+  final Device device;
+  final bool online;
+  final bool isActive;
+
+  const _HeroPhoto({
+    required this.device,
+    required this.online,
+    required this.isActive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final info = context.watch<SpeciesInfoCubit>().infoForDevice(
+      device.id,
+      device.speciesId,
+    );
+    final species = PlantSpeciesCatalog.byId(device.speciesId);
+
+    return SizedBox(
+      height: 168,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PlantPhoto(
+            imageUrl: info?.imageUrl,
+            size: double.infinity,
+            radius: 0,
+            fit: BoxFit.cover,
+          ),
+          // Degradado: sin esto el texto blanco se pierde en fotos claras.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.18),
+                  Colors.black.withValues(alpha: 0.72),
+                ],
+                stops: const [0.35, 0.6, 1],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 12,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    shadows: const [
+                      Shadow(blurRadius: 8, color: Colors.black54),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.eco_rounded,
+                      size: 13,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        species.commonName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(
+                      Icons.place_outlined,
+                      size: 13,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        device.localizedLocation(l10n.locale.languageCode),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.labelSmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: _StatusPill(online: online, isActive: isActive),
+          ),
+          if (isActive)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 12,
+                      color: cs.onPrimary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      l10n.t('currentlyActive'),
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onPrimary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

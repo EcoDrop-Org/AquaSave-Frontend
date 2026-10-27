@@ -17,6 +17,12 @@ class SpeciesInfo {
 abstract class SpeciesInfoDataSource {
   // GET /api/irrigation/species-info?ids=albahaca,menta
   Future<Map<String, SpeciesInfo>> fetch(List<String> speciesIds);
+
+  // GET /api/irrigation/plants-info — ficha por dispositivo.
+  Future<Map<String, SpeciesInfo>> fetchForPlants();
+
+  // GET /api/irrigation/devices/{id}/fact
+  Future<String?> fetchFact(String deviceId);
 }
 
 class HttpSpeciesInfoDataSource implements SpeciesInfoDataSource {
@@ -53,6 +59,45 @@ class HttpSpeciesInfoDataSource implements SpeciesInfoDataSource {
             imageUrl: _text(value['imageUrl']),
           ),
     };
+  }
+
+  @override
+  Future<Map<String, SpeciesInfo>> fetchForPlants() async {
+    final response = await client.get(
+      Uri.parse('${AppConstants.apiBaseUrl}/api/irrigation/plants-info'),
+      headers: await _headers(),
+    );
+    if (response.statusCode != 200) return const {};
+
+    final decoded = json.decode(response.body);
+    if (decoded is! Map<String, dynamic>) return const {};
+    final plants = decoded['plants'];
+    if (plants is! Map<String, dynamic>) return const {};
+
+    return {
+      for (final entry in plants.entries)
+        if (entry.value case final Map<String, dynamic> value)
+          entry.key: SpeciesInfo(
+            description: _text(value['description']),
+            imageUrl: _text(value['imageUrl']),
+          ),
+    };
+  }
+
+  @override
+  Future<String?> fetchFact(String deviceId) async {
+    final response = await client.get(
+      Uri.parse(
+        '${AppConstants.apiBaseUrl}/api/irrigation/devices/$deviceId/fact',
+      ),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode != 200) return null;
+    final decoded = json.decode(response.body);
+    if (decoded is! Map<String, dynamic>) return null;
+    final fact = decoded['fact'];
+    return fact is Map<String, dynamic> ? _text(fact['text']) : null;
   }
 
   Future<Map<String, String>> _headers() async {
