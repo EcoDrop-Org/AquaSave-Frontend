@@ -10,9 +10,9 @@ import '../widgets/auth_link_row.dart';
 import '../widgets/auth_panel.dart';
 import '../widgets/auth_primary_button.dart';
 import '../widgets/auth_underline_field.dart';
+import '../../domain/entities/user_segment.dart';
 
-const _urbanHorticulturistType = 'horticultor-urbano';
-const _periurbanMicroFarmerType = 'micro-agricultor-periurbano';
+
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onGoToLogin;
@@ -33,7 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
-  String _selectedProfileType = _urbanHorticulturistType;
+  UserSegment _selectedSegment = UserSegment.beginner;
   String? _nameError;
   String? _emailError;
   String? _passwordError;
@@ -78,13 +78,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         username: name,
         email: email,
         password: password,
-        profileType: _selectedProfileType,
+        profileType: _selectedSegment.apiValue,
       ),
     );
   }
 
-  void _setProfileType(String value) {
-    setState(() => _selectedProfileType = value);
+  void _setSegment(UserSegment value) {
+    setState(() => _selectedSegment = value);
   }
 
   @override
@@ -112,8 +112,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       emailCtrl: _emailCtrl,
                       passwordCtrl: _passwordCtrl,
                       confirmCtrl: _confirmCtrl,
-                      selectedProfileType: _selectedProfileType,
-                      onProfileTypeChanged: _setProfileType,
+                      selectedSegment: _selectedSegment,
+                      onSegmentChanged: _setSegment,
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
@@ -127,8 +127,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       emailCtrl: _emailCtrl,
                       passwordCtrl: _passwordCtrl,
                       confirmCtrl: _confirmCtrl,
-                      selectedProfileType: _selectedProfileType,
-                      onProfileTypeChanged: _setProfileType,
+                      selectedSegment: _selectedSegment,
+                      onSegmentChanged: _setSegment,
                       isLoading: isLoading,
                       onSubmit: _submit,
                       onGoToLogin: widget.onGoToLogin,
@@ -156,8 +156,8 @@ class _WideLayout extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
-  final String selectedProfileType;
-  final ValueChanged<String> onProfileTypeChanged;
+  final UserSegment selectedSegment;
+  final ValueChanged<UserSegment> onSegmentChanged;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
@@ -171,8 +171,8 @@ class _WideLayout extends StatelessWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
-    required this.selectedProfileType,
-    required this.onProfileTypeChanged,
+    required this.selectedSegment,
+    required this.onSegmentChanged,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
@@ -203,8 +203,8 @@ class _WideLayout extends StatelessWidget {
                       emailCtrl: emailCtrl,
                       passwordCtrl: passwordCtrl,
                       confirmCtrl: confirmCtrl,
-                      selectedProfileType: selectedProfileType,
-                      onProfileTypeChanged: onProfileTypeChanged,
+                      selectedSegment: selectedSegment,
+                      onSegmentChanged: onSegmentChanged,
                       isLoading: isLoading,
                       onSubmit: onSubmit,
                       onGoToLogin: onGoToLogin,
@@ -229,8 +229,8 @@ class _NarrowLayout extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
-  final String selectedProfileType;
-  final ValueChanged<String> onProfileTypeChanged;
+  final UserSegment selectedSegment;
+  final ValueChanged<UserSegment> onSegmentChanged;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
@@ -244,8 +244,8 @@ class _NarrowLayout extends StatelessWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
-    required this.selectedProfileType,
-    required this.onProfileTypeChanged,
+    required this.selectedSegment,
+    required this.onSegmentChanged,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
@@ -281,8 +281,8 @@ class _NarrowLayout extends StatelessWidget {
                 emailCtrl: emailCtrl,
                 passwordCtrl: passwordCtrl,
                 confirmCtrl: confirmCtrl,
-                selectedProfileType: selectedProfileType,
-                onProfileTypeChanged: onProfileTypeChanged,
+                selectedSegment: selectedSegment,
+                onSegmentChanged: onSegmentChanged,
                 isLoading: isLoading,
                 onSubmit: onSubmit,
                 onGoToLogin: onGoToLogin,
@@ -304,8 +304,8 @@ class _FormContent extends StatelessWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
-  final String selectedProfileType;
-  final ValueChanged<String> onProfileTypeChanged;
+  final UserSegment selectedSegment;
+  final ValueChanged<UserSegment> onSegmentChanged;
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onGoToLogin;
@@ -319,8 +319,8 @@ class _FormContent extends StatelessWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
-    required this.selectedProfileType,
-    required this.onProfileTypeChanged,
+    required this.selectedSegment,
+    required this.onSegmentChanged,
     required this.isLoading,
     required this.onSubmit,
     required this.onGoToLogin,
@@ -368,8 +368,8 @@ class _FormContent extends StatelessWidget {
               ),
               const SizedBox(height: AppDimensions.spaceMd),
               _ProfileTypeSelector(
-                selectedValue: selectedProfileType,
-                onChanged: onProfileTypeChanged,
+                selectedValue: selectedSegment,
+                onChanged: onSegmentChanged,
               ),
               const SizedBox(height: AppDimensions.spaceMd),
               AuthUnderlineField(
@@ -413,8 +413,8 @@ class _FormContent extends StatelessWidget {
 }
 
 class _ProfileTypeSelector extends StatelessWidget {
-  final String selectedValue;
-  final ValueChanged<String> onChanged;
+  final UserSegment selectedValue;
+  final ValueChanged<UserSegment> onChanged;
 
   const _ProfileTypeSelector({
     required this.selectedValue,
@@ -427,16 +427,21 @@ class _ProfileTypeSelector extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
 
+    // El segmento elegido aqui define como se presenta la informacion en toda
+    // la app (ver informe 1.3): al principiante se le explica cada lectura, al
+    // experto se le muestran los datos y los controles de riego.
     final options = [
       _ProfileTypeOptionData(
-        value: _urbanHorticulturistType,
-        label: l10n.t('urbanHorticulturists'),
-        icon: Icons.apartment_rounded,
+        value: UserSegment.beginner,
+        label: l10n.t('segmentBeginner'),
+        hint: l10n.t('segmentBeginnerHint'),
+        icon: Icons.school_outlined,
       ),
       _ProfileTypeOptionData(
-        value: _periurbanMicroFarmerType,
-        label: l10n.t('periurbanMicroFarmers'),
-        icon: Icons.agriculture_outlined,
+        value: UserSegment.expert,
+        label: l10n.t('segmentExpert'),
+        hint: l10n.t('segmentExpertHint'),
+        icon: Icons.tune_rounded,
       ),
     ];
 
@@ -493,13 +498,15 @@ class _ProfileTypeSelector extends StatelessWidget {
 }
 
 class _ProfileTypeOptionData {
-  final String value;
+  final UserSegment value;
   final String label;
+  final String hint;
   final IconData icon;
 
   const _ProfileTypeOptionData({
     required this.value,
     required this.label,
+    required this.hint,
     required this.icon,
   });
 }
@@ -528,7 +535,7 @@ class _ProfileTypeOption extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          constraints: const BoxConstraints(minHeight: 68),
+          constraints: const BoxConstraints(minHeight: 76),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: selected ? cs.primary : cs.surface.withValues(alpha: 0.82),
@@ -543,15 +550,31 @@ class _ProfileTypeOption extends StatelessWidget {
               Icon(option.icon, color: fg, size: 21),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  option.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.bodyMedium?.copyWith(
-                    color: fg,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      option.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodyMedium?.copyWith(
+                        color: fg,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      option.hint,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(
+                        color: fg.withValues(alpha: 0.78),
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (selected) ...[
