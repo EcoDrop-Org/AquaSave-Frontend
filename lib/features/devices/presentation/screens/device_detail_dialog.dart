@@ -283,25 +283,13 @@ class _DetailBody extends StatelessWidget {
         // Dato curioso de la especie, generado por la IA. Cambia en cada
         // visita, asi la ficha aporta algo nuevo cada vez.
         _FunFactCard(deviceId: device.id),
-        const SizedBox(height: 14),
-        // El codigo solo hace falta al vincular el dispositivo: plegado para
-        // que no compita con la informacion de la planta.
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: 8),
-            leading: Icon(Icons.qr_code_2_rounded, size: 20, color: cs.primary),
-            title: Text(
-              l10n.t('deviceIdLabel'),
-              style: tt.bodySmall?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            children: [_DeviceIdCard(deviceId: device.id)],
-          ),
-        ),
+        // El codigo de vinculacion solo se muestra mientras la planta no
+        // tenga dispositivo: despues es ruido tecnico en una ficha que trata
+        // sobre la planta, no sobre el hardware.
+        if (!device.hasIrrigationDevice) ...[
+          const SizedBox(height: 14),
+          _DeviceIdCard(deviceId: device.id),
+        ],
         const SizedBox(height: 18),
         Text(
           l10n.t('currentMoisture'),
