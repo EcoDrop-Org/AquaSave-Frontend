@@ -171,7 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: AppDimensions.spaceMd),
                       // Preferencias de la app (notificaciones, antes en
                       // Perfil) + programacion automatica del riego.
-                      // (Los umbrales de humedad y el clima del huerto se
+                      // (Los umbrales de humedad y el clima de la zona se
                       // retiraron: el dispositivo riega con sus umbrales y el
                       // clima solo se usa para recomendaciones.)
                       _SettingsCard(

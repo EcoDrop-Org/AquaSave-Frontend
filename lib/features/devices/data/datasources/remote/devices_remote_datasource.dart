@@ -21,6 +21,7 @@ abstract class DevicesRemoteDataSource {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   });
 
   // PATCH /api/devices/{deviceId}
@@ -32,6 +33,7 @@ abstract class DevicesRemoteDataSource {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   });
 
   // DELETE /api/devices/{deviceId}
@@ -74,6 +76,7 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   }) async {
     final response = await _send(
       client.post(
@@ -87,6 +90,7 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
             latitude: latitude,
             longitude: longitude,
             description: description,
+            speciesId: speciesId,
           ),
         ),
       ),
@@ -110,6 +114,7 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   }) async {
     final response = await _send(
       client.patch(
@@ -123,6 +128,7 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
             latitude: latitude,
             longitude: longitude,
             description: description,
+            speciesId: speciesId,
             nullableCropType: true,
           ),
         ),
@@ -180,11 +186,11 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
     bool nullableCropType = false,
   }) {
-    final trimmedDescription = description?.trim() ?? '';
-    final cropType =
-        trimmedDescription.length >= 2 ? trimmedDescription : null;
+    final note = description?.trim() ?? '';
+    final cropType = note.length >= 2 ? note : null;
     return {
       'name': name,
       'location': {
@@ -194,10 +200,11 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
           'longitude': longitude,
         },
       },
+      // Una planta por dispositivo de riego.
       'plantCount': plantCount,
-      // El backend guarda la descripcion en cropType (minimo 2 caracteres).
-      // En PATCH se permite null para borrarla; en POST se omite.
+      // En PATCH se permite null para borrar; en POST se omite.
       if (cropType != null || nullableCropType) 'cropType': cropType,
+      'speciesId': ?speciesId,
     };
   }
 
@@ -277,6 +284,10 @@ class DevicesRemoteDataSourceImpl implements DevicesRemoteDataSource {
       latitude: (location['latitude'] as num?)?.toDouble(),
       longitude: (location['longitude'] as num?)?.toDouble(),
       description: json['cropType'] as String?,
+      speciesId: json['speciesId'] as String?,
+      // El backend lo calcula; sin el campo se infiere de la telemetria.
+      hasIrrigationDevice:
+          json['hasIrrigationDevice'] as bool? ?? telemetry.isNotEmpty,
       isActive: json['isActive'] as bool? ?? true,
     );
   }

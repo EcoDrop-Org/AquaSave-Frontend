@@ -10,6 +10,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../data/models/user_model.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/user_segment.dart';
 import '../bloc/auth_bloc.dart';
 import 'user_avatar.dart';
 
@@ -33,9 +34,8 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.user.name);
     _emailCtrl = TextEditingController(text: widget.user.email);
-    _userTypeCtrl = TextEditingController(
-      text: _readableUserType(widget.user.userType),
-    );
+    // El texto se resuelve en build(), donde hay contexto para l10n.
+    _userTypeCtrl = TextEditingController();
   }
 
   @override
@@ -46,12 +46,13 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
     super.dispose();
   }
 
-  static String _readableUserType(String? raw) {
-    return switch (raw) {
-      'horticultor-urbano' => 'Horticultor urbano',
-      'micro-agricultor-periurbano' => 'Micro-agricultor periurbano',
-      _ => raw ?? '',
-    };
+  /// Nombre legible del segmento. Las cuentas antiguas guardan la
+  /// segmentacion geografica anterior; UserSegment.fromApi las mapea para que
+  /// el perfil nunca quede vacio.
+  static String _readableUserType(BuildContext context, String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    final l10n = AppLocalizations.of(context);
+    return l10n.t(UserSegment.fromApi(raw).labelKey);
   }
 
   // La foto de perfil no se cambia desde la app: no hay seleccion ni subida
@@ -137,6 +138,10 @@ class _ProfileDataCardState extends State<ProfileDataCard> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final stacked = constraints.maxWidth < 720;
+          _userTypeCtrl.text = _readableUserType(
+            context,
+            widget.user.userType,
+          );
           final fields = _ProfileFields(
             nameCtrl: _nameCtrl,
             emailCtrl: _emailCtrl,

@@ -41,6 +41,7 @@ class DevicesRepositoryImpl implements DevicesRepository {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   }) async {
     if (useMock) {
       return Right(
@@ -58,6 +59,7 @@ class DevicesRepositoryImpl implements DevicesRepository {
           latitude: latitude,
           longitude: longitude,
           description: description,
+          speciesId: speciesId,
         ),
       );
     }
@@ -70,6 +72,7 @@ class DevicesRepositoryImpl implements DevicesRepository {
         latitude: latitude,
         longitude: longitude,
         description: description,
+        speciesId: speciesId,
       );
       return Right(device);
     } on ServerException catch (e) {
@@ -88,6 +91,7 @@ class DevicesRepositoryImpl implements DevicesRepository {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   }) async {
     if (useMock) return const Right(unit);
 
@@ -100,6 +104,7 @@ class DevicesRepositoryImpl implements DevicesRepository {
         latitude: latitude,
         longitude: longitude,
         description: description,
+        speciesId: speciesId,
       );
       return const Right(unit);
     } on ServerException catch (e) {

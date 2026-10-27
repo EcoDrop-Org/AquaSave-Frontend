@@ -16,6 +16,20 @@ class Device extends Equatable {
   final double? latitude;
   final double? longitude;
   final String? description;
+
+  /// Id de la especie (ver PlantSpeciesCatalog). Define los umbrales de
+  /// humedad con los que se decide si la planta necesita agua.
+  ///
+  /// Mientras el backend no tenga columna propia, viaja dentro de `cropType`
+  /// con el prefijo `species:` (ver DOCS-BACKEND-PENDIENTE.md seccion 3.1).
+  final String? speciesId;
+
+  /// true cuando la planta ya tiene un dispositivo de riego que reporta.
+  ///
+  /// Una planta puede existir sin dispositivo: la app igual muestra la ficha
+  /// y los cuidados de la especie, solo sin lecturas ni riego automatico.
+  final bool hasIrrigationDevice;
+
   // Versiones localizadas del nombre de ubicación, ej. {'es': 'Alaska,
   // Estados Unidos de América', 'en': 'Alaska, United States'}. Si falta el
   // idioma activo, se cae a `location`.
@@ -39,9 +53,13 @@ class Device extends Equatable {
     this.latitude,
     this.longitude,
     this.description,
+    this.speciesId,
+    this.hasIrrigationDevice = false,
     this.locationByLocale,
     this.isActive = true,
   });
+
+
 
   /// Devuelve el nombre de ubicación adecuado para el idioma activo, con
   /// fallback al string canónico.
@@ -65,6 +83,8 @@ class Device extends Equatable {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
+    bool? hasIrrigationDevice,
     Map<String, String>? locationByLocale,
     bool? isActive,
     bool clearCoordinates = false,
@@ -85,6 +105,8 @@ class Device extends Equatable {
       latitude: clearCoordinates ? null : latitude ?? this.latitude,
       longitude: clearCoordinates ? null : longitude ?? this.longitude,
       description: clearDescription ? null : description ?? this.description,
+      speciesId: speciesId ?? this.speciesId,
+      hasIrrigationDevice: hasIrrigationDevice ?? this.hasIrrigationDevice,
       locationByLocale: clearLocationByLocale
           ? null
           : locationByLocale ?? this.locationByLocale,
@@ -107,6 +129,8 @@ class Device extends Equatable {
     latitude,
     longitude,
     description,
+    speciesId,
+    hasIrrigationDevice,
     locationByLocale,
     isActive,
   ];

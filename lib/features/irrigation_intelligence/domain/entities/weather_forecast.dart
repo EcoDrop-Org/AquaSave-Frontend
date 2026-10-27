@@ -38,6 +38,13 @@ class WeatherForecast extends Equatable {
   bool get shouldPauseIrrigation =>
       rainProbabilityPct >= 70 || precipitationMm > 0;
 
+  /// true cuando el backend no pudo consultar al proveedor de clima y
+  /// respondio un pronostico por defecto (20 C) en lugar de datos reales.
+  ///
+  /// Hoy se detecta por la etiqueta que envia el backend; lo correcto es que
+  /// la API exponga un campo booleano (ver DOCS-BACKEND-PENDIENTE.md).
+  bool get isEstimated => conditionLabel.trim().toLowerCase() == 'clima estimado';
+
   @override
   List<Object?> get props => [
     deviceId,

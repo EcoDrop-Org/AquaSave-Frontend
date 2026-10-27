@@ -31,10 +31,13 @@ import 'features/devices/presentation/screens/devices_screen.dart';
 import 'features/devices/presentation/screens/history_screen.dart';
 import 'features/devices/presentation/screens/home_screen.dart';
 import 'features/devices/presentation/screens/settings_screen.dart';
+import 'features/irrigation_intelligence/data/datasources/remote/recommendation_remote_datasource.dart';
 import 'features/irrigation_intelligence/data/datasources/remote/weather_remote_datasource.dart';
+import 'features/irrigation_intelligence/data/repositories/recommendation_repository_impl.dart';
 import 'features/irrigation_intelligence/data/repositories/weather_repository_impl.dart';
 import 'features/irrigation_intelligence/domain/usecases/get_current_weather_for_device_usecase.dart';
 import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
+import 'features/irrigation_intelligence/presentation/cubit/recommendation_cubit.dart';
 import 'shared/widgets/app_sidebar.dart';
 
 // Controlado por AppConstants.useMockData (--dart-define=USE_MOCK=true).
@@ -63,6 +66,11 @@ class AquaSaveApp extends StatelessWidget {
     final weatherRepo = WeatherRepositoryImpl(
       remoteDataSource: OpenMeteoWeatherRemoteDataSource(client: http.Client()),
     );
+    final recommendationRepo = RecommendationRepositoryImpl(
+      remoteDataSource: HttpRecommendationRemoteDataSource(
+        client: http.Client(),
+      ),
+    );
 
     return MultiBlocProvider(
       providers: [
@@ -85,6 +93,9 @@ class AquaSaveApp extends StatelessWidget {
             getCurrentWeatherForDeviceUseCase:
                 GetCurrentWeatherForDeviceUseCase(weatherRepo),
           ),
+        ),
+        BlocProvider<RecommendationCubit>(
+          create: (_) => RecommendationCubit(repository: recommendationRepo),
         ),
         BlocProvider<IrrigationCubit>(
           create: (_) => IrrigationCubit(
@@ -191,6 +202,8 @@ class _AppRouterState extends State<_AppRouter> {
 
     _lastWeatherDeviceKey = deviceKey;
     context.read<WeatherBloc>().add(LoadWeatherForDevice(device));
+    // Recomendacion de la planta (riego + cuidados de la especie).
+    context.read<RecommendationCubit>().load(device.id);
     // Observa el riego del dispositivo activo (polling): si el riego lo
     // inicia el propio dispositivo o la programacion, la app lo refleja.
     context.read<IrrigationCubit>().watchDevice(device.id);

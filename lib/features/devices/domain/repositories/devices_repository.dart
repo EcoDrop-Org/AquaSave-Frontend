@@ -12,6 +12,7 @@ abstract class DevicesRepository {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   });
 
   Future<Either<Failure, Unit>> updateDevice({
@@ -22,6 +23,7 @@ abstract class DevicesRepository {
     double? latitude,
     double? longitude,
     String? description,
+    String? speciesId,
   });
 
   Future<Either<Failure, Unit>> deleteDevice(String deviceId);
