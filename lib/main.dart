@@ -38,6 +38,9 @@ import 'features/irrigation_intelligence/data/repositories/weather_repository_im
 import 'features/irrigation_intelligence/domain/usecases/get_current_weather_for_device_usecase.dart';
 import 'features/irrigation_intelligence/presentation/bloc/weather_bloc.dart';
 import 'features/irrigation_intelligence/presentation/cubit/recommendation_cubit.dart';
+import 'features/assistant/data/datasources/remote/assistant_remote_datasource.dart';
+import 'features/assistant/presentation/cubit/assistant_cubit.dart';
+import 'features/assistant/presentation/screens/assistant_screen.dart';
 import 'shared/widgets/app_sidebar.dart';
 
 // Controlado por AppConstants.useMockData (--dart-define=USE_MOCK=true).
@@ -92,6 +95,11 @@ class AquaSaveApp extends StatelessWidget {
           create: (_) => WeatherBloc(
             getCurrentWeatherForDeviceUseCase:
                 GetCurrentWeatherForDeviceUseCase(weatherRepo),
+          ),
+        ),
+        BlocProvider<AssistantCubit>(
+          create: (_) => AssistantCubit(
+            remote: HttpAssistantRemoteDataSource(client: http.Client()),
           ),
         ),
         BlocProvider<RecommendationCubit>(
@@ -152,6 +160,7 @@ class _AppRouterState extends State<_AppRouter> {
   _AppScreen _tabToScreen(AppTab tab) => switch (tab) {
     AppTab.home => _AppScreen.home,
     AppTab.devices => _AppScreen.devices,
+    AppTab.assistant => _AppScreen.assistant,
     AppTab.analysis => _AppScreen.analysis,
     AppTab.history => _AppScreen.history,
     AppTab.profile => _AppScreen.profile,
@@ -164,6 +173,8 @@ class _AppRouterState extends State<_AppRouter> {
         _goTo(_AppScreen.home);
       case SidebarItem.devices:
         _goTo(_AppScreen.devices);
+      case SidebarItem.assistant:
+        _goTo(_AppScreen.assistant);
       case SidebarItem.analysis:
         _goTo(_AppScreen.analysis);
       case SidebarItem.history:
@@ -178,6 +189,7 @@ class _AppRouterState extends State<_AppRouter> {
   SidebarItem get _activeSidebarItem => switch (_appScreen) {
     _AppScreen.home => SidebarItem.home,
     _AppScreen.devices => SidebarItem.devices,
+    _AppScreen.assistant => SidebarItem.assistant,
     _AppScreen.analysis => SidebarItem.analysis,
     _AppScreen.history => SidebarItem.history,
     _AppScreen.profile => SidebarItem.profile,
@@ -187,6 +199,7 @@ class _AppRouterState extends State<_AppRouter> {
   Widget get _currentScreen => switch (_appScreen) {
     _AppScreen.home => const HomeScreen(),
     _AppScreen.devices => const DevicesScreen(),
+    _AppScreen.assistant => const AssistantScreen(),
     _AppScreen.analysis => const AnalysisScreen(),
     _AppScreen.history => const HistoryScreen(),
     _AppScreen.profile => const UserProfileScreen(),
@@ -320,4 +333,12 @@ class _AppRouterState extends State<_AppRouter> {
 
 enum _AuthScreen { login, register }
 
-enum _AppScreen { home, devices, analysis, history, profile, settings }
+enum _AppScreen {
+  home,
+  devices,
+  assistant,
+  analysis,
+  history,
+  profile,
+  settings,
+}
